@@ -46,6 +46,20 @@ CREATE INDEX IF NOT EXISTS idx_transactions_chair_id ON transactions(chair_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
 CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at DESC);
 
--- Enable Supabase Realtime for Tables
-ALTER PUBLICATION supabase_realtime ADD TABLE transactions;
-ALTER PUBLICATION supabase_realtime ADD TABLE chairs;
+-- Enable Supabase Realtime Safely (Idempotent)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'transactions'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE transactions;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'chairs'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE chairs;
+  END IF;
+END $$;
