@@ -12,7 +12,7 @@ const DEFAULT_BAUDRATE = 9600;
 let isPulseExecuting = false;
 
 /**
- * Meminta izin pengguna & membuka koneksi USB Serial ke modul CH340
+ * Meminta izin pengguna & membuka koneksi USB Serial ke modul CH340 / LCUS-1
  */
 export async function connectUSBRelay(): Promise<SerialPort | null> {
   if (typeof window === 'undefined' || !('serial' in navigator)) {
@@ -21,8 +21,28 @@ export async function connectUSBRelay(): Promise<SerialPort | null> {
   }
 
   try {
-    const port = await navigator.serial.requestPort();
-    await port.open({ baudRate: DEFAULT_BAUDRATE });
+    // 1. Cek apakah ada port yang sudah di-pair sebelumnya
+    const ports = await navigator.serial.getPorts();
+    let port: SerialPort;
+
+    if (ports.length > 0) {
+      port = ports[0];
+    } else {
+      // 2. Minta izin pairing port baru dengan filter vendor ID CH340 (0x1a86)
+      port = await navigator.serial.requestPort({
+        filters: [
+          { usbVendorId: 0x1a86 }, // CH340 LCUS-1 USB Relay
+          { usbVendorId: 0x0403 }, // FTDI
+          { usbVendorId: 0x10c4 }, // CP2102
+        ],
+      });
+    }
+
+    // Buka port jika belum terbuka
+    if (!port.readable || !port.writable) {
+      await port.open({ baudRate: DEFAULT_BAUDRATE });
+    }
+
     console.log('USB Relay LCUS-1 CH340 terhubung di baudrate', DEFAULT_BAUDRATE);
     return port;
   } catch (error) {
