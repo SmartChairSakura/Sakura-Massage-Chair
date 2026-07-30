@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import confetti from 'canvas-confetti';
-import { sendPulsesToTokuyo } from '@/lib/usb-relay';
+import { connectUSBRelay, sendPulsesToTokuyo } from '@/lib/usb-relay';
 import { useLanguage } from '@/lib/i18n';
 
 export default function PaymentSuccessPage() {
@@ -23,27 +23,30 @@ export default function PaymentSuccessPage() {
     if (data) {
       const tx = JSON.parse(data);
       setTransaction(tx);
-      triggerRelayHardware(tx.pulse_count || 4);
+      triggerRelayHardware(tx.pulse_count || 4, tx);
+    } else {
+      triggerRelayHardware(4, null);
     }
   }, []);
 
-  const triggerRelayHardware = async (pulseCount: number) => {
+  const triggerRelayHardware = async (pulseCount: number, txObj: any) => {
     setIsTriggeringRelay(true);
     try {
-      if (typeof window !== 'undefined' && 'serial' in navigator) {
-        const ports = await navigator.serial.getPorts();
-        if (ports.length > 0) {
-          const port = ports[0];
-          await sendPulsesToTokuyo(port, pulseCount);
-        }
+      // Connect and open port if paired
+      const port = await connectUSBRelay();
+      if (port) {
+        await sendPulsesToTokuyo(port, pulseCount);
+      } else {
+        console.warn('USB Relay port not connected or user skipped pairing.');
       }
     } catch (err) {
       console.warn('USB Relay auto-trigger note:', err);
     } finally {
       setIsTriggeringRelay(false);
+      // Wait 3.5 seconds to ensure all hex pulses complete before navigating to live session
       setTimeout(() => {
-        router.push(`/session/${transaction?.id || 'SAKURA-SESSION-01'}`);
-      }, 2500);
+        router.push(`/session/${txObj?.id || transaction?.id || 'SAKURA-SESSION-01'}`);
+      }, 3500);
     }
   };
 
