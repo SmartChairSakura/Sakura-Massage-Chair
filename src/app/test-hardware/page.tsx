@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { connectUSBRelay, sendPulsesToTokuyo } from '@/lib/usb-relay';
-import { Armchair, Zap, CheckCircle2, AlertCircle, RefreshCw, Usb } from 'lucide-react';
+import { connectUSBRelay, sendPulsesToTokuyo, stopTokuyoChair } from '@/lib/usb-relay';
+import { Usb, CheckCircle2, Power, Zap } from 'lucide-react';
 import { TOKUYO_THEME } from '@/lib/theme';
 
 export default function TestHardwarePage() {
@@ -50,99 +50,130 @@ export default function TestHardwarePage() {
     }
   };
 
+  const handleEmergencyStop = async () => {
+    if (!port) {
+      alert('Silakan hubungkan USB Relay terlebih dahulu.');
+      return;
+    }
+    setIsPulsing(true);
+    addLog('Mengirim Sinyal Breaker OFF Hex (0xA0 0x01 0x00 0xA1)...');
+    try {
+      await stopTokuyoChair(port);
+      addLog('Sukses mengirim sinyal Breaker OFF (Relay Disconnect).');
+    } catch (err: any) {
+      addLog(`Gagal Breaker OFF: ${err.message}`);
+    } finally {
+      setIsPulsing(false);
+    }
+  };
+
   return (
-    <div className={`flex-1 flex flex-col justify-between p-4 sm:p-8 ${TOKUYO_THEME.bgBase}`}>
+    <div className={`flex-1 flex flex-col justify-between p-4 sm:p-8 min-h-screen ${TOKUYO_THEME.bgBase}`}>
       <main className="max-w-xl w-full mx-auto my-auto py-6 space-y-6">
-        <div className={TOKUYO_THEME.bgCard + ' p-6 sm:p-8 space-y-6'}>
-          <div className="flex items-center justify-between border-b border-amber-100 pb-4">
+        <div className="bg-white border border-[#EFEDED] rounded-[2rem] p-6 sm:p-8 space-y-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)]">
+          
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-[#EFEDED] pb-4">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-orange-600 to-amber-600 text-white rounded-2xl shadow-md">
+              <div className="p-3 bg-[#F8C8DC] text-[#795465] rounded-2xl shadow-sm">
                 <Usb className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-xl font-black text-slate-900">Developer Hardware Tester</h1>
-                <p className="text-xs text-slate-500 font-medium">Uji Fisik Modul USB Relay & PCB Tokuyo</p>
+                <h1 className="text-xl font-black text-[#1B1C1C]">Developer Hardware Tester</h1>
+                <p className="text-xs text-[#4F4448] font-medium">Uji Fisik Modul USB Relay LCUS-1 & PCB Tokuyo</p>
               </div>
             </div>
-            <span className="bg-amber-100 text-amber-900 text-xs font-bold px-3 py-1 rounded-full border border-amber-200">
+            <span className="bg-[#CEE5DA] text-[#4E635A] text-xs font-bold px-3 py-1 rounded-full">
               Web Serial API
             </span>
           </div>
 
           {/* Status Card */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center justify-between">
+          <div className="bg-[#F5F3F3] border border-[#EFEDED] rounded-2xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs">
-              <span className="font-semibold text-slate-600">Status Device:</span>
-              <span className={`font-bold font-mono ${port ? 'text-emerald-600' : 'text-rose-600'}`}>
+              <span className="font-semibold text-[#4F4448]">Status Device:</span>
+              <span className={`font-bold font-mono ${port ? 'text-[#4E635A]' : 'text-[#BA1A1A]'}`}>
                 {status}
               </span>
             </div>
             {!port ? (
               <button
                 onClick={handleConnect}
-                className="bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md shadow-orange-600/20 transition-all flex items-center gap-1.5"
+                className="bg-[#795465] hover:bg-[#60404f] text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                <Usb className="w-3.5 h-3.5" />
+                <Usb className="w-4 h-4" />
                 <span>Connect USB Relay</span>
               </button>
             ) : (
-              <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Port Open</span>
+              <span className="bg-[#CEE5DA] text-[#4E635A] text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4 text-[#4E635A]" />
+                <span>Port Open (9600 BPS)</span>
               </span>
             )}
           </div>
 
           {/* Trigger Pulse Buttons */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+          <div className="space-y-3">
+            <label className="text-xs font-extrabold text-[#1B1C1C] uppercase tracking-wider block">
               Picu Pulsa Manual ke PCB Tokuyo Socket J3:
             </label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => handleTriggerPulses(1)}
                 disabled={!port || isPulsing}
-                className="bg-white hover:bg-amber-50 border-2 border-amber-200 text-amber-900 p-3.5 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-sm disabled:opacity-40"
+                className="bg-white hover:bg-[#F5F3F3] border-2 border-[#EFEDED] text-[#1B1C1C] p-4 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-xs disabled:opacity-40 cursor-pointer"
               >
-                <span className="text-base font-black text-orange-600">1 Pulsa</span>
-                <span className="text-[11px] text-slate-500 font-normal">4 Menit (Rp 5.000)</span>
+                <span className="text-base font-black text-[#795465]">1 Pulsa</span>
+                <span className="text-[11px] text-[#4F4448] font-semibold">4 Menit (Rp 5.000)</span>
               </button>
 
               <button
                 onClick={() => handleTriggerPulses(2)}
                 disabled={!port || isPulsing}
-                className="bg-white hover:bg-amber-50 border-2 border-amber-200 text-amber-900 p-3.5 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-sm disabled:opacity-40"
+                className="bg-white hover:bg-[#F5F3F3] border-2 border-[#EFEDED] text-[#1B1C1C] p-4 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-xs disabled:opacity-40 cursor-pointer"
               >
-                <span className="text-base font-black text-orange-600">2 Pulsa</span>
-                <span className="text-[11px] text-slate-500 font-normal">8 Menit (Rp 10.000)</span>
+                <span className="text-base font-black text-[#795465]">2 Pulsa</span>
+                <span className="text-[11px] text-[#4F4448] font-semibold">8 Menit (Rp 10.000)</span>
               </button>
 
               <button
                 onClick={() => handleTriggerPulses(4)}
                 disabled={!port || isPulsing}
-                className="bg-orange-50 hover:bg-orange-100 border-2 border-orange-500 text-orange-900 p-3.5 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-md shadow-orange-500/10 disabled:opacity-40"
+                className="bg-[#F8C8DC]/30 hover:bg-[#F8C8DC]/50 border-2 border-[#795465] text-[#795465] p-4 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-sm disabled:opacity-40 cursor-pointer"
               >
-                <span className="text-base font-black text-orange-600">4 Pulsa</span>
-                <span className="text-[11px] text-orange-800 font-semibold">16 Menit (Popular)</span>
+                <span className="text-base font-black text-[#795465]">4 Pulsa</span>
+                <span className="text-[11px] text-[#795465] font-extrabold">16 Menit (Popular)</span>
               </button>
 
               <button
                 onClick={() => handleTriggerPulses(10)}
                 disabled={!port || isPulsing}
-                className="bg-white hover:bg-amber-50 border-2 border-amber-200 text-amber-900 p-3.5 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-sm disabled:opacity-40"
+                className="bg-white hover:bg-[#F5F3F3] border-2 border-[#EFEDED] text-[#1B1C1C] p-4 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-xs disabled:opacity-40 cursor-pointer"
               >
-                <span className="text-base font-black text-orange-600">10 Pulsa</span>
-                <span className="text-[11px] text-slate-500 font-normal">40 Menit (Rp 50.000)</span>
+                <span className="text-base font-black text-[#795465]">10 Pulsa</span>
+                <span className="text-[11px] text-[#4F4448] font-semibold">40 Menit (Rp 50.000)</span>
               </button>
             </div>
           </div>
 
-          {/* Execution Logs */}
+          {/* Emergency Breaker Test */}
+          <div className="pt-2">
+            <button
+              onClick={handleEmergencyStop}
+              disabled={!port || isPulsing}
+              className="w-full bg-[#FFDAD6] hover:bg-[#FFDAD6]/80 text-[#93000A] font-extrabold p-3.5 rounded-2xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-40 cursor-pointer"
+            >
+              <Power className="w-4 h-4" />
+              <span>Test Sinyal Breaker OFF (0xA0 0x01 0x00 0xA1)</span>
+            </button>
+          </div>
+
+          {/* Console Output Log */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+            <label className="text-xs font-extrabold text-[#1B1C1C] uppercase tracking-wider block">
               Console Output Log:
             </label>
-            <div className="bg-slate-900 text-emerald-400 font-mono text-[11px] p-4 rounded-2xl h-44 overflow-y-auto space-y-1 shadow-inner border border-slate-800">
+            <div className="bg-[#1B1C1C] text-[#CEE5DA] font-mono text-[11px] p-4 rounded-2xl h-44 overflow-y-auto space-y-1 shadow-inner">
               {logs.length === 0 ? (
                 <div className="text-slate-500 italic">Belum ada aktivitas pulsa terkirim...</div>
               ) : (
