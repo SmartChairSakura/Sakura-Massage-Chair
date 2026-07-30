@@ -1,5 +1,5 @@
 /**
- * Hybrid Hardware Helper untuk Modul USB Relay LCUS-1 (CH340)
+ * Singleton Hybrid Hardware Helper untuk Modul USB Relay LCUS-1 (CH340)
  * Mendukung 2 Mode Komunikasi Hardware:
  * Mode A: Android Native Kiosk Shell APK via `@JavascriptInterface` (`window.AndroidBridge`)
  * Mode B: Chrome Desktop Web Serial API (`navigator.serial`)
@@ -11,6 +11,7 @@ const PULSE_DURATION_MS = 100;
 const INTER_PULSE_DELAY_MS = 100;
 const DEFAULT_BAUDRATE = 9600;
 
+let activeSerialPort: SerialPort | null = null;
 let isPulseExecuting = false;
 
 /**
@@ -21,13 +22,13 @@ export function isAndroidKioskNative(): boolean {
 }
 
 /**
- * Meminta izin pengguna & membuka koneksi USB Serial ke modul CH340 / LCUS-1
+ * Singleton helper untuk membuka dan mengembalikan koneksi USB Serial yang aktif
  */
 export async function connectUSBRelay(): Promise<SerialPort | null> {
   // Mode A: Android Native Kiosk Shell APK
   if (isAndroidKioskNative()) {
     console.log('[Hardware] Connected via Android Native Kiosk Bridge (AndroidBridge).');
-    return {} as SerialPort; // Return dummy SerialPort object for Android Native APK
+    return {} as SerialPort;
   }
 
   // Mode B: Web Serial API (Desktop Chrome)
@@ -36,14 +37,18 @@ export async function connectUSBRelay(): Promise<SerialPort | null> {
   }
 
   try {
-    const ports = await navigator.serial.getPorts();
-    let port: SerialPort | null = null;
+    // 1. Jika activeSerialPort sudah ada dan masih terbuka, gunakan langsung (Singleton)
+    if (activeSerialPort && (activeSerialPort.readable || activeSerialPort.writable)) {
+      return activeSerialPort;
+    }
 
+    // 2. Cek port yang tersambung
+    const ports = await navigator.serial.getPorts();
     if (ports.length > 0) {
-      port = ports[0];
+      activeSerialPort = ports[0];
     } else {
       try {
-        port = await navigator.serial.requestPort({
+        activeSerialPort = await navigator.serial.requestPort({
           filters: [
             { usbVendorId: 0x1a86, usbProductId: 0x7523 }, // CH340 LCUS-1 Specific
             { usbVendorId: 0x1a86 }, // CH340 General
@@ -53,20 +58,28 @@ export async function connectUSBRelay(): Promise<SerialPort | null> {
         });
       } catch (filterError) {
         console.warn('Fallback ke requestPort tanpa filter...', filterError);
-        port = await navigator.serial.requestPort();
+        activeSerialPort = await navigator.serial.requestPort();
       }
     }
 
-    if (!port) {
+    if (!activeSerialPort) {
       return null;
     }
 
-    if (!port.readable || !port.writable) {
-      await port.open({ baudRate: DEFAULT_BAUDRATE });
+    // 3. Buka port secara aman jika belum terbuka
+    try {
+      if (!activeSerialPort.readable || !activeSerialPort.writable) {
+        await activeSerialPort.open({ baudRate: DEFAULT_BAUDRATE });
+      }
+    } catch (openErr: any) {
+      // Jika port sudah terbuka oleh instance aktif, abaikan warning
+      if (!openErr.message?.includes('already open') && !openErr.message?.includes('Failed to open')) {
+        console.warn('Port open notice:', openErr.message);
+      }
     }
 
     console.log('USB Relay LCUS-1 CH340 terhubung di baudrate', DEFAULT_BAUDRATE);
-    return port;
+    return activeSerialPort;
   } catch (error: any) {
     console.error('Gagal membuka koneksi USB Serial:', error);
     throw error;
@@ -93,8 +106,10 @@ export async function sendPulsesToTokuyo(
     }
   }
 
-  // Mode B: Web Serial API (Desktop Chrome)
-  if (!port || !port.writable) {
+  // Ensure port is connected and opened
+  const targetPort = port || activeSerialPort || (await connectUSBRelay().catch(() => null));
+
+  if (!targetPort || !targetPort.writable) {
     console.error('Port USB Relay tidak tersedia atau belum terbuka.');
     return false;
   }
@@ -105,9 +120,10 @@ export async function sendPulsesToTokuyo(
   }
 
   isPulseExecuting = true;
-  const writer = port.writable.getWriter();
+  let writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
 
   try {
+    writer = targetPort.writable.getWriter();
     for (let i = 1; i <= pulseCount; i++) {
       if (onPulseProgress) {
         onPulseProgress(i, pulseCount);
@@ -126,7 +142,13 @@ export async function sendPulsesToTokuyo(
     console.error('Error saat mengeksekusi pulsa ke USB Relay:', error);
     return false;
   } finally {
-    writer.releaseLock();
+    if (writer) {
+      try {
+        writer.releaseLock();
+      } catch (e) {
+        // ignore lock release error
+      }
+    }
     isPulseExecuting = false;
   }
 }
@@ -147,20 +169,29 @@ export async function stopTokuyoChair(port: SerialPort | null): Promise<boolean>
     }
   }
 
-  // Mode B: Web Serial API (Desktop Chrome)
-  if (!port || !port.writable) {
+  const targetPort = port || activeSerialPort || (await connectUSBRelay().catch(() => null));
+
+  if (!targetPort || !targetPort.writable) {
     console.warn('Port USB Relay tidak tersedia saat penghentian paksa.');
     return false;
   }
 
+  let writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
   try {
-    const writer = port.writable.getWriter();
+    writer = targetPort.writable.getWriter();
     await writer.write(RELAY_OFF_HEX);
-    writer.releaseLock();
     console.log('Sinyal Breaker OFF Hex (0xA0 0x01 0x00 0xA1) berhasil terkirim ke PCB Tokuyo.');
     return true;
   } catch (error) {
     console.error('Gagal memicu penghentian paksa USB Relay:', error);
     return false;
+  } finally {
+    if (writer) {
+      try {
+        writer.releaseLock();
+      } catch (e) {
+        // ignore
+      }
+    }
   }
 }
