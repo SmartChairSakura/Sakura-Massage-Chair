@@ -1,6 +1,8 @@
 /**
  * Singleton Hybrid Hardware Helper untuk Modul USB Relay LCUS-1 (CH340)
- * Dikoneksikan ke Socket J3 PCB Tokuyo (MS1 = Signal, GND = Ground)
+ * Mendukung 2 Mode Komunikasi Hardware:
+ * Mode A: Android Native Kiosk Shell APK via `@JavascriptInterface` (`window.AndroidBridge`)
+ * Mode B: Chrome Desktop Web Serial API (`navigator.serial`)
  */
 
 const RELAY_ON_HEX = new Uint8Array([0xA0, 0x01, 0x01, 0xA2]);
@@ -22,11 +24,39 @@ export function isAndroidKioskNative(): boolean {
 }
 
 /**
+ * Mengecek status koneksi hardware fisik aktual (AndroidBridge atau Web Serial API)
+ */
+export function checkHardwareConnected(): boolean {
+  // Mode A: Android Native Kiosk Shell APK
+  if (typeof window !== 'undefined' && (window as any).AndroidBridge) {
+    try {
+      const isConnected = (window as any).AndroidBridge.isHardwareConnected();
+      return Boolean(isConnected);
+    } catch (e) {
+      console.warn('[AndroidBridge] Error calling isHardwareConnected:', e);
+      return false;
+    }
+  }
+
+  // Mode B: Web Serial API (Desktop Chrome)
+  if (activeSerialPort && (activeSerialPort.readable || activeSerialPort.writable)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Singleton helper untuk membuka dan mengembalikan koneksi USB Serial yang aktif
  */
 export async function connectUSBRelay(): Promise<SerialPort | null> {
   // Mode A: Android Native Kiosk Shell APK
   if (isAndroidKioskNative()) {
+    const isConnected = checkHardwareConnected();
+    if (!isConnected) {
+      console.warn('[Hardware Error] Android Kiosk APK: USB OTG LCUS-1 tidak dicolokkan.');
+      return null;
+    }
     console.log('[Hardware] Connected via Android Native Kiosk Bridge (AndroidBridge).');
     return {} as SerialPort;
   }
@@ -96,6 +126,12 @@ export async function sendPulsesToTokuyo(
 ): Promise<boolean> {
   // Mode A: Android Native Kiosk Shell APK
   if (isAndroidKioskNative()) {
+    const isConnected = checkHardwareConnected();
+    if (!isConnected) {
+      console.error('[Hardware Error] Android Kiosk APK: Kabel USB Relay LCUS-1 tidak dicolokkan!');
+      return false;
+    }
+
     console.log(`[Hardware AndroidBridge] Triggering ${pulseCount} pulses via Native OTG Driver...`);
     try {
       return (window as any).AndroidBridge.sendPulses(pulseCount);
@@ -105,7 +141,7 @@ export async function sendPulsesToTokuyo(
     }
   }
 
-  // Ensure port is connected and opened
+  // Mode B: Web Serial API (Desktop Chrome)
   const targetPort = port || activeSerialPort || (await connectUSBRelay().catch(() => null));
 
   if (!targetPort || !targetPort.writable) {
@@ -159,6 +195,12 @@ export async function sendPulsesToTokuyo(
 export async function stopTokuyoChair(port: SerialPort | null): Promise<boolean> {
   // Mode A: Android Native Kiosk Shell APK
   if (isAndroidKioskNative()) {
+    const isConnected = checkHardwareConnected();
+    if (!isConnected) {
+      console.warn('[Hardware Warning] Android Kiosk APK: USB OTG LCUS-1 tidak dicolokkan saat penghentian paksa.');
+      return false;
+    }
+
     console.log('[Hardware AndroidBridge] Triggering stopChair (Breaker OFF) via Native OTG Driver...');
     try {
       return (window as any).AndroidBridge.stopChair();
@@ -168,6 +210,7 @@ export async function stopTokuyoChair(port: SerialPort | null): Promise<boolean>
     }
   }
 
+  // Mode B: Web Serial API (Desktop Chrome)
   const targetPort = port || activeSerialPort || (await connectUSBRelay().catch(() => null));
 
   if (!targetPort || !targetPort.writable) {
