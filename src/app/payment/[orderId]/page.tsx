@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useLanguage } from '@/lib/i18n';
+import { supabase } from '@/lib/supabase-client';
 
 export default function PaymentQrisPage() {
   const router = useRouter();
@@ -21,6 +22,38 @@ export default function PaymentQrisPage() {
       setTransaction(JSON.parse(data));
     }
   }, []);
+
+  // Supabase Realtime Subscription for Payment Status Update
+  useEffect(() => {
+    if (!orderId && !transaction?.idempotency_key) return;
+
+    const channel = supabase
+      .channel('public:transactions')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'transactions',
+        },
+        (payload: any) => {
+          const updatedTx = payload.new;
+          if (
+            (updatedTx.id === orderId || updatedTx.idempotency_key === transaction?.idempotency_key) &&
+            updatedTx.status === 'PAID'
+          ) {
+            console.log('[Supabase Realtime] Received PAID event for transaction:', updatedTx.id);
+            sessionStorage.setItem('current_transaction', JSON.stringify(updatedTx));
+            router.push('/payment/success');
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orderId, transaction?.idempotency_key, router]);
 
   useEffect(() => {
     if (timeLeft <= 0) return;

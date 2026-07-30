@@ -57,6 +57,15 @@ export default function LiveOngoingSessionPage() {
   const handleConfirmCancelSession = async () => {
     setIsStopping(true);
     try {
+      // 1. Call Backend API to update status to CANCELLED in Supabase
+      const txId = transaction?.id || orderId;
+      if (txId) {
+        await fetch(`/api/transactions/${txId}/cancel`, {
+          method: 'POST',
+        }).catch((err) => console.warn('Cancel API fetch note:', err));
+      }
+
+      // 2. Send Breaker OFF command to Tokuyo PCB via USB Relay LCUS-1 (0xA0 0x01 0x00 0xA1)
       if (typeof window !== 'undefined' && 'serial' in navigator) {
         const ports = await navigator.serial.getPorts();
         if (ports.length > 0) {

@@ -11,7 +11,7 @@ export interface Chair {
   created_at: string;
 }
 
-export type TransactionStatus = 'PENDING' | 'PAID' | 'ONGOING' | 'COMPLETED' | 'FAILED' | 'EXPIRED';
+export type TransactionStatus = 'PENDING' | 'PAID' | 'ONGOING' | 'COMPLETED' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
 export type PaymentMethod = 'QRIS' | 'CASH';
 
 export interface Transaction {

@@ -1,8 +1,8 @@
--- Initial Schema Migration for Smart Kursi Pijat Tokuyo Fleet Management
+-- Initial Schema Migration for Smart Kursi Pijat Sakura (Tokuyo Fleet Management)
 
 -- 1. Master Chair Unit Table
 CREATE TABLE IF NOT EXISTS chairs (
-  id VARCHAR(50) PRIMARY KEY, -- e.g. 'TOK-GI-01'
+  id VARCHAR(50) PRIMARY KEY, -- e.g. 'SAKURA-GI-01', 'SAKURA-STG-01'
   name VARCHAR(100) NOT NULL,
   location_name VARCHAR(150) NOT NULL,
   status VARCHAR(20) DEFAULT 'OFFLINE', -- 'ONLINE', 'OFFLINE', 'BUSY', 'MAINTENANCE'
@@ -12,10 +12,13 @@ CREATE TABLE IF NOT EXISTS chairs (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Insert Default Pilot Unit
+-- Insert Default Units (Production & Staging)
 INSERT INTO chairs (id, name, location_name, status, is_active)
-VALUES ('TOK-GI-01', 'Tokuyo Deluxe #01', 'Grand Indonesia Lt 3', 'ONLINE', true)
-ON CONFLICT (id) DO NOTHING;
+VALUES 
+  ('SAKURA-GI-01', 'Sakura Series #01', 'Grand Indonesia Lt 3', 'ONLINE', true),
+  ('SAKURA-STG-01', 'Sakura Staging Unit', 'Testing Environment', 'ONLINE', true)
+ON CONFLICT (id) DO UPDATE 
+SET name = EXCLUDED.name, location_name = EXCLUDED.location_name;
 
 -- 2. Transactions & Sessions Table
 CREATE TABLE IF NOT EXISTS transactions (
@@ -28,14 +31,20 @@ CREATE TABLE IF NOT EXISTS transactions (
   duration_minutes INT NOT NULL,
   pulse_count INT NOT NULL,
   payment_method VARCHAR(20) DEFAULT 'QRIS',
-  status VARCHAR(20) DEFAULT 'PENDING', -- 'PENDING', 'PAID', 'ONGOING', 'COMPLETED', 'FAILED', 'EXPIRED'
+  status VARCHAR(20) DEFAULT 'PENDING', -- 'PENDING', 'PAID', 'ONGOING', 'COMPLETED', 'FAILED', 'EXPIRED', 'CANCELLED'
   payment_gateway_ref VARCHAR(100),
   qr_url TEXT,
   session_start_at TIMESTAMPTZ,
   session_end_at TIMESTAMPTZ,
+  cancelled_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Performance Indexes
+CREATE INDEX IF NOT EXISTS idx_transactions_chair_id ON transactions(chair_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
+CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at DESC);
 
 -- Enable Supabase Realtime for Tables
 ALTER PUBLICATION supabase_realtime ADD TABLE transactions;
