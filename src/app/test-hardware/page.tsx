@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { connectUSBRelay, sendPulsesToTokuyo, stopTokuyoChair, isAndroidKioskNative, checkHardwareConnected } from '@/lib/usb-relay';
+import { connectUSBRelay, sendPulsesToTokuyo, stopTokuyoChair, isAndroidKioskNative, checkHardwareConnected, getLastRelayError } from '@/lib/usb-relay';
 import { Usb, CheckCircle2, Power } from 'lucide-react';
 import { TOKUYO_THEME } from '@/lib/theme';
 
@@ -40,7 +40,7 @@ export default function TestHardwarePage() {
         addLog('Modul USB Relay LCUS-1 terhubung pada baudrate 9600 BPS.');
       } else {
         setStatus('Connection Cancelled');
-        addLog('Koneksi dibatalkan oleh pengguna.');
+        addLog(`Koneksi dibatalkan: ${getLastRelayError() || 'Pengguna menolak dialog'}`);
       }
     } catch (err: any) {
       console.error(err);
@@ -62,7 +62,8 @@ export default function TestHardwarePage() {
       if (success) {
         addLog(`Sukses melepaskan ${count} pulsa ke PCB Tokuyo.`);
       } else {
-        addLog(`Gagal memicu pulsa. Cek sambungan kabel fisik LCUS-1.`);
+        const errDetail = getLastRelayError();
+        addLog(`Gagal memicu pulsa${errDetail ? `: ${errDetail}` : '. Cek sambungan kabel fisik LCUS-1.'}`);
       }
     } catch (err: any) {
       addLog(`Gagal memicu pulsa: ${err.message}`);
@@ -84,7 +85,8 @@ export default function TestHardwarePage() {
       if (success) {
         addLog('Sukses mengirim sinyal Breaker OFF (Relay Disconnect).');
       } else {
-        addLog('Gagal mengirim Breaker OFF.');
+        const errDetail = getLastRelayError();
+        addLog(`Gagal mengirim Breaker OFF${errDetail ? `: ${errDetail}` : ''}`);
       }
     } catch (err: any) {
       addLog(`Gagal Breaker OFF: ${err.message}`);

@@ -15,6 +15,11 @@ const DEFAULT_BAUDRATE = 9600;
 
 let activeSerialPort: SerialPort | null = null;
 let isPulseExecuting = false;
+let lastRelayError: string = '';
+
+export function getLastRelayError(): string {
+  return lastRelayError;
+}
 
 /**
  * Cek apakah berjalan di dalam Android Native Kiosk APK Shell
@@ -62,7 +67,8 @@ export async function connectUSBRelay(): Promise<SerialPort | null> {
 
   // Mode B: Web Serial API (Desktop Chrome)
   if (typeof window === 'undefined' || !('serial' in navigator)) {
-    throw new Error('Web Serial API tidak didukung di browser ini. Gunakan Chrome Desktop atau Android Kiosk APK.');
+    lastRelayError = 'Web Serial API tidak didukung di browser ini.';
+    throw new Error(lastRelayError);
   }
 
   try {
@@ -92,6 +98,7 @@ export async function connectUSBRelay(): Promise<SerialPort | null> {
     }
 
     if (!activeSerialPort) {
+      lastRelayError = 'Tidak ada port serial yang dipilih.';
       return null;
     }
 
@@ -109,6 +116,7 @@ export async function connectUSBRelay(): Promise<SerialPort | null> {
     console.log('USB Relay LCUS-1 CH340 terhubung di baudrate', DEFAULT_BAUDRATE);
     return activeSerialPort;
   } catch (error: any) {
+    lastRelayError = error?.message || String(error);
     console.error('Gagal membuka koneksi USB Serial:', error);
     throw error;
   }
@@ -123,12 +131,15 @@ export async function sendPulsesToTokuyo(
   pulseCount: number,
   onPulseProgress?: (currentPulse: number, total: number) => void
 ): Promise<boolean> {
+  lastRelayError = '';
+
   // Mode A: Android Native Kiosk Shell APK
   if (isAndroidKioskNative()) {
     console.log(`[Hardware AndroidBridge] Triggering ${pulseCount} pulses via Native OTG Driver...`);
     try {
       return (window as any).AndroidBridge.sendPulses(pulseCount);
-    } catch (err) {
+    } catch (err: any) {
+      lastRelayError = err?.message || String(err);
       console.error('Error calling AndroidBridge.sendPulses:', err);
       return false;
     }
@@ -138,7 +149,8 @@ export async function sendPulsesToTokuyo(
   const targetPort = port || activeSerialPort || (await connectUSBRelay().catch(() => null));
 
   if (!targetPort) {
-    console.error('Port USB Relay tidak tersedia.');
+    lastRelayError = 'Port USB Relay tidak tersedia atau belum dipilih.';
+    console.error(lastRelayError);
     return false;
   }
 
@@ -154,12 +166,14 @@ export async function sendPulsesToTokuyo(
   }
 
   if (!targetPort.writable) {
-    console.error('Port USB Relay tidak dapat ditulis (writable stream null).');
+    lastRelayError = 'Port USB Relay terunci atau permission denied (writable stream null).';
+    console.error(lastRelayError);
     return false;
   }
 
   if (isPulseExecuting) {
-    console.warn('Proses pengiriman pulsa sebelumnya masih berjalan, melempar mutex lock...');
+    lastRelayError = 'Proses pengiriman pulsa sebelumnya masih berjalan (Mutex Lock).';
+    console.warn(lastRelayError);
     return false;
   }
 
@@ -182,7 +196,8 @@ export async function sendPulsesToTokuyo(
       await new Promise((resolve) => setTimeout(resolve, INTER_PULSE_DELAY_MS));
     }
     return true;
-  } catch (error) {
+  } catch (error: any) {
+    lastRelayError = error?.message || String(error);
     console.error('Error saat mengeksekusi pulsa ke USB Relay:', error);
     return false;
   } finally {
@@ -202,12 +217,15 @@ export async function sendPulsesToTokuyo(
  * Mengirimkan sinyal Relay OFF 0xA0 0x01 0x00 0xA1 ke PCB Tokuyo
  */
 export async function stopTokuyoChair(port: SerialPort | null): Promise<boolean> {
+  lastRelayError = '';
+
   // Mode A: Android Native Kiosk Shell APK
   if (isAndroidKioskNative()) {
     console.log('[Hardware AndroidBridge] Triggering stopChair (Breaker OFF) via Native OTG Driver...');
     try {
       return (window as any).AndroidBridge.stopChair();
-    } catch (err) {
+    } catch (err: any) {
+      lastRelayError = err?.message || String(err);
       console.error('Error calling AndroidBridge.stopChair:', err);
       return false;
     }
@@ -217,7 +235,7 @@ export async function stopTokuyoChair(port: SerialPort | null): Promise<boolean>
   const targetPort = port || activeSerialPort || (await connectUSBRelay().catch(() => null));
 
   if (!targetPort) {
-    console.warn('Port USB Relay tidak tersedia saat penghentian paksa.');
+    lastRelayError = 'Port USB Relay tidak tersedia.';
     return false;
   }
 
@@ -232,7 +250,7 @@ export async function stopTokuyoChair(port: SerialPort | null): Promise<boolean>
   }
 
   if (!targetPort.writable) {
-    console.warn('Port USB Relay tidak dapat ditulis.');
+    lastRelayError = 'Port USB Relay tidak dapat ditulis.';
     return false;
   }
 
@@ -242,7 +260,8 @@ export async function stopTokuyoChair(port: SerialPort | null): Promise<boolean>
     await writer.write(RELAY_OFF_HEX);
     console.log('Sinyal Breaker OFF Hex (0xA0 0x01 0x00 0xA1) berhasil terkirim ke PCB Tokuyo.');
     return true;
-  } catch (error) {
+  } catch (error: any) {
+    lastRelayError = error?.message || String(error);
     console.error('Gagal memicu penghentian paksa USB Relay:', error);
     return false;
   } finally {
