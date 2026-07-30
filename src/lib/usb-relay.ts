@@ -1,14 +1,14 @@
 /**
  * Singleton Hybrid Hardware Helper untuk Modul USB Relay LCUS-1 (CH340)
- * Mendukung 2 Mode Komunikasi Hardware:
- * Mode A: Android Native Kiosk Shell APK via `@JavascriptInterface` (`window.AndroidBridge`)
- * Mode B: Chrome Desktop Web Serial API (`navigator.serial`)
+ * Dikoneksikan ke Socket J3 PCB Tokuyo (MS1 = Signal, GND = Ground)
  */
 
 const RELAY_ON_HEX = new Uint8Array([0xA0, 0x01, 0x01, 0xA2]);
 const RELAY_OFF_HEX = new Uint8Array([0xA0, 0x01, 0x00, 0xA1]);
-const PULSE_DURATION_MS = 100;
-const INTER_PULSE_DELAY_MS = 100;
+
+// 200ms ON & 150ms OFF guarantees solid mechanical relay contact & booster optical coupler trigger
+const PULSE_DURATION_MS = 200;
+const INTER_PULSE_DELAY_MS = 150;
 const DEFAULT_BAUDRATE = 9600;
 
 let activeSerialPort: SerialPort | null = null;
@@ -72,7 +72,6 @@ export async function connectUSBRelay(): Promise<SerialPort | null> {
         await activeSerialPort.open({ baudRate: DEFAULT_BAUDRATE });
       }
     } catch (openErr: any) {
-      // Jika port sudah terbuka oleh instance aktif, abaikan warning
       if (!openErr.message?.includes('already open') && !openErr.message?.includes('Failed to open')) {
         console.warn('Port open notice:', openErr.message);
       }
@@ -87,8 +86,8 @@ export async function connectUSBRelay(): Promise<SerialPort | null> {
 }
 
 /**
- * Mengirimkan sinyal pulsa kelipatan (Multi-Pulse) ke PCB Tokuyo
- * 1 Pulsa = 100ms ON / 100ms OFF
+ * Mengirimkan sinyal pulsa kelipatan (Multi-Pulse) ke PCB Tokuyo / Parkee Booster V5
+ * 1 Pulsa = 200ms ON / 150ms OFF (Solid mechanical contact)
  */
 export async function sendPulsesToTokuyo(
   port: SerialPort | null,
