@@ -16,26 +16,35 @@ let isPulseExecuting = false;
  */
 export async function connectUSBRelay(): Promise<SerialPort | null> {
   if (typeof window === 'undefined' || !('serial' in navigator)) {
-    console.warn('Web Serial API tidak didukung di browser/lingkungan ini.');
-    return null;
+    throw new Error('Web Serial API tidak didukung di browser ini. Gunakan Chrome Desktop atau browser berbasis Chromium.');
   }
 
   try {
     // 1. Cek apakah ada port yang sudah di-pair sebelumnya
     const ports = await navigator.serial.getPorts();
-    let port: SerialPort;
+    let port: SerialPort | null = null;
 
     if (ports.length > 0) {
       port = ports[0];
     } else {
-      // 2. Minta izin pairing port baru dengan filter vendor ID CH340 (0x1a86)
-      port = await navigator.serial.requestPort({
-        filters: [
-          { usbVendorId: 0x1a86 }, // CH340 LCUS-1 USB Relay
-          { usbVendorId: 0x0403 }, // FTDI
-          { usbVendorId: 0x10c4 }, // CP2102
-        ],
-      });
+      // 2. Minta izin pairing port baru (coba dengan filter CH340, jika gagal coba tanpa filter)
+      try {
+        port = await navigator.serial.requestPort({
+          filters: [
+            { usbVendorId: 0x1a86, usbProductId: 0x7523 }, // CH340 LCUS-1 Specific
+            { usbVendorId: 0x1a86 }, // CH340 General
+            { usbVendorId: 0x0403 }, // FTDI
+            { usbVendorId: 0x10c4 }, // CP2102
+          ],
+        });
+      } catch (filterError) {
+        console.warn('Fallback ke requestPort tanpa filter...', filterError);
+        port = await navigator.serial.requestPort();
+      }
+    }
+
+    if (!port) {
+      return null;
     }
 
     // Buka port jika belum terbuka
@@ -45,9 +54,9 @@ export async function connectUSBRelay(): Promise<SerialPort | null> {
 
     console.log('USB Relay LCUS-1 CH340 terhubung di baudrate', DEFAULT_BAUDRATE);
     return port;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Gagal membuka koneksi USB Serial:', error);
-    return null;
+    throw error;
   }
 }
 
