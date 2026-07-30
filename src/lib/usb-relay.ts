@@ -35,7 +35,6 @@ export function checkHardwareConnected(): boolean {
         const isConn = bridge.isHardwareConnected();
         return Boolean(isConn);
       }
-      // Jika method belum di-implementasikan di APK stub, default ke true agar tidak memblokir testing
       return true;
     } catch (e) {
       console.warn('[AndroidBridge] Error calling isHardwareConnected:', e);
@@ -138,13 +137,29 @@ export async function sendPulsesToTokuyo(
   // Mode B: Web Serial API (Desktop Chrome)
   const targetPort = port || activeSerialPort || (await connectUSBRelay().catch(() => null));
 
-  if (!targetPort || !targetPort.writable) {
-    console.error('Port USB Relay tidak tersedia atau belum terbuka.');
+  if (!targetPort) {
+    console.error('Port USB Relay tidak tersedia.');
+    return false;
+  }
+
+  // Auto re-open port jika belum writable
+  if (!targetPort.readable || !targetPort.writable) {
+    try {
+      await targetPort.open({ baudRate: DEFAULT_BAUDRATE });
+    } catch (e: any) {
+      if (!e.message?.includes('already open')) {
+        console.warn('Re-opening port in sendPulsesToTokuyo notice:', e.message);
+      }
+    }
+  }
+
+  if (!targetPort.writable) {
+    console.error('Port USB Relay tidak dapat ditulis (writable stream null).');
     return false;
   }
 
   if (isPulseExecuting) {
-    console.warn('Proses pengiriman pulsa sedang berjalan, melempar mutex lock...');
+    console.warn('Proses pengiriman pulsa sebelumnya masih berjalan, melempar mutex lock...');
     return false;
   }
 
@@ -201,8 +216,23 @@ export async function stopTokuyoChair(port: SerialPort | null): Promise<boolean>
   // Mode B: Web Serial API (Desktop Chrome)
   const targetPort = port || activeSerialPort || (await connectUSBRelay().catch(() => null));
 
-  if (!targetPort || !targetPort.writable) {
+  if (!targetPort) {
     console.warn('Port USB Relay tidak tersedia saat penghentian paksa.');
+    return false;
+  }
+
+  if (!targetPort.readable || !targetPort.writable) {
+    try {
+      await targetPort.open({ baudRate: DEFAULT_BAUDRATE });
+    } catch (e: any) {
+      if (!e.message?.includes('already open')) {
+        console.warn('Re-opening port in stopTokuyoChair notice:', e.message);
+      }
+    }
+  }
+
+  if (!targetPort.writable) {
+    console.warn('Port USB Relay tidak dapat ditulis.');
     return false;
   }
 
