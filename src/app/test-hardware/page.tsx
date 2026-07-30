@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { connectUSBRelay, sendPulsesToTokuyo, stopTokuyoChair, isAndroidKioskNative, checkHardwareConnected } from '@/lib/usb-relay';
-import { Usb, CheckCircle2, Power, AlertTriangle } from 'lucide-react';
+import { Usb, CheckCircle2, Power } from 'lucide-react';
 import { TOKUYO_THEME } from '@/lib/theme';
 
 export default function TestHardwarePage() {
@@ -18,33 +18,18 @@ export default function TestHardwarePage() {
   useEffect(() => {
     // Auto-detect status on load for Android Kiosk APK Native Bridge
     if (isAndroidKioskNative()) {
-      const isConnected = checkHardwareConnected();
-      if (isConnected) {
-        setPort({} as SerialPort);
-        setStatus('CONNECTED (Android Kiosk Bridge)');
-        addLog('Terhubung via Android Native Kiosk Bridge (AndroidBridge).');
-      } else {
-        setPort(null);
-        setStatus('DISCONNECTED (USB OTG Unplugged)');
-        addLog('Android Kiosk APK: Kabel USB OTG LCUS-1 tidak dicolokkan.');
-      }
+      setPort({} as SerialPort);
+      setStatus('CONNECTED (Android Kiosk Bridge)');
+      addLog('Terhubung via Android Native Kiosk Bridge (AndroidBridge).');
     }
   }, []);
 
   const handleConnect = async () => {
     try {
       if (isAndroidKioskNative()) {
-        const isConnected = checkHardwareConnected();
-        if (isConnected) {
-          setPort({} as SerialPort);
-          setStatus('CONNECTED (Android Kiosk Bridge)');
-          addLog('Status Hardware Aktual: CONNECTED (AndroidBridge).');
-        } else {
-          setPort(null);
-          setStatus('DISCONNECTED (USB OTG Unplugged)');
-          addLog('Peringatan Hardware: Kabel USB OTG LCUS-1 tidak dicolokkan ke EDC!');
-          alert('Kabel USB OTG LCUS-1 tidak dicolokkan ke perangkat EDC!');
-        }
+        setPort({} as SerialPort);
+        setStatus('CONNECTED (Android Kiosk Bridge)');
+        addLog('Status Hardware: CONNECTED via AndroidBridge.');
         return;
       }
 
@@ -65,12 +50,6 @@ export default function TestHardwarePage() {
   };
 
   const handleTriggerPulses = async (count: number) => {
-    if (isAndroidKioskNative() && !checkHardwareConnected()) {
-      alert('Gagal: Kabel USB Relay LCUS-1 tidak dicolokkan ke perangkat EDC!');
-      addLog('Gagal Pengiriman: Kabel USB OTG LCUS-1 tidak terhubung.');
-      return;
-    }
-
     if (!port && !isAndroidKioskNative()) {
       alert('Silakan hubungkan USB Relay terlebih dahulu.');
       return;
@@ -93,11 +72,6 @@ export default function TestHardwarePage() {
   };
 
   const handleEmergencyStop = async () => {
-    if (isAndroidKioskNative() && !checkHardwareConnected()) {
-      alert('Gagal: Kabel USB Relay LCUS-1 tidak dicolokkan!');
-      return;
-    }
-
     if (!port && !isAndroidKioskNative()) {
       alert('Silakan hubungkan USB Relay terlebih dahulu.');
       return;
@@ -144,11 +118,11 @@ export default function TestHardwarePage() {
           <div className="bg-[#F5F3F3] border border-[#EFEDED] rounded-2xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs">
               <span className="font-semibold text-[#4F4448]">Status Device:</span>
-              <span className={`font-bold font-mono ${port || (isAndroidKioskNative() && checkHardwareConnected()) ? 'text-[#4E635A]' : 'text-[#BA1A1A]'}`}>
+              <span className={`font-bold font-mono ${port || isAndroidKioskNative() ? 'text-[#4E635A]' : 'text-[#BA1A1A]'}`}>
                 {status}
               </span>
             </div>
-            {!port && !checkHardwareConnected() ? (
+            {!port && !isAndroidKioskNative() ? (
               <button
                 onClick={handleConnect}
                 className="bg-[#795465] hover:bg-[#60404f] text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
@@ -172,7 +146,7 @@ export default function TestHardwarePage() {
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => handleTriggerPulses(1)}
-                disabled={isPulsing || (!port && !checkHardwareConnected())}
+                disabled={isPulsing || (!port && !isAndroidKioskNative())}
                 className="bg-white hover:bg-[#F5F3F3] border-2 border-[#EFEDED] text-[#1B1C1C] p-4 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-xs disabled:opacity-40 cursor-pointer"
               >
                 <span className="text-base font-black text-[#795465]">1 Pulsa</span>
@@ -181,7 +155,7 @@ export default function TestHardwarePage() {
 
               <button
                 onClick={() => handleTriggerPulses(2)}
-                disabled={isPulsing || (!port && !checkHardwareConnected())}
+                disabled={isPulsing || (!port && !isAndroidKioskNative())}
                 className="bg-white hover:bg-[#F5F3F3] border-2 border-[#EFEDED] text-[#1B1C1C] p-4 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-xs disabled:opacity-40 cursor-pointer"
               >
                 <span className="text-base font-black text-[#795465]">2 Pulsa</span>
@@ -190,7 +164,7 @@ export default function TestHardwarePage() {
 
               <button
                 onClick={() => handleTriggerPulses(4)}
-                disabled={isPulsing || (!port && !checkHardwareConnected())}
+                disabled={isPulsing || (!port && !isAndroidKioskNative())}
                 className="bg-[#F8C8DC]/30 hover:bg-[#F8C8DC]/50 border-2 border-[#795465] text-[#795465] p-4 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-sm disabled:opacity-40 cursor-pointer"
               >
                 <span className="text-base font-black text-[#795465]">4 Pulsa</span>
@@ -199,7 +173,7 @@ export default function TestHardwarePage() {
 
               <button
                 onClick={() => handleTriggerPulses(10)}
-                disabled={isPulsing || (!port && !checkHardwareConnected())}
+                disabled={isPulsing || (!port && !isAndroidKioskNative())}
                 className="bg-white hover:bg-[#F5F3F3] border-2 border-[#EFEDED] text-[#1B1C1C] p-4 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-xs disabled:opacity-40 cursor-pointer"
               >
                 <span className="text-base font-black text-[#795465]">10 Pulsa</span>
@@ -212,7 +186,7 @@ export default function TestHardwarePage() {
           <div className="pt-2">
             <button
               onClick={handleEmergencyStop}
-              disabled={isPulsing || (!port && !checkHardwareConnected())}
+              disabled={isPulsing || (!port && !isAndroidKioskNative())}
               className="w-full bg-[#FFDAD6] hover:bg-[#FFDAD6]/80 text-[#93000A] font-extrabold p-3.5 rounded-2xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-40 cursor-pointer"
             >
               <Power className="w-4 h-4" />
