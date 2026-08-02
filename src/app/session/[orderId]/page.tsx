@@ -81,111 +81,69 @@ export default function LiveOngoingSessionPage() {
   };
 
   return (
-    <main className="w-full pt-20 bg-[#FBF9F9] min-h-screen relative overflow-hidden flex flex-col justify-between">
-      
-      {/* Subtle Sakura Floating Petal Background */}
-      <div aria-hidden="true" className="absolute inset-0 z-0 pointer-events-none opacity-25">
-        <svg className="absolute w-6 h-6 text-[#FFD8E7] top-[10%] left-[5%] animate-float" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12,2C15,2 18,5 18,9C18,13 12,22 12,22C12,22 6,13 6,9C6,5 9,2 12,2Z" />
-        </svg>
-        <svg className="absolute w-5 h-5 text-[#795465] top-[25%] right-[15%] animate-float" style={{ animationDelay: '1s' }} fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12,2C15,2 18,5 18,9C18,13 12,22 12,22C12,22 6,13 6,9C6,5 9,2 12,2Z" />
-        </svg>
-        <svg className="absolute w-8 h-8 text-[#E9BACD] top-[60%] left-[10%] animate-float" style={{ animationDelay: '2s' }} fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12,2C15,2 18,5 18,9C18,13 12,22 12,22C12,22 6,13 6,9C6,5 9,2 12,2Z" />
-        </svg>
-      </div>
-
+    <main className="w-full pt-16 bg-[#FBF9F9] min-h-screen flex flex-col justify-between items-center px-3 py-2">
       {/* Main Card Container */}
-      <div className="relative z-10 flex flex-col w-full max-w-[600px] mx-auto bg-white rounded-[32px] p-6 sm:p-10 my-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] border border-[#EFEDED]">
+      <div className="flex flex-col w-full max-w-[500px] bg-white rounded-3xl p-5 sm:p-7 shadow-[0_10px_35px_rgba(78,59,49,0.05)] border border-[#EFEDED] my-auto">
         
         {/* Step Indicator */}
-        <div className="flex flex-col items-center justify-center mb-6 gap-2">
+        <div className="flex items-center justify-between mb-3 border-b border-[#EFEDED] pb-2.5">
           <div className="flex items-center gap-1">
-            <div className="w-6 h-1 bg-[#D2C3C7] rounded-full" />
-            <div className="w-6 h-1 bg-[#D2C3C7] rounded-full" />
-            <div className="w-6 h-1 bg-[#D2C3C7] rounded-full" />
-            <div className="w-6 h-1 bg-[#D2C3C7] rounded-full" />
-            <div className="w-10 h-1 bg-[#795465] rounded-full relative overflow-hidden">
+            <div className="w-4 h-1 bg-[#D2C3C7] rounded-full" />
+            <div className="w-4 h-1 bg-[#D2C3C7] rounded-full" />
+            <div className="w-4 h-1 bg-[#D2C3C7] rounded-full" />
+            <div className="w-4 h-1 bg-[#D2C3C7] rounded-full" />
+            <div className="w-8 h-1 bg-[#795465] rounded-full relative overflow-hidden">
               <div className="absolute inset-0 bg-[#E9BACD] animate-pulse" />
             </div>
           </div>
-          <span className="text-xs font-bold text-[#6F5A4F] tracking-widest uppercase mt-1">
+          <span className="text-[11px] font-extrabold text-[#6F5A4F] tracking-widest uppercase">
             {t.step5Tag}
           </span>
         </div>
 
         {/* Header Text */}
-        <div className="text-center mb-6 flex flex-col items-center gap-2">
-          <h1 className="text-2xl sm:text-3xl font-black text-[#1B1C1C] tracking-tight">
+        <div className="text-center mb-3 flex flex-col items-center gap-1">
+          <h1 className="text-xl sm:text-2xl font-black text-[#1B1C1C] tracking-tight">
             {t.remainingTimeTitle}
           </h1>
-          <div className="bg-[#CEE5DA]/50 px-4 py-1.5 rounded-full inline-flex items-center gap-2 mt-1 border border-[#52675E]/10">
-            <span className="material-symbols-outlined text-[#4E635A] text-[18px]">schedule</span>
-            <span className="text-xs font-bold text-[#4E635A]">
+          <div className="bg-[#CEE5DA]/50 px-3 py-1 rounded-full inline-flex items-center gap-1.5 border border-[#52675E]/10">
+            <span className="material-symbols-outlined text-[#4E635A] text-[15px]">schedule</span>
+            <span className="text-[11px] font-bold text-[#4E635A]">
               {t.estimatedEnd} Pukul {calculateEndTime(secondsLeft)} WIB
             </span>
           </div>
         </div>
 
-        {/* Timer Circular Display (Stitch Sakura Zen Reference) */}
-        <div className="flex flex-col items-center justify-center my-6 relative">
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-60 h-60 rounded-full bg-[#FFDAD6]/30 absolute animate-pulse-ring" />
-            <div className="w-52 h-52 rounded-full bg-[#FFDAD6]/50 absolute animate-pulse-ring" style={{ animationDelay: '0.5s' }} />
-          </div>
-          <div className="relative z-10 flex items-center justify-center w-48 h-48 rounded-full bg-white shadow-[0_10px_30px_rgba(186,26,26,0.12)] border-4 border-[#FFDAD6] mb-4">
-            <span className="text-5xl sm:text-6xl font-black text-[#BA1A1A] font-mono tracking-tighter">
+        {/* Timer Circular Display */}
+        <div className="flex flex-col items-center justify-center my-3 relative">
+          <div className="relative z-10 flex items-center justify-center w-36 h-36 rounded-full bg-white shadow-[0_8px_25px_rgba(186,26,26,0.12)] border-4 border-[#FFDAD6] mb-2">
+            <span className="text-4xl font-black text-[#BA1A1A] font-mono tracking-tighter">
               {formatTimer(secondsLeft)}
             </span>
           </div>
-          <div className="flex items-center gap-2 bg-[#F5F3F3] px-4 py-2 rounded-xl border border-[#EFEDED]">
+          <div className="flex items-center gap-1.5 bg-[#F5F3F3] px-3 py-1 rounded-lg border border-[#EFEDED]">
             <div className="w-2 h-2 rounded-full bg-[#795465] animate-pulse" />
-            <span className="text-xs font-semibold text-[#4F4448]">
+            <span className="text-[10px] font-semibold text-[#4F4448]">
               {t.countdownSubtitle}
             </span>
           </div>
         </div>
 
         {/* Chair Status Visual Card */}
-        <div className="relative w-full bg-[#F8C8DC]/20 rounded-[24px] overflow-hidden mt-6 flex flex-col items-center justify-center p-6 border border-[#EFEDED]">
+        <div className="relative w-full bg-[#F8C8DC]/20 rounded-2xl overflow-hidden mt-3 flex flex-col items-center justify-center p-3 border border-[#EFEDED] max-h-[160px]">
           <TokuyoChairGraphic isActive={secondsLeft > 0} />
-
-          {/* Status Overlay Box & Equalizer animation */}
-          <div className="w-full mt-4 bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-sm border border-[#EFEDED] flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#CEE5DA] flex items-center justify-center text-[#4E635A]">
-                <span className="material-symbols-outlined text-xl">waves</span>
-              </div>
-              <div className="flex flex-col text-left">
-                <span className="text-[11px] font-bold text-[#4F4448] uppercase tracking-wider">Status Pijatan</span>
-                <span className="text-xs font-extrabold text-[#4E635A]">Pengurut Airbag & Roller Active</span>
-              </div>
-            </div>
-
-            {/* Equalizer Audio Bar Animation */}
-            <div className="flex items-end gap-1 h-6">
-              <div className="w-1.5 bg-[#795465] rounded-t-sm animate-pulse" style={{ height: '60%' }} />
-              <div className="w-1.5 bg-[#795465] rounded-t-sm animate-pulse" style={{ height: '100%', animationDelay: '0.2s' }} />
-              <div className="w-1.5 bg-[#795465] rounded-t-sm animate-pulse" style={{ height: '40%', animationDelay: '0.4s' }} />
-              <div className="w-1.5 bg-[#795465] rounded-t-sm animate-pulse" style={{ height: '80%', animationDelay: '0.1s' }} />
-            </div>
-          </div>
         </div>
 
         {/* Emergency Stop Button */}
         {secondsLeft > 0 && (
-          <div className="mt-8">
+          <div className="mt-4">
             <button
               onClick={() => setShowCancelModal(true)}
-              className="w-full bg-[#FFDAD6] hover:bg-[#FFDAD6]/80 text-[#93000A] font-extrabold text-sm h-[54px] rounded-[16px] flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-sm uppercase tracking-wide cursor-pointer"
+              className="w-full bg-[#FFDAD6] hover:bg-[#FFDAD6]/80 text-[#93000A] font-extrabold text-xs h-11 rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] shadow-xs uppercase tracking-wide cursor-pointer"
             >
-              <span className="material-symbols-outlined text-xl">stop_circle</span>
+              <span className="material-symbols-outlined text-lg">stop_circle</span>
               <span>{t.cancelSessionBtn}</span>
             </button>
-            <p className="text-center text-[11px] text-[#4F4448]/70 mt-2 font-medium">
-              Menekan tombol ini akan menghentikan alat secara darurat.
-            </p>
           </div>
         )}
       </div>
@@ -193,32 +151,32 @@ export default function LiveOngoingSessionPage() {
       {/* Confirmation Modal Popup */}
       {showCancelModal && (
         <div className="fixed inset-0 bg-[#1B1C1C]/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-[#FFDAD6] rounded-3xl p-6 sm:p-8 max-w-sm w-full space-y-5 text-center shadow-2xl animate-scale-up">
-            <div className="w-16 h-16 bg-[#FFDAD6] border-4 border-[#FFDAD6]/50 text-[#93000A] rounded-full flex items-center justify-center mx-auto shadow-md">
-              <span className="material-symbols-outlined text-3xl">warning</span>
+          <div className="bg-white border border-[#FFDAD6] rounded-3xl p-5 sm:p-7 max-w-xs w-full space-y-4 text-center shadow-2xl animate-scale-up">
+            <div className="w-14 h-14 bg-[#FFDAD6] border-4 border-[#FFDAD6]/50 text-[#93000A] rounded-full flex items-center justify-center mx-auto shadow-md">
+              <span className="material-symbols-outlined text-2xl">warning</span>
             </div>
 
-            <div className="space-y-2">
-              <h3 className="text-xl font-black text-[#1B1C1C]">{t.confirmCancelTitle}</h3>
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-[#1B1C1C]">{t.confirmCancelTitle}</h3>
               <p className="text-xs text-[#4F4448] leading-relaxed font-medium">
                 {t.confirmCancelBody}
               </p>
             </div>
 
-            <div className="space-y-2.5 pt-2">
+            <div className="space-y-2 pt-1">
               <button
                 onClick={handleConfirmCancelSession}
                 disabled={isStopping}
-                className="w-full bg-[#BA1A1A] hover:bg-[#BA1A1A]/90 text-white font-extrabold py-3.5 rounded-2xl shadow-lg shadow-[#BA1A1A]/20 flex items-center justify-center gap-2 text-xs transition-all disabled:opacity-50 cursor-pointer"
+                className="w-full bg-[#BA1A1A] hover:bg-[#BA1A1A]/90 text-white font-extrabold py-3 rounded-xl shadow-md shadow-[#BA1A1A]/20 flex items-center justify-center gap-1.5 text-xs transition-all disabled:opacity-50 cursor-pointer"
               >
-                <span className="material-symbols-outlined text-lg">power_settings_new</span>
+                <span className="material-symbols-outlined text-base">power_settings_new</span>
                 <span>{isStopping ? t.stoppingMachine : t.yesCancelBtn}</span>
               </button>
 
               <button
                 onClick={() => setShowCancelModal(false)}
                 disabled={isStopping}
-                className="w-full bg-[#F5F3F3] hover:bg-[#E9E8E8] text-[#1B1C1C] font-bold py-3.5 rounded-2xl text-xs transition-all cursor-pointer"
+                className="w-full bg-[#F5F3F3] hover:bg-[#E9E8E8] text-[#1B1C1C] font-bold py-3 rounded-xl text-xs transition-all cursor-pointer"
               >
                 <span>{t.noKeepGoingBtn}</span>
               </button>
@@ -227,7 +185,7 @@ export default function LiveOngoingSessionPage() {
         </div>
       )}
 
-      <footer className="w-full bg-white border-t border-[#EFEDED] py-4 text-center text-xs text-[#4F4448]">
+      <footer className="w-full text-center text-[10px] text-[#4F4448] py-1">
         Unit ID: <span className="font-mono text-[#1B1C1C] font-bold">{transaction?.chair_id || 'SAKURA-GI-01'}</span> • {t.brandTitle} Kiosk
       </footer>
     </main>
