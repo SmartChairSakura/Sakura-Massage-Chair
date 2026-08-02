@@ -26,9 +26,12 @@ export default function LiveOngoingSessionPage() {
     }
   }, []);
 
-  // Live session countdown timer
+  // Live session countdown timer & auto Breaker OFF on completion
   useEffect(() => {
     if (secondsLeft <= 0) {
+      // Send Breaker OFF command (0xA0 0x01 0x00 0xA1) on session completion
+      stopTokuyoChair(null).catch((err) => console.warn('Session finish Breaker OFF note:', err));
+
       const timeout = setTimeout(() => {
         sessionStorage.clear();
         router.push('/');
@@ -66,13 +69,7 @@ export default function LiveOngoingSessionPage() {
       }
 
       // 2. Send Breaker OFF command to Tokuyo PCB via USB Relay LCUS-1 (0xA0 0x01 0x00 0xA1)
-      if (typeof window !== 'undefined' && 'serial' in navigator) {
-        const ports = await navigator.serial.getPorts();
-        if (ports.length > 0) {
-          const port = ports[0];
-          await stopTokuyoChair(port); // Breaker OFF
-        }
-      }
+      await stopTokuyoChair(null);
     } catch (err) {
       console.warn('USB Relay Breaker OFF note:', err);
     } finally {
