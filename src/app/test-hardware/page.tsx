@@ -147,39 +147,39 @@ export default function TestHardwarePage() {
             </label>
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => handleTriggerPulses(4)}
+                onClick={() => handleTriggerPulses(5)}
                 disabled={isPulsing || (!port && !isAndroidKioskNative())}
                 className="bg-white hover:bg-[#F5F3F3] border-2 border-[#EFEDED] text-[#1B1C1C] p-4 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-xs disabled:opacity-40 cursor-pointer"
               >
-                <span className="text-base font-black text-[#795465]">4 Pulsa</span>
-                <span className="text-[11px] text-[#4F4448] font-semibold">4 Menit (Rp 5.000)</span>
+                <span className="text-base font-black text-[#795465]">5 Pulsa</span>
+                <span className="text-[11px] text-[#4F4448] font-semibold">5 Menit (Rp 5.000)</span>
               </button>
 
               <button
-                onClick={() => handleTriggerPulses(8)}
+                onClick={() => handleTriggerPulses(10)}
                 disabled={isPulsing || (!port && !isAndroidKioskNative())}
                 className="bg-white hover:bg-[#F5F3F3] border-2 border-[#EFEDED] text-[#1B1C1C] p-4 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-xs disabled:opacity-40 cursor-pointer"
               >
-                <span className="text-base font-black text-[#795465]">8 Pulsa</span>
-                <span className="text-[11px] text-[#4F4448] font-semibold">8 Menit (Rp 10.000)</span>
+                <span className="text-base font-black text-[#795465]">10 Pulsa</span>
+                <span className="text-[11px] text-[#4F4448] font-semibold">10 Menit (Rp 10.000)</span>
               </button>
 
               <button
-                onClick={() => handleTriggerPulses(16)}
+                onClick={() => handleTriggerPulses(20)}
                 disabled={isPulsing || (!port && !isAndroidKioskNative())}
                 className="bg-[#F8C8DC]/30 hover:bg-[#F8C8DC]/50 border-2 border-[#795465] text-[#795465] p-4 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-sm disabled:opacity-40 cursor-pointer"
               >
-                <span className="text-base font-black text-[#795465]">16 Pulsa</span>
-                <span className="text-[11px] text-[#795465] font-extrabold">16 Menit (Popular)</span>
+                <span className="text-base font-black text-[#795465]">20 Pulsa</span>
+                <span className="text-[11px] text-[#795465] font-extrabold">20 Menit (Popular)</span>
               </button>
 
               <button
-                onClick={() => handleTriggerPulses(40)}
+                onClick={() => handleTriggerPulses(50)}
                 disabled={isPulsing || (!port && !isAndroidKioskNative())}
                 className="bg-white hover:bg-[#F5F3F3] border-2 border-[#EFEDED] text-[#1B1C1C] p-4 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-1 shadow-xs disabled:opacity-40 cursor-pointer"
               >
-                <span className="text-base font-black text-[#795465]">40 Pulsa</span>
-                <span className="text-[11px] text-[#4F4448] font-semibold">40 Menit (Rp 50.000)</span>
+                <span className="text-base font-black text-[#795465]">50 Pulsa</span>
+                <span className="text-[11px] text-[#4F4448] font-semibold">50 Menit (Rp 50.000)</span>
               </button>
             </div>
           </div>

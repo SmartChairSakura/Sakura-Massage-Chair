@@ -11,8 +11,8 @@ export default function DurationSelectPage() {
   const [customer, setCustomer] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Stepper state: default 16 minutes (16 pulses)
-  const [durationMinutes, setDurationMinutes] = useState<number>(16);
+  // Stepper state: default 20 minutes (20 pulses = Rp 20.000)
+  const [durationMinutes, setDurationMinutes] = useState<number>(20);
 
   useEffect(() => {
     const data = sessionStorage.getItem('current_customer');
@@ -21,19 +21,19 @@ export default function DurationSelectPage() {
     }
   }, []);
 
-  // Conversion math: Tokuyo PCB logic (1 pulse = 1 minute)
+  // Conversion math: Tokuyo PCB logic (1 pulse = 1 minute, 5 minutes = Rp 5.000)
   const pulseCount = durationMinutes;
-  const totalAmount = (durationMinutes / 4) * 5000;
+  const totalAmount = (durationMinutes / 5) * 5000;
 
   const handleIncrement = () => {
     if (durationMinutes < 60) {
-      setDurationMinutes((prev) => prev + 4);
+      setDurationMinutes((prev) => prev + 5);
     }
   };
 
   const handleDecrement = () => {
-    if (durationMinutes > 4) {
-      setDurationMinutes((prev) => prev - 4);
+    if (durationMinutes > 5) {
+      setDurationMinutes((prev) => prev - 5);
     }
   };
 
@@ -98,7 +98,7 @@ export default function DurationSelectPage() {
             {/* Minus Button */}
             <button
               onClick={handleDecrement}
-              disabled={durationMinutes <= 4}
+              disabled={durationMinutes <= 5}
               className="w-12 h-12 rounded-full bg-white shadow-md flex items-center justify-center text-[#795465] hover:scale-105 active:scale-95 transition-transform disabled:opacity-40 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[24px]">remove</span>
