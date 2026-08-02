@@ -11,7 +11,7 @@ export default function DurationSelectPage() {
   const [customer, setCustomer] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Stepper state: default 16 minutes (4 pulses)
+  // Stepper state: default 16 minutes (16 pulses)
   const [durationMinutes, setDurationMinutes] = useState<number>(16);
 
   useEffect(() => {
@@ -21,9 +21,9 @@ export default function DurationSelectPage() {
     }
   }, []);
 
-  // Conversion math: 4 minutes = 1 pulse = Rp 5,000
-  const pulseCount = Math.max(1, Math.round(durationMinutes / 4));
-  const totalAmount = pulseCount * 5000;
+  // Conversion math: Tokuyo PCB logic (1 pulse = 1 minute)
+  const pulseCount = durationMinutes;
+  const totalAmount = (durationMinutes / 4) * 5000;
 
   const handleIncrement = () => {
     if (durationMinutes < 60) {
