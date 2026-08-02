@@ -42,35 +42,35 @@ export interface PackageOption {
   isPopular?: boolean;
 }
 
-// Tokuyo PCB Timer logic: 5 Minutes = 5 Pulses (Rp 5.000)
+// Tokuyo PCB Timer Ratio: 4 Minutes (Rp 5.000) = 5 Pulses
 export const PRD_PACKAGE_OPTIONS: PackageOption[] = [
   {
-    id: 'pkg_5m',
+    id: 'pkg_4m',
     amount: 5000,
-    durationMinutes: 5,
+    durationMinutes: 4,
     pulseCount: 5,
-    label: '5 Menit',
+    label: '4 Menit',
   },
   {
-    id: 'pkg_10m',
+    id: 'pkg_8m',
     amount: 10000,
-    durationMinutes: 10,
+    durationMinutes: 8,
     pulseCount: 10,
-    label: '10 Menit',
+    label: '8 Menit',
   },
   {
-    id: 'pkg_20m',
+    id: 'pkg_16m',
     amount: 20000,
-    durationMinutes: 20,
+    durationMinutes: 16,
     pulseCount: 20,
-    label: '20 Menit',
+    label: '16 Menit',
     isPopular: true,
   },
   {
-    id: 'pkg_50m',
+    id: 'pkg_40m',
     amount: 50000,
-    durationMinutes: 50,
+    durationMinutes: 40,
     pulseCount: 50,
-    label: '50 Menit',
+    label: '40 Menit',
   },
 ];
