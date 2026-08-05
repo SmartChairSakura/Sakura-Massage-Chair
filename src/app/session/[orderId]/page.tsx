@@ -33,9 +33,10 @@ export default function LiveOngoingSessionPage() {
       stopTokuyoChair(null).catch((err) => console.warn('Session finish Breaker OFF note:', err));
 
       const timeout = setTimeout(() => {
-        sessionStorage.clear();
-        router.push('/');
-      }, 5000);
+        sessionStorage.removeItem('current_transaction');
+        // Auto return to duration page / standby for next customer
+        router.push('/duration');
+      }, 4000);
       return () => clearTimeout(timeout);
     }
 
@@ -75,8 +76,8 @@ export default function LiveOngoingSessionPage() {
     } finally {
       setIsStopping(false);
       setShowCancelModal(false);
-      sessionStorage.clear();
-      router.push('/');
+      sessionStorage.removeItem('current_transaction');
+      router.push('/duration');
     }
   };
 

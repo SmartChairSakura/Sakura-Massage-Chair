@@ -22,35 +22,24 @@ export default function KioskHeader({
   const [dynamicLocation, setDynamicLocation] = useState<string>('Grand Indonesia');
 
   useEffect(() => {
-    if (propsChairId) {
-      setDynamicChairId(propsChairId);
-    }
-    if (propsLocationName) {
-      setDynamicLocation(propsLocationName);
-    }
-
-    if (!propsChairId || !propsLocationName) {
+    // 1. Check EDC Terminal localStorage paired chair
+    const paired = localStorage.getItem('kiosk_paired_chair');
+    if (paired) {
       try {
-        const txData = sessionStorage.getItem('current_transaction');
-        const custData = sessionStorage.getItem('current_customer');
-
-        if (txData) {
-          const tx = JSON.parse(txData);
-          if (tx.chair_id) setDynamicChairId(tx.chair_id);
-          if (tx.location_name) setDynamicLocation(tx.location_name);
-        } else if (custData) {
-          const cust = JSON.parse(custData);
-          if (cust.chair_id) setDynamicChairId(cust.chair_id);
-          if (cust.location_name) setDynamicLocation(cust.location_name);
-        }
+        const parsed = JSON.parse(paired);
+        if (parsed.id) setDynamicChairId(parsed.id);
+        if (parsed.location_name) setDynamicLocation(parsed.location_name);
       } catch (e) {
-        console.warn('Header session read note:', e);
+        console.warn('Paired chair read note:', e);
       }
+    } else {
+      if (propsChairId) setDynamicChairId(propsChairId);
+      if (propsLocationName) setDynamicLocation(propsLocationName);
     }
   }, [pathname, propsChairId, propsLocationName]);
 
-  // Hide sticky header completely on Admin Dashboard (/admin)
-  if (pathname === '/admin') {
+  // Hide sticky header completely on Admin Dashboard (/admin) or Setup page (/setup)
+  if (pathname === '/admin' || pathname === '/setup') {
     return null;
   }
 

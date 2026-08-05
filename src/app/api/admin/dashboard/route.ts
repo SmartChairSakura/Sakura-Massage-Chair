@@ -3,34 +3,60 @@ import { supabaseServer } from '@/lib/supabase-server';
 
 export async function GET(req: NextRequest) {
   try {
-    // 1. Fetch chairs fleet status
-    const { data: chairs, error: chairsError } = await supabaseServer
+    const { searchParams } = new URL(req.url);
+    const filterChairId = searchParams.get('chairId'); // Filter per chair ID
+    const filterRange = searchParams.get('range') || 'all'; // 'today', '7d', 'month', 'all'
+
+    // 1. Fetch registered chairs
+    const { data: chairs } = await supabaseServer
       .from('chairs')
       .select('*')
       .order('id', { ascending: true });
 
-    // 2. Fetch recent transactions
-    const { data: transactions, error: txError } = await supabaseServer
-      .from('transactions')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    const safeChairs = chairs || [
+    const safeChairs = chairs && chairs.length > 0 ? chairs : [
       { id: 'SAKURA-GI-01', name: 'Sakura Series #01', location_name: 'Grand Indonesia Lt 3', status: 'ONLINE', is_active: true, created_at: new Date().toISOString() },
-      { id: 'SAKURA-GI-02', name: 'Sakura Series #02', location_name: 'Grand Indonesia Lt 3', status: 'BUSY', is_active: true, created_at: new Date().toISOString() },
-      { id: 'SAKURA-CP-01', name: 'Sakura Series #03', location_name: 'Central Park Fl 1', status: 'ONLINE', is_active: true, created_at: new Date().toISOString() },
-      { id: 'SAKURA-STG-01', name: 'Sakura Staging Unit', location_name: 'Testing Environment', status: 'ONLINE', is_active: true, created_at: new Date().toISOString() },
+      { id: 'SAKURA-CP-01', name: 'Sakura Series #02', location_name: 'Central Park Fl 1', status: 'ONLINE', is_active: true, created_at: new Date().toISOString() },
+      { id: 'SAKURA-MOI-01', name: 'Sakura Series #03', location_name: 'Mall of Indonesia Lt 2', status: 'ONLINE', is_active: true, created_at: new Date().toISOString() },
     ];
 
+    // 2. Query transactions with filters
+    let txQuery = supabaseServer
+      .from('transactions')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (filterChairId && filterChairId !== 'ALL') {
+      txQuery = txQuery.eq('chair_id', filterChairId);
+    }
+
+    const now = new Date();
+    if (filterRange === 'today') {
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      txQuery = txQuery.gte('created_at', todayStart);
+    } else if (filterRange === '7d') {
+      const d7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      txQuery = txQuery.gte('created_at', d7);
+    } else if (filterRange === 'month') {
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      txQuery = txQuery.gte('created_at', monthStart);
+    }
+
+    const { data: transactions } = await txQuery.limit(100);
     const safeTransactions = transactions || [];
 
-    // 3. Compute revenue analytics
-    const totalRevenue = safeTransactions.reduce(
-      (acc, curr) =>
-        acc + (['PAID', 'ONGOING', 'COMPLETED'].includes(curr.status) ? Number(curr.amount || 0) : 0),
+    // 3. Compute revenue split & metrics
+    const validTransactions = safeTransactions.filter((tx) =>
+      ['PAID', 'ONGOING', 'COMPLETED'].includes(tx.status)
+    );
+
+    const grossRevenue = validTransactions.reduce(
+      (acc, curr) => acc + Number(curr.amount || 0),
       0
     );
+
+    const mdrFee = Math.round(grossRevenue * 0.007); // 0.7% MDR QRIS
+    const devShare = Math.round(grossRevenue * 0.05); // 5% Revenue Share Developer
+    const ownerNet = Math.round(grossRevenue * 0.943); // 94.3% Net Owner (After 5% dev & 0.7% MDR)
 
     const onlineCount = safeChairs.filter(
       (c) => c.status === 'ONLINE' || c.status === 'BUSY'
@@ -39,7 +65,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       analytics: {
-        totalRevenue,
+        grossRevenue,
+        mdrFee,
+        devShare,
+        ownerNet,
+        totalTransactions: validTransactions.length,
         onlineCount,
         totalChairs: safeChairs.length,
       },
