@@ -15,11 +15,29 @@ export default function DurationSelectPage() {
   const [durationMinutes, setDurationMinutes] = useState<number>(16);
 
   useEffect(() => {
-    const data = sessionStorage.getItem('current_customer');
-    if (data) {
-      setCustomer(JSON.parse(data));
+    // 1. Check EDC device pairing from localStorage
+    const paired = localStorage.getItem('kiosk_paired_chair');
+    if (!paired) {
+      // Force device login on root page if not paired yet
+      router.replace('/');
+      return;
     }
-  }, []);
+
+    try {
+      const chairObj = JSON.parse(paired);
+      const custObj = {
+        phone: 'GUEST',
+        email: '',
+        chair_id: chairObj.id || 'SAKURA-GI-01',
+        location_name: chairObj.location_name || 'Lokasi Kiosk',
+      };
+      setCustomer(custObj);
+      sessionStorage.setItem('current_customer', JSON.stringify(custObj));
+    } catch (e) {
+      console.warn('Paired chair read note:', e);
+      router.replace('/');
+    }
+  }, [router]);
 
   // Conversion math: Tokuyo PCB logic (4 minutes = 5 pulses = Rp 5.000)
   const pulseCount = Math.round((durationMinutes / 4) * 5);
@@ -74,11 +92,19 @@ export default function DurationSelectPage() {
     }
   };
 
+  const handleUnpairDevice = () => {
+    if (confirm('Apakah Anda ingin mengganti/logout unit kursi di EDC ini?')) {
+      localStorage.removeItem('kiosk_paired_chair');
+      sessionStorage.clear();
+      router.replace('/');
+    }
+  };
+
   return (
     <main className="w-full pt-16 bg-[#FBF9F9] min-h-screen flex flex-col items-center justify-between px-3 py-2">
       <div className="max-w-[500px] w-full bg-white rounded-3xl p-5 sm:p-7 shadow-[0_10px_35px_rgba(78,59,49,0.05)] border border-[#EFEDED] relative flex flex-col my-auto">
         
-        {/* 5-Step Progress Indicator & Title Header */}
+        {/* Progress Indicator & Unit Badge Header */}
         <div className="flex items-center justify-between mb-3 border-b border-[#EFEDED] pb-3">
           <div className="flex items-center gap-1.5">
             <div className="w-4 h-1 rounded-full bg-[#795465]/30" />
@@ -87,8 +113,9 @@ export default function DurationSelectPage() {
             <div className="w-4 h-1 rounded-full bg-[#EFEDED]" />
             <div className="w-4 h-1 rounded-full bg-[#EFEDED]" />
           </div>
-          <span className="text-[11px] text-[#795465] uppercase tracking-widest font-extrabold">
-            {t.step2Tag} • {t.selectDurationTitle}
+          <span className="text-[11px] text-[#795465] uppercase tracking-widest font-extrabold flex items-center gap-1">
+            <span className="material-symbols-outlined text-[14px]">location_on</span>
+            <span>{customer?.chair_id || 'SAKURA-GI-01'}</span>
           </span>
         </div>
 
@@ -191,18 +218,14 @@ export default function DurationSelectPage() {
             Rp {totalAmount.toLocaleString('id-ID')}
           </span>
         </button>
-
-        {/* Back Link */}
-        <button
-          onClick={() => router.back()}
-          className="mt-2 text-center text-[11px] font-semibold text-[#4F4448] hover:text-[#795465] transition-colors cursor-pointer"
-        >
-          ← {t.backToHome}
-        </button>
       </div>
 
-      <footer className="w-full text-center text-[10px] text-[#4F4448] py-1">
-        © 2026 Sakura Zen Wellness • Duration Selector
+      <footer className="w-full text-center text-[10px] text-[#4F4448] py-1 flex items-center justify-center gap-2">
+        <span>© 2026 Sakura Zen Wellness • {customer?.location_name || 'Lokasi Kiosk'}</span>
+        <span>•</span>
+        <button onClick={handleUnpairDevice} className="hover:underline font-bold text-[#795465] cursor-pointer">
+          Ganti Unit EDC
+        </button>
       </footer>
     </main>
   );
