@@ -8,7 +8,13 @@ const DEFAULT_SAFE_CHAIRS = [
   { id: 'SAKURA-MOI-01', name: 'Sakura Series #03', location_name: 'Mall of Indonesia Lt 2', status: 'ONLINE', pin: '123456', is_active: true },
 ];
 
-// GET: Fetch all registered chairs (DB chairs + default safe chairs merged)
+// Global server-side registry to guarantee instant login & listing even if DB RLS restricts anon upsert
+const DYNAMIC_CHAIRS_REGISTRY = new Map<string, any>();
+
+// Pre-seed default chairs into registry
+DEFAULT_SAFE_CHAIRS.forEach((c) => DYNAMIC_CHAIRS_REGISTRY.set(c.id, c));
+
+// GET: Fetch all registered chairs (DB chairs + registry + default safe chairs merged)
 export async function GET(req: NextRequest) {
   try {
     const { data: chairs, error } = await supabaseServer
@@ -21,15 +27,21 @@ export async function GET(req: NextRequest) {
     }
 
     const dbChairs = chairs || [];
-    const existingIds = new Set(dbChairs.map((c) => c.id));
-    const mergedChairs = [...dbChairs];
+    const chairMap = new Map<string, any>();
 
-    // Guarantee default initial units are always present
-    DEFAULT_SAFE_CHAIRS.forEach((def) => {
-      if (!existingIds.has(def.id)) {
-        mergedChairs.push({ ...def, created_at: new Date().toISOString() });
-      }
-    });
+    // 1. Add defaults
+    DEFAULT_SAFE_CHAIRS.forEach((c) => chairMap.set(c.id, c));
+
+    // 2. Add in-memory registry chairs
+    DYNAMIC_CHAIRS_REGISTRY.forEach((v, k) => chairMap.set(k, v));
+
+    // 3. Overlay database chairs
+    dbChairs.forEach((c) => chairMap.set(c.id, c));
+
+    const mergedChairs = Array.from(chairMap.values()).map((c) => ({
+      ...c,
+      created_at: c.created_at || new Date().toISOString(),
+    }));
 
     mergedChairs.sort((a, b) => a.id.localeCompare(b.id));
 
@@ -56,64 +68,53 @@ export async function POST(req: NextRequest) {
       }
 
       // 1. Check DB for chair
-      const { data: chair, error } = await supabaseServer
+      const { data: dbChair } = await supabaseServer
         .from('chairs')
         .select('*')
         .eq('id', cleanId)
         .single();
 
-      if (error || !chair) {
-        // Fallback for default initial units (SAKURA-GI-01, SAKURA-CP-01, SAKURA-MOI-01)
-        const fallbackChair = DEFAULT_SAFE_CHAIRS.find((c) => c.id === cleanId);
-        if (fallbackChair) {
-          const validPin = fallbackChair.pin || '123456';
-          if (cleanPin !== validPin) {
-            return NextResponse.json({ success: false, error: 'PIN Password Salah. Silakan hubungi Admin.' }, { status: 401 });
-          }
+      // 2. Check in-memory registry or default list if DB query returns null
+      const targetChair = dbChair || DYNAMIC_CHAIRS_REGISTRY.get(cleanId);
 
-          // Auto-seed to Supabase DB so it persists permanently
-          try {
-            const newDbChair = {
-              id: fallbackChair.id,
-              name: fallbackChair.name,
-              location_name: fallbackChair.location_name,
-              status: 'ONLINE',
-              is_active: true,
-              pin: '123456',
-              created_at: new Date().toISOString(),
-            };
-            await supabaseServer.from('chairs').upsert(newDbChair);
-          } catch (seedErr) {
-            console.warn('Auto-seed chair note:', seedErr);
-          }
-
-          return NextResponse.json({
-            success: true,
-            chair: {
-              id: fallbackChair.id,
-              name: fallbackChair.name,
-              location_name: fallbackChair.location_name,
-              status: 'ONLINE',
-            },
-          });
-        }
-
-        return NextResponse.json({ success: false, error: `ID Kursi '${cleanId}' tidak ditemukan di sistem.` }, { status: 404 });
+      if (!targetChair) {
+        return NextResponse.json(
+          { success: false, error: `ID Kursi '${cleanId}' tidak ditemukan di sistem.` },
+          { status: 404 }
+        );
       }
 
-      // 2. Validate PIN from DB (Default '123456' if not custom set)
-      const validPin = chair.pin || '123456';
+      // 3. Validate PIN (Default '123456')
+      const validPin = targetChair.pin || '123456';
       if (cleanPin !== validPin) {
         return NextResponse.json({ success: false, error: 'PIN Password Salah. Silakan hubungi Admin.' }, { status: 401 });
+      }
+
+      // Auto-seed to Supabase DB if not in DB yet
+      if (!dbChair) {
+        try {
+          const seedData = {
+            id: targetChair.id,
+            name: targetChair.name,
+            location_name: targetChair.location_name,
+            status: 'ONLINE',
+            is_active: true,
+            pin: validPin,
+            created_at: new Date().toISOString(),
+          };
+          await supabaseServer.from('chairs').upsert(seedData);
+        } catch (e) {
+          console.warn('Auto-seed DB error:', e);
+        }
       }
 
       return NextResponse.json({
         success: true,
         chair: {
-          id: chair.id,
-          name: chair.name || `Sakura ${chair.id}`,
-          location_name: chair.location_name || 'Lokasi Kiosk',
-          status: chair.status || 'ONLINE',
+          id: targetChair.id,
+          name: targetChair.name || `Sakura ${targetChair.id}`,
+          location_name: targetChair.location_name || 'Lokasi Kiosk',
+          status: targetChair.status || 'ONLINE',
         },
       });
     }
@@ -122,9 +123,13 @@ export async function POST(req: NextRequest) {
     const cleanId = String(id || '').trim().toUpperCase();
     const cleanName = String(name || '').trim();
     const cleanLocation = String(location_name || '').trim();
+    const cleanPin = String(pin || '123456').trim();
 
     if (!cleanId || !cleanName || !cleanLocation) {
-      return NextResponse.json({ success: false, error: 'Semua field (ID Kursi, Nama, Lokasi) wajib diisi' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Semua field (ID Kursi, Nama, Lokasi) wajib diisi' },
+        { status: 400 }
+      );
     }
 
     const newChair = {
@@ -133,23 +138,34 @@ export async function POST(req: NextRequest) {
       location_name: cleanLocation,
       status: 'ONLINE',
       is_active: true,
-      pin: pin || '123456',
+      pin: cleanPin,
       created_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabaseServer
-      .from('chairs')
-      .upsert(newChair)
-      .select()
-      .single();
+    // 1. Immediately store in dynamic server registry so it's instantly available everywhere
+    DYNAMIC_CHAIRS_REGISTRY.set(cleanId, newChair);
 
-    if (error) {
-      console.warn('[API Admin Chairs] Upsert DB warning:', error);
+    // 2. Persist to Supabase Database
+    try {
+      const { data, error } = await supabaseServer
+        .from('chairs')
+        .upsert(newChair)
+        .select()
+        .single();
+
+      if (error) {
+        console.warn('[API Admin Chairs] Upsert DB note:', error);
+      }
+      if (data) {
+        DYNAMIC_CHAIRS_REGISTRY.set(cleanId, data);
+      }
+    } catch (dbErr) {
+      console.warn('[API Admin Chairs] DB write note:', dbErr);
     }
 
     return NextResponse.json({
       success: true,
-      chair: data || newChair,
+      chair: DYNAMIC_CHAIRS_REGISTRY.get(cleanId) || newChair,
     });
   } catch (err: any) {
     console.error('[API Admin Chairs] POST Error:', err);

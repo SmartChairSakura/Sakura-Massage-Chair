@@ -1,23 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 
+const DEFAULT_SAFE_CHAIRS = [
+  { id: 'SAKURA-GI-01', name: 'Sakura Series #01', location_name: 'Grand Indonesia Lt 3', status: 'ONLINE', pin: '123456', is_active: true },
+  { id: 'SAKURA-CP-01', name: 'Sakura Series #02', location_name: 'Central Park Fl 1', status: 'ONLINE', pin: '123456', is_active: true },
+  { id: 'SAKURA-MOI-01', name: 'Sakura Series #03', location_name: 'Mall of Indonesia Lt 2', status: 'ONLINE', pin: '123456', is_active: true },
+];
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const filterChairId = searchParams.get('chairId'); // Filter per chair ID
     const filterRange = searchParams.get('range') || 'all'; // 'today', '7d', 'month', 'all'
 
-    // 1. Fetch registered chairs
+    // 1. Fetch registered chairs from Supabase DB
     const { data: chairs } = await supabaseServer
       .from('chairs')
       .select('*')
       .order('id', { ascending: true });
 
-    const safeChairs = chairs && chairs.length > 0 ? chairs : [
-      { id: 'SAKURA-GI-01', name: 'Sakura Series #01', location_name: 'Grand Indonesia Lt 3', status: 'ONLINE', is_active: true, created_at: new Date().toISOString() },
-      { id: 'SAKURA-CP-01', name: 'Sakura Series #02', location_name: 'Central Park Fl 1', status: 'ONLINE', is_active: true, created_at: new Date().toISOString() },
-      { id: 'SAKURA-MOI-01', name: 'Sakura Series #03', location_name: 'Mall of Indonesia Lt 2', status: 'ONLINE', is_active: true, created_at: new Date().toISOString() },
-    ];
+    const dbChairs = chairs || [];
+    const chairMap = new Map<string, any>();
+
+    // Always merge default chairs first
+    DEFAULT_SAFE_CHAIRS.forEach((c) => chairMap.set(c.id, c));
+    // Overlay database chairs
+    dbChairs.forEach((c) => chairMap.set(c.id, c));
+
+    const safeChairs = Array.from(chairMap.values());
+    safeChairs.sort((a, b) => a.id.localeCompare(b.id));
 
     // 2. Query transactions with filters
     let txQuery = supabaseServer
