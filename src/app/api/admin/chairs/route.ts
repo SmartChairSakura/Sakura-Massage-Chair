@@ -8,7 +8,7 @@ const DEFAULT_SAFE_CHAIRS = [
   { id: 'SAKURA-MOI-01', name: 'Sakura Series #03', location_name: 'Mall of Indonesia Lt 2', status: 'ONLINE', pin: '123456', is_active: true },
 ];
 
-// GET: Fetch all registered chairs
+// GET: Fetch all registered chairs (DB chairs + default safe chairs merged)
 export async function GET(req: NextRequest) {
   try {
     const { data: chairs, error } = await supabaseServer
@@ -20,9 +20,20 @@ export async function GET(req: NextRequest) {
       console.warn('[API Admin Chairs] Fetch error:', error);
     }
 
-    const safeChairs = chairs && chairs.length > 0 ? chairs : DEFAULT_SAFE_CHAIRS;
+    const dbChairs = chairs || [];
+    const existingIds = new Set(dbChairs.map((c) => c.id));
+    const mergedChairs = [...dbChairs];
 
-    return NextResponse.json({ success: true, chairs: safeChairs });
+    // Guarantee default initial units are always present
+    DEFAULT_SAFE_CHAIRS.forEach((def) => {
+      if (!existingIds.has(def.id)) {
+        mergedChairs.push({ ...def, created_at: new Date().toISOString() });
+      }
+    });
+
+    mergedChairs.sort((a, b) => a.id.localeCompare(b.id));
+
+    return NextResponse.json({ success: true, chairs: mergedChairs });
   } catch (err: any) {
     console.error('[API Admin Chairs] GET Error:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
