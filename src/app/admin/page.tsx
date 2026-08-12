@@ -17,14 +17,14 @@ import {
   CheckCircle2,
   X,
   Database,
+  AlertCircle,
 } from 'lucide-react';
 import { TOKUYO_THEME } from '@/lib/theme';
-import { supabase } from '@/lib/supabase-client';
-import { getLocalRegisteredChairs, saveLocalRegisteredChair, ChairUnit } from '@/lib/chair-registry';
 
 export default function AdminDashboardPage() {
   const [chairs, setChairs] = useState<Chair[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [dbSyncStatus, setDbSyncStatus] = useState<'unknown' | 'synced' | 'error'>('unknown');
   const [analytics, setAnalytics] = useState<{
     grossRevenue: number;
     mdrFee: number;
@@ -58,45 +58,16 @@ export default function AdminDashboardPage() {
   const [modalMsg, setModalMsg] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  // ─────────────────────────────────────────────────────────────
+  // CORE FIX: Fetch ALL data via server-side API route only.
+  // The API runs on Vercel serverless → CAN reach Supabase DB.
+  // Browser-side Supabase client SDK is NOT used for data reads.
+  // This guarantees identical data across all browsers.
+  // ─────────────────────────────────────────────────────────────
   const fetchDashboardData = async () => {
     setIsLoading(true);
-    const localChairs = getLocalRegisteredChairs();
 
     try {
-      // 1. Direct Supabase DB Query for Chairs
-      const { data: dbChairs, error: dbError } = await supabase
-        .from('chairs')
-        .select('*')
-        .order('id', { ascending: true });
-
-      let unifiedChairs: any[] = [];
-
-      if (!dbError && dbChairs && dbChairs.length > 0) {
-        // Single Source of Truth: Use DB chairs directly so all browsers see identical data!
-        unifiedChairs = dbChairs.map((c: any) => ({
-          ...c,
-          pin: c.pin || '123456',
-          status: c.status || 'ONLINE',
-        }));
-
-        // Sync DB chairs into local browser storage for offline EDC fallback
-        unifiedChairs.forEach((c) => {
-          saveLocalRegisteredChair({
-            id: c.id,
-            name: c.name,
-            location_name: c.location_name,
-            status: c.status || 'ONLINE',
-            is_active: c.is_active ?? true,
-            pin: c.pin || '123456',
-            created_at: c.created_at,
-          });
-        });
-      } else {
-        // Fallback to local chairs if DB is unreachable
-        unifiedChairs = localChairs;
-      }
-
-      // 2. Fetch Transactions & Analytics from API
       const query = new URLSearchParams();
       if (selectedChairFilter !== 'ALL') query.set('chairId', selectedChairFilter);
       if (selectedRangeFilter !== 'all') query.set('range', selectedRangeFilter);
@@ -104,28 +75,33 @@ export default function AdminDashboardPage() {
       const res = await fetch(`/api/admin/dashboard?${query.toString()}`);
       const data = await res.json();
 
-      unifiedChairs.sort((a, b) => a.id.localeCompare(b.id));
-      setChairs(unifiedChairs);
-
       if (data.success) {
+        const serverChairs = (data.chairs || []).map((c: any) => ({
+          ...c,
+          pin: c.pin || '123456',
+          status: c.status || 'ONLINE',
+        }));
+        serverChairs.sort((a: any, b: any) => a.id.localeCompare(b.id));
+
+        setChairs(serverChairs);
         setTransactions(data.transactions || []);
+        setDbSyncStatus('synced');
         setAnalytics({
-          ...(data.analytics || {
-            grossRevenue: 0,
-            mdrFee: 0,
-            devShare: 0,
-            ownerNet: 0,
-            totalTransactions: 0,
-            onlineCount: unifiedChairs.length,
-            totalChairs: unifiedChairs.length,
-          }),
-          totalChairs: unifiedChairs.length,
-          onlineCount: unifiedChairs.length,
+          grossRevenue: data.analytics?.grossRevenue || 0,
+          mdrFee: data.analytics?.mdrFee || 0,
+          devShare: data.analytics?.devShare || 0,
+          ownerNet: data.analytics?.ownerNet || 0,
+          totalTransactions: data.analytics?.totalTransactions || 0,
+          onlineCount: data.analytics?.onlineCount || serverChairs.length,
+          totalChairs: data.analytics?.totalChairs || serverChairs.length,
         });
+      } else {
+        console.warn('[Admin FE] Dashboard API returned error:', data);
+        setDbSyncStatus('error');
       }
     } catch (err) {
-      console.warn('Dashboard fetch fallback to local:', err);
-      setChairs(localChairs);
+      console.error('[Admin FE] Dashboard fetch error:', err);
+      setDbSyncStatus('error');
     } finally {
       setIsLoading(false);
     }
@@ -133,29 +109,13 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     fetchDashboardData();
-
-    // Supabase Realtime live update channel
-    const chairsChannel = supabase
-      .channel('admin-chairs-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'chairs' }, (payload) => {
-        console.info('[Admin Realtime] Postgres Chairs Change Event:', payload);
-        fetchDashboardData();
-      })
-      .subscribe();
-
-    const txChannel = supabase
-      .channel('admin-transactions-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => {
-        fetchDashboardData();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(chairsChannel);
-      supabase.removeChannel(txChannel);
-    };
   }, [selectedChairFilter, selectedRangeFilter]);
 
+  // ─────────────────────────────────────────────────────────────
+  // CORE FIX: Add chair via server API route ONLY.
+  // Server-side supabaseServer writes directly to PostgreSQL.
+  // No more browser-side Supabase SDK writes.
+  // ─────────────────────────────────────────────────────────────
   const handleAddChairSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanId = newChairId.trim().toUpperCase();
@@ -171,20 +131,6 @@ export default function AdminDashboardPage() {
     setIsSaving(true);
     setModalMsg('');
 
-    const newUnit: ChairUnit = {
-      id: cleanId,
-      name: cleanName,
-      location_name: cleanLocation,
-      status: 'ONLINE',
-      is_active: true,
-      pin: cleanPin,
-      created_at: new Date().toISOString(),
-    };
-
-    // 1. Save locally
-    saveLocalRegisteredChair(newUnit);
-
-    // 2. Server API Route Upsert (Uses supabaseServer with WebSocket polyfill)
     try {
       const res = await fetch('/api/admin/chairs', {
         method: 'POST',
@@ -198,22 +144,37 @@ export default function AdminDashboardPage() {
       });
 
       const resData = await res.json();
-      if (!resData.success) {
-        setModalMsg(`Peringatan Sync DB: ${resData.error || 'Server error'}`);
+
+      if (resData.success) {
+        if (!resData.db_synced) {
+          setModalMsg(`Unit tersimpan di server. DB sync pending: ${resData.db_error || 'retrying...'}`);
+          // Keep modal open briefly to show warning
+          setTimeout(() => {
+            setShowAddModal(false);
+            setModalMsg('');
+          }, 2000);
+        } else {
+          setShowAddModal(false);
+        }
+      } else {
+        setModalMsg(`Gagal menyimpan: ${resData.error || 'Unknown error'}`);
+        setIsSaving(false);
+        return;
       }
     } catch (err: any) {
-      console.warn('API background sync note:', err);
+      setModalMsg(`Network error: ${err?.message || 'Server unreachable'}`);
+      setIsSaving(false);
+      return;
     }
 
-    // Reset Modal Form & Close
-    setShowAddModal(false);
+    // Reset form
     setNewChairId('');
     setNewChairName('');
     setNewLocationName('');
     setNewPin('123456');
     setIsSaving(false);
 
-    // Refresh dashboard to display unified DB chairs
+    // Refresh from server to get unified truth
     fetchDashboardData();
   };
 
@@ -299,7 +260,6 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-          {/* Branch / Chair Filter Dropdown */}
           <div className="flex items-center gap-1.5 text-xs">
             <span className="text-[#4F4448] font-medium">Cabang Unit:</span>
             <select
@@ -316,7 +276,6 @@ export default function AdminDashboardPage() {
             </select>
           </div>
 
-          {/* Date Range Filter Buttons */}
           <div className="flex items-center bg-[#F5F3F3] p-1 rounded-xl border border-[#EFEDED] text-xs font-bold">
             <button
               onClick={() => setSelectedRangeFilter('today')}
@@ -356,7 +315,6 @@ export default function AdminDashboardPage() {
 
       {/* Metric Analytics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        {/* Gross Revenue */}
         <div className="bg-white border border-[#EFEDED] rounded-3xl p-5 space-y-2 shadow-xs">
           <div className="flex justify-between items-center text-[#4F4448] text-xs font-extrabold uppercase tracking-wider">
             <span>Total Omset Kotor</span>
@@ -370,7 +328,6 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Owner Net Share (94.3%) */}
         <div className="bg-[#CEE5DA]/30 border border-[#CEE5DA] rounded-3xl p-5 space-y-2 shadow-xs">
           <div className="flex justify-between items-center text-[#4E635A] text-xs font-extrabold uppercase tracking-wider">
             <span>Hak Owner (95%)</span>
@@ -384,7 +341,6 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Developer Share (5%) */}
         <div className="bg-[#F8C8DC]/30 border border-[#F8C8DC] rounded-3xl p-5 space-y-2 shadow-xs">
           <div className="flex justify-between items-center text-[#795465] text-xs font-extrabold uppercase tracking-wider">
             <span>Bagi Hasil System (5%)</span>
@@ -398,14 +354,13 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Fleet Devices Status */}
         <div className="bg-white border border-[#EFEDED] rounded-3xl p-5 space-y-2 shadow-xs">
           <div className="flex justify-between items-center text-[#4F4448] text-xs font-extrabold uppercase tracking-wider">
             <span>Status Armada Kursi</span>
             <Activity className="w-5 h-5 text-[#795465]" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-[#1B1C1C] font-mono">
-            {chairs.length} / {chairs.length} <span className="text-xs font-bold text-[#4E635A]">ONLINE</span>
+            {analytics.onlineCount} / {analytics.totalChairs} <span className="text-xs font-bold text-[#4E635A]">ONLINE</span>
           </div>
           <div className="text-[11px] text-[#4F4448] font-medium">
             Terhubung di Supabase Realtime
@@ -439,7 +394,7 @@ export default function AdminDashboardPage() {
               {chairs.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-6 text-center text-[#4F4448] font-medium">
-                    Belum ada unit kursi terdaftar.
+                    {isLoading ? 'Memuat data dari server...' : 'Belum ada unit kursi terdaftar.'}
                   </td>
                 </tr>
               ) : (
@@ -461,10 +416,17 @@ export default function AdminDashboardPage() {
                     </td>
                     <td className="p-3 font-mono font-bold text-[#4F4448]">{chair.pin || '123456'}</td>
                     <td className="p-3">
-                      <span className="bg-[#CEE5DA] text-[#4E635A] px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 w-max" title="Ter-synchronize di Supabase Database">
-                        <Database className="w-3 h-3" />
-                        <span>Synced</span>
-                      </span>
+                      {dbSyncStatus === 'synced' ? (
+                        <span className="bg-[#CEE5DA] text-[#4E635A] px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 w-max">
+                          <Database className="w-3 h-3" />
+                          <span>Synced</span>
+                        </span>
+                      ) : (
+                        <span className="bg-[#FFDAD6] text-[#93000A] px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 w-max">
+                          <AlertCircle className="w-3 h-3" />
+                          <span>Pending</span>
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))
