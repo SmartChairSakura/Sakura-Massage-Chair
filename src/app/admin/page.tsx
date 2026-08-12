@@ -74,16 +74,49 @@ export default function AdminDashboardPage() {
         console.warn('[Admin FE] Direct Supabase DB fetch note:', dbError.message);
       }
 
+      const fetchedDbChairs = dbChairs || [];
+      const dbChairIds = new Set(fetchedDbChairs.map((c) => c.id.toUpperCase()));
+
+      // 2. Auto-Sync Backfill: If any local chair (e.g. SAKURA-LMN-01, SAKURA-TEST-01) is missing from DB, upsert it now!
+      const missingLocalChairs = localChairs.filter((lc) => !dbChairIds.has(lc.id.toUpperCase()));
+      if (missingLocalChairs.length > 0) {
+        console.info(`[Admin FE Auto-Sync] Backfilling ${missingLocalChairs.length} local chairs to Supabase DB:`, missingLocalChairs);
+        for (const missingChair of missingLocalChairs) {
+          try {
+            await supabase.from('chairs').upsert({
+              id: missingChair.id,
+              name: missingChair.name,
+              location_name: missingChair.location_name,
+              status: missingChair.status || 'ONLINE',
+              is_active: true,
+              pin: missingChair.pin || '123456',
+              created_at: missingChair.created_at || new Date().toISOString(),
+            });
+          } catch (syncErr) {
+            console.warn('[Admin FE Auto-Sync] Backfill note:', syncErr);
+          }
+        }
+
+        // Re-fetch after backfill so DB state is 100% updated
+        const { data: refreshedDbChairs } = await supabase
+          .from('chairs')
+          .select('*')
+          .order('id', { ascending: true });
+        if (refreshedDbChairs && refreshedDbChairs.length > 0) {
+          fetchedDbChairs.length = 0;
+          fetchedDbChairs.push(...refreshedDbChairs);
+        }
+      }
+
       // Merge Supabase DB chairs + Local Chairs
       const chairMap = new Map<string, any>();
       localChairs.forEach((c) => chairMap.set(c.id, c));
-      (dbChairs || []).forEach((c: any) => {
+      fetchedDbChairs.forEach((c: any) => {
         chairMap.set(c.id, {
           ...c,
           pin: c.pin || '123456',
           status: c.status || 'ONLINE',
         });
-        // Save DB chairs into local storage so EDC terminals access them
         saveLocalRegisteredChair({
           id: c.id,
           name: c.name,
@@ -95,7 +128,7 @@ export default function AdminDashboardPage() {
         });
       });
 
-      // 2. Fetch Transactions & Analytics from API
+      // 3. Fetch Transactions & Analytics from API
       const query = new URLSearchParams();
       if (selectedChairFilter !== 'ALL') query.set('chairId', selectedChairFilter);
       if (selectedRangeFilter !== 'all') query.set('range', selectedRangeFilter);
@@ -198,7 +231,7 @@ export default function AdminDashboardPage() {
     setNewLocationName('');
     setNewPin('123456');
 
-    // 2. Direct Supabase DB Upsert from Browser SDK (Guarantees physical DB insert)
+    // 2. Direct Supabase DB Upsert from Browser SDK
     try {
       const { data: dbData, error: dbErr } = await supabase
         .from('chairs')
