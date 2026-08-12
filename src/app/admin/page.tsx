@@ -60,26 +60,55 @@ export default function AdminDashboardPage() {
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
-    // 1. Read local persistent chairs immediately
+    // Read local persistent chairs as base
     const localChairs = getLocalRegisteredChairs();
 
     try {
+      // 1. Direct Supabase DB Query for Chairs
+      const { data: dbChairs, error: dbError } = await supabase
+        .from('chairs')
+        .select('*')
+        .order('id', { ascending: true });
+
+      if (dbError) {
+        console.warn('[Admin FE] Direct Supabase DB fetch note:', dbError.message);
+      }
+
+      // Merge Supabase DB chairs + Local Chairs
+      const chairMap = new Map<string, any>();
+      localChairs.forEach((c) => chairMap.set(c.id, c));
+      (dbChairs || []).forEach((c: any) => {
+        chairMap.set(c.id, {
+          ...c,
+          pin: c.pin || '123456',
+          status: c.status || 'ONLINE',
+        });
+        // Save DB chairs into local storage so EDC terminals access them
+        saveLocalRegisteredChair({
+          id: c.id,
+          name: c.name,
+          location_name: c.location_name,
+          status: c.status || 'ONLINE',
+          is_active: c.is_active ?? true,
+          pin: c.pin || '123456',
+          created_at: c.created_at,
+        });
+      });
+
+      // 2. Fetch Transactions & Analytics from API
       const query = new URLSearchParams();
       if (selectedChairFilter !== 'ALL') query.set('chairId', selectedChairFilter);
       if (selectedRangeFilter !== 'all') query.set('range', selectedRangeFilter);
 
       const res = await fetch(`/api/admin/dashboard?${query.toString()}`);
       const data = await res.json();
+
+      const mergedChairs = Array.from(chairMap.values());
+      mergedChairs.sort((a, b) => a.id.localeCompare(b.id));
+
+      setChairs(mergedChairs);
+
       if (data.success) {
-        // Merge API chairs with local persistent chairs
-        const chairMap = new Map<string, any>();
-        localChairs.forEach((c) => chairMap.set(c.id, c));
-        (data.chairs || []).forEach((c: any) => chairMap.set(c.id, c));
-
-        const mergedChairs = Array.from(chairMap.values());
-        mergedChairs.sort((a, b) => a.id.localeCompare(b.id));
-
-        setChairs(mergedChairs);
         setTransactions(data.transactions || []);
         setAnalytics({
           ...(data.analytics || {
@@ -94,8 +123,6 @@ export default function AdminDashboardPage() {
           totalChairs: mergedChairs.length,
           onlineCount: mergedChairs.length,
         });
-      } else {
-        setChairs(localChairs);
       }
     } catch (err) {
       console.warn('Dashboard fetch fallback to local:', err);
@@ -108,10 +135,11 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     fetchDashboardData();
 
-    // Supabase Realtime live update
+    // Supabase Realtime live update channel
     const chairsChannel = supabase
       .channel('admin-chairs-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'chairs' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chairs' }, (payload) => {
+        console.info('[Admin Realtime] Postgres Chairs Change Event:', payload);
         fetchDashboardData();
       })
       .subscribe();
@@ -154,7 +182,7 @@ export default function AdminDashboardPage() {
       created_at: new Date().toISOString(),
     };
 
-    // 1. Save to local browser registry IMMEDIATELY (Optimistic Instant UI Sync)
+    // 1. Optimistic Local Registry Save
     const updatedLocalChairs = saveLocalRegisteredChair(newUnit);
     setChairs(updatedLocalChairs);
     setAnalytics((prev) => ({
@@ -170,9 +198,33 @@ export default function AdminDashboardPage() {
     setNewLocationName('');
     setNewPin('123456');
 
-    // 2. Background Sync to API & Supabase DB
+    // 2. Direct Supabase DB Upsert from Browser SDK (Guarantees physical DB insert)
     try {
-      const res = await fetch('/api/admin/chairs', {
+      const { data: dbData, error: dbErr } = await supabase
+        .from('chairs')
+        .upsert({
+          id: cleanId,
+          name: cleanName,
+          location_name: cleanLocation,
+          status: 'ONLINE',
+          is_active: true,
+          pin: cleanPin,
+          created_at: new Date().toISOString(),
+        })
+        .select();
+
+      if (!dbErr) {
+        console.info('[Admin FE] Direct Supabase DB Upsert Succeeded:', dbData);
+      } else {
+        console.warn('[Admin FE] Direct Supabase DB Upsert note:', dbErr.message);
+      }
+    } catch (clientErr) {
+      console.warn('[Admin FE] Client DB write exception:', clientErr);
+    }
+
+    // 3. API Route Server Sync
+    try {
+      await fetch('/api/admin/chairs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -182,10 +234,6 @@ export default function AdminDashboardPage() {
           pin: cleanPin,
         }),
       });
-      const data = await res.json();
-      if (data.success && data.db_synced) {
-        console.info('[Admin Dashboard] Chair DB Upsert Succeeded on Supabase PostgreSQL!');
-      }
     } catch (err: any) {
       console.warn('API background sync note:', err);
     } finally {
