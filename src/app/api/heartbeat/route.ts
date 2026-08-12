@@ -1,6 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 
+// GET: Heartbeat Ping & Supabase Database Keep-Alive (Prevents Supabase Free Tier Auto-Pause)
+export async function GET(req: NextRequest) {
+  try {
+    const startTime = Date.now();
+    const { data, error } = await supabaseServer
+      .from('chairs')
+      .select('id')
+      .limit(1);
+
+    const isConnected = !error;
+    const durationMs = Date.now() - startTime;
+
+    return NextResponse.json({
+      status: isConnected ? 'healthy' : 'degraded',
+      timestamp: new Date().toISOString(),
+      supabase_connected: isConnected,
+      supabase_error: error ? error.message : null,
+      response_time_ms: durationMs,
+      message: 'Sakura Zen Kiosk Keep-Alive Heartbeat Active',
+    });
+  } catch (err: any) {
+    console.error('[Heartbeat GET] Error:', err);
+    return NextResponse.json(
+      { status: 'unhealthy', error: err?.message || 'Server Exception' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST: EDC Terminal Hardware Heartbeat Status
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
