@@ -5,10 +5,11 @@ export interface Chair {
   name: string; // e.g. 'Tokuyo Deluxe #01'
   location_name: string; // e.g. 'Grand Indonesia Lt 3'
   status: ChairStatus;
+  pin?: string;
   last_heartbeat?: string;
   firmware_version?: string;
   is_active: boolean;
-  created_at: string;
+  created_at?: string;
 }
 
 export type TransactionStatus = 'PENDING' | 'PAID' | 'ONGOING' | 'COMPLETED' | 'FAILED' | 'EXPIRED' | 'CANCELLED';

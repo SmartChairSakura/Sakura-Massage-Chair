@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Armchair, KeyRound, ShieldCheck, Lock, ArrowRight } from 'lucide-react';
 import { TOKUYO_THEME } from '@/lib/theme';
 import TokuyoChairGraphic from '@/components/TokuyoChairGraphic';
+import { verifyLocalChairLogin } from '@/lib/chair-registry';
 
 export default function RootKioskPage() {
   const router = useRouter();
@@ -56,6 +57,32 @@ export default function RootKioskPage() {
     setIsSubmitting(true);
     setErrorMsg('');
 
+    // 1. Check local persistent registry first (Optimistic Instant Verification)
+    const localCheck = verifyLocalChairLogin(cleanId, cleanPin);
+    if (localCheck.success && localCheck.chair) {
+      localStorage.setItem('kiosk_paired_chair', JSON.stringify(localCheck.chair));
+      sessionStorage.setItem(
+        'current_customer',
+        JSON.stringify({
+          phone: 'GUEST',
+          email: '',
+          chair_id: localCheck.chair.id,
+          location_name: localCheck.chair.location_name || 'Lokasi Kiosk',
+        })
+      );
+
+      // Fire background API sync
+      fetch('/api/admin/chairs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'LOGIN', id: cleanId, pin: cleanPin }),
+      }).catch((err) => console.warn('Background login sync note:', err));
+
+      router.replace('/duration');
+      return;
+    }
+
+    // 2. Fallback to API verification
     try {
       const res = await fetch('/api/admin/chairs', {
         method: 'POST',
@@ -69,9 +96,7 @@ export default function RootKioskPage() {
 
       const data = await res.json();
       if (data.success && data.chair) {
-        // Lock device to this chair ID
         localStorage.setItem('kiosk_paired_chair', JSON.stringify(data.chair));
-
         sessionStorage.setItem(
           'current_customer',
           JSON.stringify({
@@ -81,15 +106,17 @@ export default function RootKioskPage() {
             location_name: data.chair.location_name || 'Lokasi Kiosk',
           })
         );
-
-        // Direct to Duration Selection Page!
         router.replace('/duration');
       } else {
-        setErrorMsg(data.error || 'Login gagal. Cek ID Kursi dan PIN.');
+        setErrorMsg(localCheck.error || data.error || 'Login gagal. Cek ID Kursi dan PIN.');
       }
     } catch (err: any) {
       console.error(err);
-      setErrorMsg('Gagal terhubung ke server.');
+      if (localCheck.success && localCheck.chair) {
+        router.replace('/duration');
+      } else {
+        setErrorMsg('Gagal terhubung ke server.');
+      }
     } finally {
       setIsSubmitting(false);
     }

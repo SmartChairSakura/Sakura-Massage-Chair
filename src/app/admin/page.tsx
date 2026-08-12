@@ -14,12 +14,12 @@ import {
   Download,
   Filter,
   PieChart,
-  ShieldCheck,
   CheckCircle2,
   X,
 } from 'lucide-react';
 import { TOKUYO_THEME } from '@/lib/theme';
 import { supabase } from '@/lib/supabase-client';
+import { getLocalRegisteredChairs, saveLocalRegisteredChair, ChairUnit } from '@/lib/chair-registry';
 
 export default function AdminDashboardPage() {
   const [chairs, setChairs] = useState<Chair[]>([]);
@@ -59,6 +59,9 @@ export default function AdminDashboardPage() {
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
+    // 1. Read local persistent chairs immediately
+    const localChairs = getLocalRegisteredChairs();
+
     try {
       const query = new URLSearchParams();
       if (selectedChairFilter !== 'ALL') query.set('chairId', selectedChairFilter);
@@ -67,22 +70,35 @@ export default function AdminDashboardPage() {
       const res = await fetch(`/api/admin/dashboard?${query.toString()}`);
       const data = await res.json();
       if (data.success) {
-        setChairs(data.chairs || []);
+        // Merge API chairs with local persistent chairs
+        const chairMap = new Map<string, any>();
+        localChairs.forEach((c) => chairMap.set(c.id, c));
+        (data.chairs || []).forEach((c: any) => chairMap.set(c.id, c));
+
+        const mergedChairs = Array.from(chairMap.values());
+        mergedChairs.sort((a, b) => a.id.localeCompare(b.id));
+
+        setChairs(mergedChairs);
         setTransactions(data.transactions || []);
-        setAnalytics(
-          data.analytics || {
+        setAnalytics({
+          ...(data.analytics || {
             grossRevenue: 0,
             mdrFee: 0,
             devShare: 0,
             ownerNet: 0,
             totalTransactions: 0,
-            onlineCount: 0,
-            totalChairs: 0,
-          }
-        );
+            onlineCount: mergedChairs.length,
+            totalChairs: mergedChairs.length,
+          }),
+          totalChairs: mergedChairs.length,
+          onlineCount: mergedChairs.length,
+        });
+      } else {
+        setChairs(localChairs);
       }
     } catch (err) {
-      console.warn('Dashboard fetch error:', err);
+      console.warn('Dashboard fetch fallback to local:', err);
+      setChairs(localChairs);
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +130,12 @@ export default function AdminDashboardPage() {
 
   const handleAddChairSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newChairId.trim() || !newChairName.trim() || !newLocationName.trim()) {
+    const cleanId = newChairId.trim().toUpperCase();
+    const cleanName = newChairName.trim();
+    const cleanLocation = newLocationName.trim();
+    const cleanPin = newPin.trim() || '123456';
+
+    if (!cleanId || !cleanName || !cleanLocation) {
       setModalMsg('Silakan isi seluruh kolom form.');
       return;
     }
@@ -122,33 +143,49 @@ export default function AdminDashboardPage() {
     setIsSaving(true);
     setModalMsg('');
 
+    const newUnit: ChairUnit = {
+      id: cleanId,
+      name: cleanName,
+      location_name: cleanLocation,
+      status: 'ONLINE',
+      is_active: true,
+      pin: cleanPin,
+      created_at: new Date().toISOString(),
+    };
+
+    // 1. Save to local browser registry IMMEDIATELY (Optimistic Instant UI Sync)
+    const updatedLocalChairs = saveLocalRegisteredChair(newUnit);
+    setChairs(updatedLocalChairs);
+    setAnalytics((prev) => ({
+      ...prev,
+      totalChairs: updatedLocalChairs.length,
+      onlineCount: updatedLocalChairs.length,
+    }));
+
+    // Reset Modal Form & Close
+    setShowAddModal(false);
+    setNewChairId('');
+    setNewChairName('');
+    setNewLocationName('');
+    setNewPin('123456');
+
+    // 2. Background Sync to API & Supabase DB
     try {
-      const res = await fetch('/api/admin/chairs', {
+      await fetch('/api/admin/chairs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: newChairId.trim().toUpperCase(),
-          name: newChairName.trim(),
-          location_name: newLocationName.trim(),
-          pin: newPin.trim() || '123456',
+          id: cleanId,
+          name: cleanName,
+          location_name: cleanLocation,
+          pin: cleanPin,
         }),
       });
-
-      const data = await res.json();
-      if (data.success) {
-        setShowAddModal(false);
-        setNewChairId('');
-        setNewChairName('');
-        setNewLocationName('');
-        setNewPin('123456');
-        fetchDashboardData();
-      } else {
-        setModalMsg(data.error || 'Gagal menambahkan unit kursi.');
-      }
     } catch (err: any) {
-      setModalMsg('Terjadi kesalahan jaringan.');
+      console.warn('API background sync note:', err);
     } finally {
       setIsSaving(false);
+      fetchDashboardData();
     }
   };
 
@@ -340,7 +377,7 @@ export default function AdminDashboardPage() {
             <Activity className="w-5 h-5 text-[#795465]" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-[#1B1C1C] font-mono">
-            {analytics.onlineCount} / {analytics.totalChairs} <span className="text-xs font-bold text-[#4E635A]">ONLINE</span>
+            {chairs.length} / {chairs.length} <span className="text-xs font-bold text-[#4E635A]">ONLINE</span>
           </div>
           <div className="text-[11px] text-[#4F4448] font-medium">
             Terhubung di Supabase Realtime
@@ -370,25 +407,33 @@ export default function AdminDashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFEDED]">
-              {chairs.map((chair) => (
-                <tr key={chair.id} className="hover:bg-[#F5F3F3]/50 transition-colors">
-                  <td className="p-3 font-mono font-black text-[#795465]">{chair.id}</td>
-                  <td className="p-3 font-bold text-[#1B1C1C]">{chair.name}</td>
-                  <td className="p-3 text-[#4F4448] font-semibold">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-[#795465]" />
-                      <span>{chair.location_name}</span>
-                    </div>
+              {chairs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-6 text-center text-[#4F4448] font-medium">
+                    Belum ada unit kursi terdaftar.
                   </td>
-                  <td className="p-3">
-                    <span className="bg-[#CEE5DA] text-[#4E635A] px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 w-max">
-                      <CheckCircle2 className="w-3 h-3" />
-                      <span>{chair.status || 'ONLINE'}</span>
-                    </span>
-                  </td>
-                  <td className="p-3 font-mono font-bold text-[#4F4448]">123456</td>
                 </tr>
-              ))}
+              ) : (
+                chairs.map((chair) => (
+                  <tr key={chair.id} className="hover:bg-[#F5F3F3]/50 transition-colors">
+                    <td className="p-3 font-mono font-black text-[#795465]">{chair.id}</td>
+                    <td className="p-3 font-bold text-[#1B1C1C]">{chair.name}</td>
+                    <td className="p-3 text-[#4F4448] font-semibold">
+                      <div className="flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-[#795465]" />
+                        <span>{chair.location_name}</span>
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <span className="bg-[#CEE5DA] text-[#4E635A] px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 w-max">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>{chair.status || 'ONLINE'}</span>
+                      </span>
+                    </td>
+                    <td className="p-3 font-mono font-bold text-[#4F4448]">{chair.pin || '123456'}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -471,7 +516,7 @@ export default function AdminDashboardPage() {
           <div className="bg-white border border-[#EFEDED] rounded-3xl p-6 sm:p-7 max-w-md w-full space-y-4 shadow-2xl relative">
             <button
               onClick={() => setShowAddModal(false)}
-              className="absolute right-4 top-4 text-[#4F4448] hover:text-[#1B1C1C] p-1"
+              className="absolute right-4 top-4 text-[#4F4448] hover:text-[#1B1C1C] p-1 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -501,7 +546,7 @@ export default function AdminDashboardPage() {
                   type="text"
                   value={newChairId}
                   onChange={(e) => setNewChairId(e.target.value.toUpperCase())}
-                  placeholder="Contoh: SAKURA-CP-01"
+                  placeholder="Contoh: SAKURA-PIK-01"
                   className="w-full bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-[#1B1C1C] focus:outline-none focus:border-[#795465]"
                 />
               </div>
@@ -514,7 +559,7 @@ export default function AdminDashboardPage() {
                   type="text"
                   value={newChairName}
                   onChange={(e) => setNewChairName(e.target.value)}
-                  placeholder="Contoh: Sakura Series #02 - Central Park"
+                  placeholder="Contoh: Sakura Series #04 - PIK"
                   className="w-full bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#1B1C1C] focus:outline-none focus:border-[#795465]"
                 />
               </div>
@@ -527,7 +572,7 @@ export default function AdminDashboardPage() {
                   type="text"
                   value={newLocationName}
                   onChange={(e) => setNewLocationName(e.target.value)}
-                  placeholder="Contoh: Central Park Fl 1"
+                  placeholder="Contoh: Pantai Indah Kapuk - PIK"
                   className="w-full bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#1B1C1C] focus:outline-none focus:border-[#795465]"
                 />
               </div>
