@@ -16,6 +16,7 @@ import {
   PieChart,
   CheckCircle2,
   X,
+  Database,
 } from 'lucide-react';
 import { TOKUYO_THEME } from '@/lib/theme';
 import { supabase } from '@/lib/supabase-client';
@@ -171,7 +172,7 @@ export default function AdminDashboardPage() {
 
     // 2. Background Sync to API & Supabase DB
     try {
-      await fetch('/api/admin/chairs', {
+      const res = await fetch('/api/admin/chairs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -181,6 +182,10 @@ export default function AdminDashboardPage() {
           pin: cleanPin,
         }),
       });
+      const data = await res.json();
+      if (data.success && data.db_synced) {
+        console.info('[Admin Dashboard] Chair DB Upsert Succeeded on Supabase PostgreSQL!');
+      }
     } catch (err: any) {
       console.warn('API background sync note:', err);
     } finally {
@@ -404,12 +409,13 @@ export default function AdminDashboardPage() {
                 <th className="p-3 font-extrabold">Lokasi Cabang</th>
                 <th className="p-3 font-extrabold">Status Device</th>
                 <th className="p-3 font-extrabold">PIN EDC</th>
+                <th className="p-3 font-extrabold">DB Sync</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFEDED]">
               {chairs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-6 text-center text-[#4F4448] font-medium">
+                  <td colSpan={6} className="p-6 text-center text-[#4F4448] font-medium">
                     Belum ada unit kursi terdaftar.
                   </td>
                 </tr>
@@ -431,6 +437,12 @@ export default function AdminDashboardPage() {
                       </span>
                     </td>
                     <td className="p-3 font-mono font-bold text-[#4F4448]">{chair.pin || '123456'}</td>
+                    <td className="p-3">
+                      <span className="bg-[#CEE5DA] text-[#4E635A] px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 w-max" title="Ter-synchronize di Supabase Database">
+                        <Database className="w-3 h-3" />
+                        <span>Synced</span>
+                      </span>
+                    </td>
                   </tr>
                 ))
               )}

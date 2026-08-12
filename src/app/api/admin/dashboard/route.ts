@@ -5,6 +5,8 @@ const DEFAULT_SAFE_CHAIRS = [
   { id: 'SAKURA-GI-01', name: 'Sakura Series #01', location_name: 'Grand Indonesia Lt 3', status: 'ONLINE', pin: '123456', is_active: true },
   { id: 'SAKURA-CP-01', name: 'Sakura Series #02', location_name: 'Central Park Fl 1', status: 'ONLINE', pin: '123456', is_active: true },
   { id: 'SAKURA-MOI-01', name: 'Sakura Series #03', location_name: 'Mall of Indonesia Lt 2', status: 'ONLINE', pin: '123456', is_active: true },
+  { id: 'SAKURA-PIK-01', name: 'Sakura Series #04 - PIK', location_name: 'Pantai Indah Kapuk', status: 'ONLINE', pin: '123456', is_active: true },
+  { id: 'SAKURA-LVB-01', name: 'Stagging Unit', location_name: 'Living Mall Bekasi', status: 'ONLINE', pin: '123456', is_active: true },
 ];
 
 export async function GET(req: NextRequest) {
@@ -22,10 +24,16 @@ export async function GET(req: NextRequest) {
     const dbChairs = chairs || [];
     const chairMap = new Map<string, any>();
 
-    // Always merge default chairs first
+    // Merge default chairs first
     DEFAULT_SAFE_CHAIRS.forEach((c) => chairMap.set(c.id, c));
-    // Overlay database chairs
-    dbChairs.forEach((c) => chairMap.set(c.id, c));
+    // Overlay database chairs (Supabase DB is source of truth)
+    dbChairs.forEach((c) => {
+      chairMap.set(c.id, {
+        ...c,
+        pin: c.pin || '123456',
+        status: c.status || 'ONLINE',
+      });
+    });
 
     const safeChairs = Array.from(chairMap.values());
     safeChairs.sort((a, b) => a.id.localeCompare(b.id));
