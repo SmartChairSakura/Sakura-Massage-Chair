@@ -21,7 +21,7 @@ Aplikasi dioperasikan melalui perangkat **EDC Android / Touchscreen Kiosk** yang
 - **Typography & Icons:** Google Font **Plus Jakarta Sans**, Material Symbols Outlined, Lucide React Icons
 - **Multi-Language i18n:** Client-side i18n Context (`src/lib/i18n.tsx`) dengan dukungan Bahasa Indonesia (`ID`) & English (`EN`)
 - **Hardware Protocol:** Native Browser **Web Serial API** (`9600 BPS Baudrate`) untuk Modul LCUS-1 CH340
-- **Database & Realtime Sync:** Supabase PostgreSQL + Supabase Realtime Subscriptions (`https://ndhlvkqswysexrdurirk.supabase.co`)
+- **Database & Realtime Sync:** Supabase PostgreSQL + Supabase Realtime Subscriptions (`https://ndhlvkqswysexrdurlrk.supabase.co`)
 - **Deployment Platform:** Vercel Serverless (Region `sin1` Singapore)
 - **Version Control:** GitHub (`SmartChairSakura/Sakura-Massage-Chair`)
 
@@ -96,7 +96,7 @@ Aplikasi dioperasikan melalui perangkat **EDC Android / Touchscreen Kiosk** yang
 ## 6. Deployment & Environment Strategy
 
 - **Production URL:** `https://sakura-massage-chair.vercel.app`
-- **Supabase Project:** `https://ndhlvkqswysexrdurirk.supabase.co` (Region: Tokyo)
+- **Supabase Project:** `https://ndhlvkqswysexrdurlrk.supabase.co` (Region: Tokyo)
 - **Vercel Region:** `sin1` (Singapore - low latency)
 - **Environment Strategy:**
   - Single Supabase DB dengan pemisahan Unit ID: `SAKURA-STG-01` (Staging/Test) & `SAKURA-GI-01` (Production Pilot).

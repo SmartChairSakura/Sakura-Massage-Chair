@@ -11,7 +11,7 @@ if (typeof window === 'undefined' && !globalThis.WebSocket) {
   (globalThis as any).WebSocket = DummyWebSocket;
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ndhlvkqswysexrdurirk.supabase.co';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ndhlvkqswysexrdurlrk.supabase.co';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_secret_WB0_tyaqbuME1ZvlqQDWqq_YNjRl6ch';
 
 export const supabaseServer = createClient(supabaseUrl, supabaseServiceRoleKey, {
