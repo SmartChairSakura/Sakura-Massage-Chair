@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Armchair, KeyRound, ShieldCheck, Lock, ArrowRight } from 'lucide-react';
 import { TOKUYO_THEME } from '@/lib/theme';
 import TokuyoChairGraphic from '@/components/TokuyoChairGraphic';
-import { verifyLocalChairLogin } from '@/lib/chair-registry';
 
 export default function RootKioskPage() {
   const router = useRouter();
@@ -57,32 +56,7 @@ export default function RootKioskPage() {
     setIsSubmitting(true);
     setErrorMsg('');
 
-    // 1. Check local persistent registry first (Optimistic Instant Verification)
-    const localCheck = verifyLocalChairLogin(cleanId, cleanPin);
-    if (localCheck.success && localCheck.chair) {
-      localStorage.setItem('kiosk_paired_chair', JSON.stringify(localCheck.chair));
-      sessionStorage.setItem(
-        'current_customer',
-        JSON.stringify({
-          phone: 'GUEST',
-          email: '',
-          chair_id: localCheck.chair.id,
-          location_name: localCheck.chair.location_name || 'Lokasi Kiosk',
-        })
-      );
-
-      // Fire background API sync
-      fetch('/api/admin/chairs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'LOGIN', id: cleanId, pin: cleanPin }),
-      }).catch((err) => console.warn('Background login sync note:', err));
-
-      router.replace('/duration');
-      return;
-    }
-
-    // 2. Fallback to API verification
+    // Verify login against DB via API (single source of truth)
     try {
       const res = await fetch('/api/admin/chairs', {
         method: 'POST',
@@ -90,6 +64,7 @@ export default function RootKioskPage() {
         body: JSON.stringify({
           action: 'LOGIN',
           id: cleanId,
+          chair_code: cleanId,
           pin: cleanPin,
         }),
       });
@@ -108,15 +83,11 @@ export default function RootKioskPage() {
         );
         router.replace('/duration');
       } else {
-        setErrorMsg(localCheck.error || data.error || 'Login gagal. Cek ID Kursi dan PIN.');
+        setErrorMsg(data.error || 'Login gagal. Cek ID Kursi dan PIN.');
       }
     } catch (err: any) {
       console.error(err);
-      if (localCheck.success && localCheck.chair) {
-        router.replace('/duration');
-      } else {
-        setErrorMsg('Gagal terhubung ke server.');
-      }
+      setErrorMsg('Gagal terhubung ke server.');
     } finally {
       setIsSubmitting(false);
     }

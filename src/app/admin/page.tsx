@@ -87,19 +87,20 @@ export default function AdminDashboardPage() {
           pin: c.pin || '123456',
           status: c.status || 'ONLINE',
         }));
-        serverChairs.sort((a: any, b: any) => a.id.localeCompare(b.id));
+        serverChairs.sort((a: any, b: any) => String(a.chair_code || a.id).localeCompare(String(b.chair_code || b.id)));
 
         setChairs(serverChairs);
         setTransactions(data.transactions || []);
         setDbSyncStatus('synced');
+        const s = data.summary || data.analytics || {};
         setAnalytics({
-          grossRevenue: data.analytics?.grossRevenue || 0,
-          mdrFee: data.analytics?.mdrFee || 0,
-          devShare: data.analytics?.devShare || 0,
-          ownerNet: data.analytics?.ownerNet || 0,
-          totalTransactions: data.analytics?.totalTransactions || 0,
-          onlineCount: data.analytics?.onlineCount || serverChairs.length,
-          totalChairs: data.analytics?.totalChairs || serverChairs.length,
+          grossRevenue: s.grossRevenue || 0,
+          mdrFee: s.mdrFee || 0,
+          devShare: s.devShare || 0,
+          ownerNet: s.ownerNet || 0,
+          totalTransactions: s.totalTransactions || 0,
+          onlineCount: s.onlineCount || serverChairs.length,
+          totalChairs: s.totalChairs || serverChairs.length,
         });
       } else {
         console.warn('[Admin FE] Dashboard API returned error:', data);
@@ -155,16 +156,7 @@ export default function AdminDashboardPage() {
       const resData = await res.json();
 
       if (resData.success) {
-        if (!resData.db_synced) {
-          setModalMsg(`Unit tersimpan di server. DB sync pending: ${resData.db_error || 'retrying...'}`);
-          // Keep modal open briefly to show warning
-          setTimeout(() => {
-            setShowAddModal(false);
-            setModalMsg('');
-          }, 2000);
-        } else {
-          setShowAddModal(false);
-        }
+        setShowAddModal(false);
       } else {
         setModalMsg(`Gagal menyimpan: ${resData.error || 'Unknown error'}`);
         setIsSaving(false);
