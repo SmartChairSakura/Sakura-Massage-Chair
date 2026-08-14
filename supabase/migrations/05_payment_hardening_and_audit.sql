@@ -127,3 +127,21 @@ CREATE TRIGGER trg_chair_slip_summary_detail
 AFTER UPDATE ON chair_slips
 FOR EACH ROW
 EXECUTE FUNCTION log_chair_slip_summary_detail_change();
+
+-- 4. Financial Settlement Records Table (Rekonsiliasi Pencairan Dana H+2 ke Rekening Merchant)
+CREATE TABLE IF NOT EXISTS chair_slip_settlements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  chair_slip_id UUID REFERENCES chair_slips(id) ON DELETE CASCADE,
+  chair_slip_payment_id UUID REFERENCES chair_slip_payments(id) ON DELETE SET NULL,
+  payment_ref VARCHAR(100) NOT NULL,
+  gateway_settlement_status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'settled', 'disputed'
+  gross_amount NUMERIC(12,2) NOT NULL,
+  net_amount NUMERIC(12,2) NOT NULL,
+  settlement_date TIMESTAMPTZ,
+  checked_at TIMESTAMPTZ DEFAULT now(),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_chair_slip_settlements_pending 
+  ON chair_slip_settlements (gateway_settlement_status)
+  WHERE gateway_settlement_status = 'pending';
