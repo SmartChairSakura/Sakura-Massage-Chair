@@ -53,6 +53,7 @@ export default function AdminDashboardPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newChairId, setNewChairId] = useState('');
   const [newChairName, setNewChairName] = useState('');
+  const [newModelType, setNewModelType] = useState('Tokuyo TC-355');
   const [newLocationName, setNewLocationName] = useState('');
   const [newPin, setNewPin] = useState('123456');
   const [modalMsg, setModalMsg] = useState('');
@@ -120,6 +121,7 @@ export default function AdminDashboardPage() {
     e.preventDefault();
     const cleanId = newChairId.trim().toUpperCase();
     const cleanName = newChairName.trim();
+    const cleanModelType = newModelType.trim() || 'Tokuyo TC-355';
     const cleanLocation = newLocationName.trim();
     const cleanPin = newPin.trim() || '123456';
 
@@ -137,7 +139,9 @@ export default function AdminDashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: cleanId,
+          chair_code: cleanId,
           name: cleanName,
+          model_type: cleanModelType,
           location_name: cleanLocation,
           pin: cleanPin,
         }),
@@ -574,7 +578,7 @@ export default function AdminDashboardPage() {
             <form onSubmit={handleAddChairSubmit} className="space-y-3">
               <div>
                 <label className="text-xs font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                  ID Kursi / Username EDC:
+                  Kode Unit / Username EDC:
                 </label>
                 <input
                   type="text"
@@ -587,7 +591,20 @@ export default function AdminDashboardPage() {
 
               <div>
                 <label className="text-xs font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                  Nama Unit Kursi:
+                  Tipe / Model Hardware:
+                </label>
+                <input
+                  type="text"
+                  value={newModelType}
+                  onChange={(e) => setNewModelType(e.target.value)}
+                  placeholder="Contoh: Tokuyo TC-355"
+                  className="w-full bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#1B1C1C] focus:outline-none focus:border-[#795465]"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                  Nama Unit Kursi (Alias):
                 </label>
                 <input
                   type="text"

@@ -3,16 +3,16 @@ import { supabaseServer } from '@/lib/supabase-server';
 
 // Default initial units
 const DEFAULT_SAFE_CHAIRS = [
-  { id: 'SAKURA-GI-01', name: 'Sakura Series #01', location_name: 'Grand Indonesia Lt 3', status: 'ONLINE', pin: '123456', is_active: true },
-  { id: 'SAKURA-CP-01', name: 'Sakura Series #02', location_name: 'Central Park Fl 1', status: 'ONLINE', pin: '123456', is_active: true },
-  { id: 'SAKURA-MOI-01', name: 'Sakura Series #03', location_name: 'Mall of Indonesia Lt 2', status: 'ONLINE', pin: '123456', is_active: true },
-  { id: 'SAKURA-PIK-01', name: 'Sakura Series #04 - PIK', location_name: 'Pantai Indah Kapuk', status: 'ONLINE', pin: '123456', is_active: true },
-  { id: 'SAKURA-LVB-01', name: 'Stagging Unit', location_name: 'Living Mall Bekasi', status: 'ONLINE', pin: '123456', is_active: true },
+  { id: 'SAKURA-GI-01', chair_code: 'SAKURA-GI-01', name: 'Sakura Series #01', model_type: 'Tokuyo TC-355', location_name: 'Grand Indonesia Lt 3', status: 'ONLINE', pin: '123456', is_active: true },
+  { id: 'SAKURA-CP-01', chair_code: 'SAKURA-CP-01', name: 'Sakura Series #02', model_type: 'Tokuyo TC-355', location_name: 'Central Park Fl 1', status: 'ONLINE', pin: '123456', is_active: true },
+  { id: 'SAKURA-MOI-01', chair_code: 'SAKURA-MOI-01', name: 'Sakura Series #03', model_type: 'Tokuyo TC-355', location_name: 'Mall of Indonesia Lt 2', status: 'ONLINE', pin: '123456', is_active: true },
+  { id: 'SAKURA-PIK-01', chair_code: 'SAKURA-PIK-01', name: 'Sakura Series #04 - PIK', model_type: 'Tokuyo TC-355', location_name: 'Pantai Indah Kapuk', status: 'ONLINE', pin: '123456', is_active: true },
+  { id: 'SAKURA-LVB-01', chair_code: 'SAKURA-LVB-01', name: 'Stagging Unit', model_type: 'Tokuyo TC-355', location_name: 'Living Mall Bekasi', status: 'ONLINE', pin: '123456', is_active: true },
 ];
 
 // Global server-side registry to guarantee instant login & listing
 const DYNAMIC_CHAIRS_REGISTRY = new Map<string, any>();
-DEFAULT_SAFE_CHAIRS.forEach((c) => DYNAMIC_CHAIRS_REGISTRY.set(c.id, c));
+DEFAULT_SAFE_CHAIRS.forEach((c) => DYNAMIC_CHAIRS_REGISTRY.set(c.chair_code, c));
 
 // GET: Fetch all registered chairs from Supabase DB merged with defaults
 export async function GET(req: NextRequest) {
@@ -31,15 +31,18 @@ export async function GET(req: NextRequest) {
     const chairMap = new Map<string, any>();
 
     // 1. Add defaults
-    DEFAULT_SAFE_CHAIRS.forEach((c) => chairMap.set(c.id, c));
+    DEFAULT_SAFE_CHAIRS.forEach((c) => chairMap.set(c.chair_code, c));
 
     // 2. Add in-memory registry chairs
     DYNAMIC_CHAIRS_REGISTRY.forEach((v, k) => chairMap.set(k, v));
 
     // 3. Overlay database chairs (DB is single source of truth)
     dbChairs.forEach((c) => {
-      chairMap.set(c.id, {
+      const codeKey = c.chair_code || String(c.id);
+      chairMap.set(codeKey, {
         ...c,
+        chair_code: codeKey,
+        model_type: c.model_type || 'Tokuyo TC-355',
         pin: c.pin || '123456',
         status: c.status || 'ONLINE',
       });
@@ -50,7 +53,7 @@ export async function GET(req: NextRequest) {
       created_at: c.created_at || new Date().toISOString(),
     }));
 
-    mergedChairs.sort((a, b) => a.id.localeCompare(b.id));
+    mergedChairs.sort((a, b) => String(a.chair_code || a.id).localeCompare(String(b.chair_code || b.id)));
 
     return NextResponse.json({
       success: true,
@@ -72,30 +75,31 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
   try {
     const body = await req.json();
-    const { action, id, name, location_name, pin } = body;
+    const { action, id, chair_code, name, model_type, location_name, pin } = body;
+
+    const inputCode = String(chair_code || id || '').trim().toUpperCase();
 
     // Action: LOGIN / PAIRING EDC TERMINAL
     if (action === 'LOGIN') {
-      const cleanId = String(id || '').trim().toUpperCase();
       const cleanPin = String(pin || '').trim();
 
-      if (!cleanId || !cleanPin) {
-        return NextResponse.json({ success: false, error: 'ID Kursi dan PIN Wajib Diisi' }, { status: 400 });
+      if (!inputCode || !cleanPin) {
+        return NextResponse.json({ success: false, error: 'Kode Unit dan PIN Wajib Diisi' }, { status: 400 });
       }
 
-      // 1. Query DB for chair
+      // 1. Query DB for chair by chair_code or id
       const { data: dbChair } = await supabaseServer
         .from('chairs')
         .select('*')
-        .eq('id', cleanId)
-        .single();
+        .or(`chair_code.eq.${inputCode},id.eq.${inputCode}`)
+        .maybeSingle();
 
-      // 2. Check in-memory registry or defaults if DB query returns null
-      const targetChair = dbChair || DYNAMIC_CHAIRS_REGISTRY.get(cleanId);
+      // 2. Check in-memory registry or defaults
+      const targetChair = dbChair || DYNAMIC_CHAIRS_REGISTRY.get(inputCode);
 
       if (!targetChair) {
         return NextResponse.json(
-          { success: false, error: `ID Kursi '${cleanId}' tidak ditemukan di sistem.` },
+          { success: false, error: `Kode Unit '${inputCode}' tidak ditemukan di sistem.` },
           { status: 404 }
         );
       }
@@ -106,29 +110,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'PIN Password Salah. Silakan hubungi Admin.' }, { status: 401 });
       }
 
-      // Auto-seed DB if not in DB yet
-      if (!dbChair) {
-        try {
-          const seedData = {
-            id: targetChair.id,
-            name: targetChair.name,
-            location_name: targetChair.location_name,
-            status: 'ONLINE',
-            is_active: true,
-            pin: validPin,
-            created_at: new Date().toISOString(),
-          };
-          await supabaseServer.from('chairs').upsert(seedData);
-        } catch (e) {
-          console.warn('[API Admin Chairs] Auto-seed DB note:', e);
-        }
-      }
-
       return NextResponse.json({
         success: true,
         chair: {
           id: targetChair.id,
-          name: targetChair.name || `Sakura ${targetChair.id}`,
+          chair_code: targetChair.chair_code || inputCode,
+          name: targetChair.name || `Sakura ${inputCode}`,
+          model_type: targetChair.model_type || 'Tokuyo TC-355',
           location_name: targetChair.location_name || 'Lokasi Kiosk',
           status: targetChair.status || 'ONLINE',
         },
@@ -136,76 +124,73 @@ export async function POST(req: NextRequest) {
     }
 
     // Action: REGISTER NEW CHAIR IN ADMIN DASHBOARD
-    const cleanId = String(id || '').trim().toUpperCase();
     const cleanName = String(name || '').trim();
+    const cleanModelType = String(model_type || 'Tokuyo TC-355').trim();
     const cleanLocation = String(location_name || '').trim();
     const cleanPin = String(pin || '123456').trim();
 
-    if (!cleanId || !cleanName || !cleanLocation) {
+    if (!inputCode || !cleanName || !cleanLocation) {
       return NextResponse.json(
-        { success: false, error: 'Semua field (ID Kursi, Nama, Lokasi) wajib diisi' },
+        { success: false, error: 'Semua field (Kode Unit, Nama, Lokasi) wajib diisi' },
         { status: 400 }
       );
     }
 
-    const newChair = {
-      id: cleanId,
+    const newChairObj: any = {
+      chair_code: inputCode,
       name: cleanName,
+      model_type: cleanModelType,
       location_name: cleanLocation,
       status: 'ONLINE',
       is_active: true,
       pin: cleanPin,
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
-    // 1. Immediately store in dynamic server registry
-    DYNAMIC_CHAIRS_REGISTRY.set(cleanId, newChair);
+    // Store in dynamic server registry
+    DYNAMIC_CHAIRS_REGISTRY.set(inputCode, newChairObj);
 
-    // 2. Persist to Supabase Database with schema resiliency
+    // Persist to Supabase Database
     let dbSynced = false;
     let dbErrorMsg = null;
 
     try {
+      // Upsert with fallback logic for legacy vs new chairs schema
       const { data, error } = await supabaseServer
         .from('chairs')
-        .upsert(newChair)
+        .upsert({ id: inputCode, ...newChairObj })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.warn('[API Admin Chairs] Primary DB Upsert warning:', error.message);
-        // Fallback: If DB table lacks 'pin' column on unmigrated DB, retry without 'pin' column
-        const fallbackChairObj = {
-          id: cleanId,
-          name: cleanName,
-          location_name: cleanLocation,
-          status: 'ONLINE',
-          is_active: true,
-          created_at: new Date().toISOString(),
-        };
-        const { data: fallbackData, error: fallbackError } = await supabaseServer
+        const { data: fbData, error: fbError } = await supabaseServer
           .from('chairs')
-          .upsert(fallbackChairObj)
+          .upsert({
+            id: inputCode,
+            name: cleanName,
+            location_name: cleanLocation,
+            status: 'ONLINE',
+            is_active: true,
+          })
           .select()
-          .single();
+          .maybeSingle();
 
-        if (fallbackError) {
-          dbErrorMsg = fallbackError.message;
-        } else if (fallbackData) {
+        if (fbError) {
+          dbErrorMsg = fbError.message;
+        } else if (fbData) {
           dbSynced = true;
-          DYNAMIC_CHAIRS_REGISTRY.set(cleanId, { ...fallbackData, pin: cleanPin });
         }
       } else if (data) {
         dbSynced = true;
-        DYNAMIC_CHAIRS_REGISTRY.set(cleanId, data);
       }
     } catch (dbErr: any) {
       dbErrorMsg = dbErr?.message || 'DB network exception';
-      console.warn('[API Admin Chairs] DB write note:', dbErrorMsg);
     }
 
     console.info('[API Admin Chairs] POST Result:', {
-      chairId: cleanId,
+      chairCode: inputCode,
       dbSynced,
       dbErrorMsg,
       durationMs: Date.now() - startTime,
@@ -215,7 +200,7 @@ export async function POST(req: NextRequest) {
       success: true,
       db_synced: dbSynced,
       db_error: dbErrorMsg,
-      chair: DYNAMIC_CHAIRS_REGISTRY.get(cleanId) || newChair,
+      chair: DYNAMIC_CHAIRS_REGISTRY.get(inputCode) || newChairObj,
     });
   } catch (err: any) {
     console.error('[API Admin Chairs] POST Error:', err);

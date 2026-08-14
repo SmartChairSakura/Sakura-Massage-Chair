@@ -1,8 +1,10 @@
 export type ChairStatus = 'ONLINE' | 'OFFLINE' | 'BUSY' | 'MAINTENANCE';
 
 export interface Chair {
-  id: string; // e.g. 'SAKURA-GI-01'
-  name: string; // e.g. 'Sakura Deluxe #01'
+  id: string | number; // e.g. 1 or 'SAKURA-GI-01'
+  chair_code: string; // e.g. 'SAKURA-GI-01'
+  name: string; // e.g. 'Sakura Series #01'
+  model_type: string; // e.g. 'Tokuyo TC-355'
   location_name: string; // e.g. 'Grand Indonesia Lt 3'
   status: ChairStatus;
   pin?: string;
@@ -10,6 +12,8 @@ export interface Chair {
   firmware_version?: string;
   is_active: boolean;
   created_at?: string;
+  updated_at?: string;
+  deleted_at?: string;
 }
 
 export type ChairSlipStatus =
@@ -38,6 +42,7 @@ export interface ChairSlip {
   id: string;
   chair_slip_number: string;
   chair_id: string;
+  chair_code?: string;
   customer_phone?: string;
   customer_email?: string;
   amount: number;
@@ -49,8 +54,12 @@ export interface ChairSlip {
   session_start_at?: string;
   session_end_at?: string;
   cancelled_at?: string;
+  cancellation_reason?: string;
+  note?: string;
+  created_from?: string;
   created_at: string;
   updated_at: string;
+  deleted_at?: string;
 }
 
 // Gateway Payment Transaction Detail Entity (PARKEE 3-Tier)
@@ -69,6 +78,7 @@ export interface ChairSlipPayment {
   payment_token?: string;
   created_at: string;
   updated_at: string;
+  deleted_at?: string;
 }
 
 // Audit Log & Read-Optimized Summary Entity (PARKEE 3-Tier)
@@ -77,7 +87,9 @@ export interface ChairSlipSummaryDetail {
   chair_slip_id: string;
   chair_slip_payment_id?: string;
   chair_id?: string;
+  chair_code?: string;
   chair_name?: string;
+  model_type?: string;
   location_name?: string;
   old_status?: string;
   new_status: string;
@@ -87,11 +99,30 @@ export interface ChairSlipSummaryDetail {
   dev_share?: number;
   owner_net?: number;
   duration_in_minutes?: number;
+  cancellation_reason?: string;
   metadata?: Record<string, any>;
   created_at: string;
+  updated_at?: string;
+  deleted_at?: string;
 }
 
-// Backward compatibility alias
+// Financial Settlement Records Entity (H+2 Bank Payout)
+export interface ChairSlipSettlement {
+  id: string;
+  chair_slip_id: string;
+  chair_slip_payment_id?: string;
+  payment_ref: string;
+  gateway_settlement_status: string;
+  gross_amount: number;
+  net_amount: number;
+  settlement_date?: string;
+  checked_at?: string;
+  created_at: string;
+  updated_at?: string;
+  deleted_at?: string;
+}
+
+// Backward compatibility aliases
 export type Transaction = ChairSlip;
 export type TransactionStatus = ChairSlipStatus;
 
