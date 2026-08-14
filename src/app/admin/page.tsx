@@ -18,6 +18,7 @@ import {
   X,
   Database,
   AlertCircle,
+  Trash2,
 } from 'lucide-react';
 import { TOKUYO_THEME } from '@/lib/theme';
 
@@ -58,6 +59,10 @@ export default function AdminDashboardPage() {
   const [newPin, setNewPin] = useState('123456');
   const [modalMsg, setModalMsg] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Delete Chair Modal State
+  const [deleteConfirmChair, setDeleteConfirmChair] = useState<Chair | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // ─────────────────────────────────────────────────────────────
   // CORE FIX: Fetch ALL data via server-side API route only.
@@ -180,6 +185,32 @@ export default function AdminDashboardPage() {
 
     // Refresh from server to get unified truth
     fetchDashboardData();
+  };
+
+  const handleDeleteChairConfirm = async () => {
+    if (!deleteConfirmChair) return;
+    const targetCode = String(deleteConfirmChair.chair_code || deleteConfirmChair.id).trim();
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/chairs?id=${encodeURIComponent(targetCode)}`, {
+        method: 'DELETE',
+      });
+      const resData = await res.json();
+
+      if (resData.success) {
+        // Optimistically remove from state
+        setChairs((prev) => prev.filter((c) => String(c.chair_code || c.id) !== targetCode));
+        setDeleteConfirmChair(null);
+      } else {
+        alert(`Gagal menghapus unit kursi: ${resData.error || 'Unknown error'}`);
+      }
+    } catch (e: any) {
+      alert(`Network error: ${e?.message || 'Server unreachable'}`);
+    } finally {
+      setIsDeleting(false);
+      fetchDashboardData();
+    }
   };
 
   const handleExportCSV = () => {
@@ -386,25 +417,33 @@ export default function AdminDashboardPage() {
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="bg-[#F5F3F3] text-[#1B1C1C] border-b border-[#EFEDED]">
-                <th className="p-3 font-extrabold">ID Kursi / Username EDC</th>
+                <th className="p-3 font-extrabold">Kode Unit / Username EDC</th>
+                <th className="p-3 font-extrabold">Tipe / Model</th>
                 <th className="p-3 font-extrabold">Nama Unit</th>
                 <th className="p-3 font-extrabold">Lokasi Cabang</th>
                 <th className="p-3 font-extrabold">Status Device</th>
                 <th className="p-3 font-extrabold">PIN EDC</th>
-                <th className="p-3 font-extrabold">DB Sync</th>
+                <th className="p-3 font-extrabold">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFEDED]">
               {chairs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-[#4F4448] font-medium">
+                  <td colSpan={7} className="p-6 text-center text-[#4F4448] font-medium">
                     {isLoading ? 'Memuat data dari server...' : 'Belum ada unit kursi terdaftar.'}
                   </td>
                 </tr>
               ) : (
                 chairs.map((chair) => (
                   <tr key={chair.id} className="hover:bg-[#F5F3F3]/50 transition-colors">
-                    <td className="p-3 font-mono font-black text-[#795465]">{chair.id}</td>
+                    <td className="p-3 font-mono font-black text-[#795465]">
+                      {chair.chair_code || chair.id}
+                    </td>
+                    <td className="p-3 text-[#4F4448]">
+                      <span className="bg-[#F5F3F3] border border-[#EFEDED] px-2 py-0.5 rounded font-mono text-[10px] text-[#4F4448] font-bold">
+                        {chair.model_type || 'Tokuyo TC-355'}
+                      </span>
+                    </td>
                     <td className="p-3 font-bold text-[#1B1C1C]">{chair.name}</td>
                     <td className="p-3 text-[#4F4448] font-semibold">
                       <div className="flex items-center gap-1">
@@ -420,17 +459,13 @@ export default function AdminDashboardPage() {
                     </td>
                     <td className="p-3 font-mono font-bold text-[#4F4448]">{chair.pin || '123456'}</td>
                     <td className="p-3">
-                      {dbSyncStatus === 'synced' ? (
-                        <span className="bg-[#CEE5DA] text-[#4E635A] px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 w-max">
-                          <Database className="w-3 h-3" />
-                          <span>Synced</span>
-                        </span>
-                      ) : (
-                        <span className="bg-[#FFDAD6] text-[#93000A] px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 w-max">
-                          <AlertCircle className="w-3 h-3" />
-                          <span>Pending</span>
-                        </span>
-                      )}
+                      <button
+                        onClick={() => setDeleteConfirmChair(chair)}
+                        title="Hapus Unit Kursi"
+                        className="p-1.5 text-rose-600 hover:bg-rose-50 hover:text-rose-800 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -659,6 +694,60 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirm Delete Chair */}
+      {deleteConfirmChair && (
+        <div className="fixed inset-0 bg-[#1B1C1C]/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-[#EFEDED] rounded-3xl p-6 sm:p-7 max-w-md w-full space-y-4 shadow-2xl relative">
+            <button
+              onClick={() => setDeleteConfirmChair(null)}
+              className="absolute right-4 top-4 text-[#4F4448] hover:text-[#1B1C1C] p-1 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 border-b border-[#EFEDED] pb-3">
+              <div className="p-2.5 bg-rose-100 text-rose-700 rounded-xl">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-[#1B1C1C]">Konfirmasi Hapus Unit Kursi</h3>
+                <p className="text-xs text-[#4F4448]">Tindakan ini akan menonaktifkan unit kursi</p>
+              </div>
+            </div>
+
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-xs text-rose-900 space-y-1">
+              <p className="font-bold">
+                Apakah Anda yakin ingin menghapus unit kursi{' '}
+                <span className="font-mono text-rose-950 font-black">
+                  '{deleteConfirmChair.chair_code || deleteConfirmChair.id}'
+                </span>?
+              </p>
+              <p className="text-[11px] text-rose-700">
+                Nama Unit: {deleteConfirmChair.name} ({deleteConfirmChair.location_name})
+              </p>
+            </div>
+
+            <div className="pt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={handleDeleteChairConfirm}
+                disabled={isDeleting}
+                className="flex-1 bg-rose-700 text-white font-extrabold py-3 rounded-xl text-xs shadow-md shadow-rose-700/20 hover:bg-rose-800 transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {isDeleting ? 'Menghapus...' : 'Ya, Hapus Unit Kursi'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmChair(null)}
+                className="px-4 bg-[#F5F3F3] text-[#4F4448] font-bold py-3 rounded-xl text-xs hover:bg-[#E9E8E8] transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -12,15 +12,17 @@ const DEFAULT_SAFE_CHAIRS = [
 
 // Global server-side registry to guarantee instant login & listing
 const DYNAMIC_CHAIRS_REGISTRY = new Map<string, any>();
+const DELETED_CHAIRS_SET = new Set<string>();
 DEFAULT_SAFE_CHAIRS.forEach((c) => DYNAMIC_CHAIRS_REGISTRY.set(c.chair_code, c));
 
-// GET: Fetch all registered chairs from Supabase DB merged with defaults
+// GET: Fetch all registered active chairs from Supabase DB
 export async function GET(req: NextRequest) {
   try {
     const startTime = Date.now();
     const { data: chairs, error } = await supabaseServer
       .from('chairs')
       .select('*')
+      .is('deleted_at', null)
       .order('id', { ascending: true });
 
     if (error) {
@@ -30,22 +32,32 @@ export async function GET(req: NextRequest) {
     const dbChairs = chairs || [];
     const chairMap = new Map<string, any>();
 
-    // 1. Add defaults
-    DEFAULT_SAFE_CHAIRS.forEach((c) => chairMap.set(c.chair_code, c));
+    // 1. Add defaults (unless marked deleted)
+    DEFAULT_SAFE_CHAIRS.forEach((c) => {
+      if (!DELETED_CHAIRS_SET.has(c.chair_code)) {
+        chairMap.set(c.chair_code, c);
+      }
+    });
 
     // 2. Add in-memory registry chairs
-    DYNAMIC_CHAIRS_REGISTRY.forEach((v, k) => chairMap.set(k, v));
+    DYNAMIC_CHAIRS_REGISTRY.forEach((v, k) => {
+      if (!DELETED_CHAIRS_SET.has(k)) {
+        chairMap.set(k, v);
+      }
+    });
 
     // 3. Overlay database chairs (DB is single source of truth)
     dbChairs.forEach((c) => {
       const codeKey = c.chair_code || String(c.id);
-      chairMap.set(codeKey, {
-        ...c,
-        chair_code: codeKey,
-        model_type: c.model_type || 'Tokuyo TC-355',
-        pin: c.pin || '123456',
-        status: c.status || 'ONLINE',
-      });
+      if (!c.deleted_at && !DELETED_CHAIRS_SET.has(codeKey)) {
+        chairMap.set(codeKey, {
+          ...c,
+          chair_code: codeKey,
+          model_type: c.model_type || 'Tokuyo TC-355',
+          pin: c.pin || '123456',
+          status: c.status || 'ONLINE',
+        });
+      }
     });
 
     const mergedChairs = Array.from(chairMap.values()).map((c) => ({
@@ -92,14 +104,15 @@ export async function POST(req: NextRequest) {
         .from('chairs')
         .select('*')
         .or(`chair_code.eq.${inputCode},id.eq.${inputCode}`)
+        .is('deleted_at', null)
         .maybeSingle();
 
       // 2. Check in-memory registry or defaults
       const targetChair = dbChair || DYNAMIC_CHAIRS_REGISTRY.get(inputCode);
 
-      if (!targetChair) {
+      if (!targetChair || DELETED_CHAIRS_SET.has(inputCode) || targetChair.deleted_at) {
         return NextResponse.json(
-          { success: false, error: `Kode Unit '${inputCode}' tidak ditemukan di sistem.` },
+          { success: false, error: `Kode Unit '${inputCode}' tidak ditemukan atau telah dihapus.` },
           { status: 404 }
         );
       }
@@ -136,6 +149,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    DELETED_CHAIRS_SET.delete(inputCode);
+
     const newChairObj: any = {
       chair_code: inputCode,
       name: cleanName,
@@ -146,6 +161,7 @@ export async function POST(req: NextRequest) {
       pin: cleanPin,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      deleted_at: null,
     };
 
     // Store in dynamic server registry
@@ -156,7 +172,6 @@ export async function POST(req: NextRequest) {
     let dbErrorMsg = null;
 
     try {
-      // Upsert with fallback logic for legacy vs new chairs schema
       const { data, error } = await supabaseServer
         .from('chairs')
         .upsert({ id: inputCode, ...newChairObj })
@@ -173,6 +188,7 @@ export async function POST(req: NextRequest) {
             location_name: cleanLocation,
             status: 'ONLINE',
             is_active: true,
+            deleted_at: null,
           })
           .select()
           .maybeSingle();
@@ -189,13 +205,6 @@ export async function POST(req: NextRequest) {
       dbErrorMsg = dbErr?.message || 'DB network exception';
     }
 
-    console.info('[API Admin Chairs] POST Result:', {
-      chairCode: inputCode,
-      dbSynced,
-      dbErrorMsg,
-      durationMs: Date.now() - startTime,
-    });
-
     return NextResponse.json({
       success: true,
       db_synced: dbSynced,
@@ -204,6 +213,56 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     console.error('[API Admin Chairs] POST Error:', err);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+// DELETE: Soft delete a chair by ID or chair_code
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id') || searchParams.get('chair_code');
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Parameter id / chair_code wajib diisi' }, { status: 400 });
+    }
+
+    const cleanId = String(id).trim();
+    const now = new Date().toISOString();
+
+    // Mark as deleted in server memory registry
+    DELETED_CHAIRS_SET.add(cleanId.toUpperCase());
+    DYNAMIC_CHAIRS_REGISTRY.delete(cleanId.toUpperCase());
+
+    // Execute soft delete in Supabase Database (UPDATE deleted_at = now())
+    let dbSuccess = false;
+    let dbErr = null;
+
+    try {
+      const { error } = await supabaseServer
+        .from('chairs')
+        .update({ deleted_at: now, is_active: false })
+        .or(`id.eq.${cleanId},chair_code.eq.${cleanId}`);
+
+      if (error) {
+        dbErr = error.message;
+      } else {
+        dbSuccess = true;
+      }
+    } catch (e: any) {
+      dbErr = e?.message || 'DB network error';
+    }
+
+    console.info('[API Admin Chairs] DELETE soft-delete result:', { cleanId, dbSuccess, dbErr });
+
+    return NextResponse.json({
+      success: true,
+      message: `Unit kursi '${cleanId}' berhasil dihapus.`,
+      db_synced: dbSuccess,
+      db_error: dbErr,
+    });
+  } catch (err: any) {
+    console.error('[API Admin Chairs] DELETE Error:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
