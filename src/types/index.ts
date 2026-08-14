@@ -1,8 +1,8 @@
 export type ChairStatus = 'ONLINE' | 'OFFLINE' | 'BUSY' | 'MAINTENANCE';
 
 export interface Chair {
-  id: string; // e.g. 'TOK-GI-01'
-  name: string; // e.g. 'Tokuyo Deluxe #01'
+  id: string; // e.g. 'SAKURA-GI-01'
+  name: string; // e.g. 'Sakura Deluxe #01'
   location_name: string; // e.g. 'Grand Indonesia Lt 3'
   status: ChairStatus;
   pin?: string;
@@ -12,27 +12,88 @@ export interface Chair {
   created_at?: string;
 }
 
-export type TransactionStatus = 'PENDING' | 'PAID' | 'ONGOING' | 'COMPLETED' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
-export type PaymentMethod = 'QRIS' | 'CASH';
+export type ChairSlipStatus =
+  | 'pending'
+  | 'paid'
+  | 'paid_pending_delivery'
+  | 'session_inprocess'
+  | 'done'
+  | 'expired'
+  | 'failed'
+  | 'cancelled'
+  | 'expired_paid'
+  // Legacy backward compatibility
+  | 'PENDING'
+  | 'PAID'
+  | 'ONGOING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'EXPIRED'
+  | 'CANCELLED';
 
-export interface Transaction {
+export type PaymentMethod = 'QRIS' | 'QRIS_MIDTRANS' | 'CASH';
+
+// Main Operational Session Entity (PARKEE 3-Tier)
+export interface ChairSlip {
   id: string;
-  idempotency_key: string;
+  chair_slip_number: string;
   chair_id: string;
   customer_phone?: string;
   customer_email?: string;
   amount: number;
-  duration_minutes: number;
+  duration_in_minutes: number;
   pulse_count: number;
   payment_method: PaymentMethod;
-  status: TransactionStatus;
-  payment_gateway_ref?: string;
+  status: ChairSlipStatus;
   qr_url?: string;
   session_start_at?: string;
   session_end_at?: string;
+  cancelled_at?: string;
   created_at: string;
   updated_at: string;
 }
+
+// Gateway Payment Transaction Detail Entity (PARKEE 3-Tier)
+export interface ChairSlipPayment {
+  id: string;
+  chair_slip_id: string;
+  pg_ref_number: string;
+  edc_ref_number?: string;
+  amount: number;
+  sub_amount: number;
+  mdr_fee: number;
+  dev_share: number;
+  owner_net: number;
+  payment_method: PaymentMethod;
+  payment_status: string;
+  payment_token?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Audit Log & Read-Optimized Summary Entity (PARKEE 3-Tier)
+export interface ChairSlipSummaryDetail {
+  id: string;
+  chair_slip_id: string;
+  chair_slip_payment_id?: string;
+  chair_id?: string;
+  chair_name?: string;
+  location_name?: string;
+  old_status?: string;
+  new_status: string;
+  changed_by: string;
+  amount?: number;
+  mdr_fee?: number;
+  dev_share?: number;
+  owner_net?: number;
+  duration_in_minutes?: number;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+// Backward compatibility alias
+export type Transaction = ChairSlip;
+export type TransactionStatus = ChairSlipStatus;
 
 export interface PackageOption {
   id: string;
@@ -43,7 +104,7 @@ export interface PackageOption {
   isPopular?: boolean;
 }
 
-// Tokuyo PCB Timer Ratio: 4 Minutes (Rp 5.000) = 5 Pulses
+// Sakura PCB Timer Ratio: 4 Minutes (Rp 5.000) = 5 Pulses
 export const PRD_PACKAGE_OPTIONS: PackageOption[] = [
   {
     id: 'pkg_4m',

@@ -187,14 +187,14 @@ export default function AdminDashboardPage() {
     const headers = ['Idempotency Key', 'Tanggal & Jam', 'Pelanggan', 'Unit ID Kursi', 'Nominal (Rp)', 'Durasi (Mnt)', 'Metode Bayar', 'Status'];
     const csvRows = [headers.join(',')];
 
-    transactions.forEach((tx) => {
+    transactions.forEach((tx: any) => {
       const row = [
-        `"${tx.idempotency_key}"`,
+        `"${tx.chair_slip_number || tx.idempotency_key || tx.id}"`,
         `"${new Date(tx.created_at).toLocaleString('id-ID')}"`,
         `"${tx.customer_phone || 'GUEST'}"`,
         `"${tx.chair_id}"`,
         tx.amount,
-        tx.duration_minutes,
+        tx.duration_in_minutes || tx.duration_minutes || 4,
         `"${tx.payment_method}"`,
         `"${tx.status}"`,
       ];
@@ -464,9 +464,11 @@ export default function AdminDashboardPage() {
                   </td>
                 </tr>
               ) : (
-                transactions.map((tx) => (
+                transactions.map((tx: any) => (
                   <tr key={tx.id} className="hover:bg-[#F5F3F3]/50 transition-colors">
-                    <td className="p-3 font-mono text-[#4F4448] text-[11px]">{tx.idempotency_key}</td>
+                    <td className="p-3 font-mono text-[#4F4448] text-[11px]">
+                      {tx.chair_slip_number || tx.idempotency_key || tx.id}
+                    </td>
                     <td className="p-3 text-[#1B1C1C] font-medium">
                       <div className="flex items-center gap-1">
                         <Phone className="w-3 h-3 text-[#795465]" />
@@ -476,7 +478,9 @@ export default function AdminDashboardPage() {
                     <td className="p-3 font-mono font-extrabold text-[#795465]">{tx.chair_id}</td>
                     <td className="p-3 font-bold">
                       <span className="text-[#1B1C1C] font-mono">Rp {Number(tx.amount).toLocaleString('id-ID')}</span>
-                      <span className="text-[#4F4448] text-[11px] ml-1 font-normal">({tx.duration_minutes} Mnt)</span>
+                      <span className="text-[#4F4448] text-[11px] ml-1 font-normal">
+                        ({tx.duration_in_minutes || tx.duration_minutes || 4} Mnt)
+                      </span>
                     </td>
                     <td className="p-3">
                       <span className="bg-[#F5F3F3] border border-[#EFEDED] px-2 py-0.5 rounded font-mono text-[10px] text-[#4F4448] font-bold">
@@ -484,20 +488,53 @@ export default function AdminDashboardPage() {
                       </span>
                     </td>
                     <td className="p-3">
-                      <span
-                        className={`font-bold px-2 py-0.5 rounded text-[11px] ${
-                          tx.status === 'PAID' || tx.status === 'COMPLETED'
-                            ? 'bg-[#CEE5DA] text-[#4E635A]'
-                            : tx.status === 'CANCELLED'
-                            ? 'bg-[#FFDAD6] text-[#93000A]'
-                            : 'bg-[#ECCFC1] text-[#6F5A4F]'
-                        }`}
-                      >
-                        {tx.status}
-                      </span>
+                      {(() => {
+                        const st = String(tx.status || '').toLowerCase();
+                        if (st === 'session_inprocess' || st === 'ongoing') {
+                          return (
+                            <span className="font-extrabold px-2.5 py-1 rounded-full text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 w-max animate-pulse">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-ping" />
+                              <span>SESSION INPROCESS</span>
+                            </span>
+                          );
+                        }
+                        if (st === 'done' || st === 'completed' || st === 'paid') {
+                          return (
+                            <span className="font-bold px-2 py-0.5 rounded text-[11px] bg-[#CEE5DA] text-[#4E635A]">
+                              {st === 'done' ? 'DONE' : st.toUpperCase()}
+                            </span>
+                          );
+                        }
+                        if (st === 'paid_pending_delivery') {
+                          return (
+                            <span className="font-bold px-2 py-0.5 rounded text-[11px] bg-amber-100 text-amber-900 border border-amber-300">
+                              PENDING DELIVERY
+                            </span>
+                          );
+                        }
+                        if (st === 'expired_paid') {
+                          return (
+                            <span className="font-bold px-2 py-0.5 rounded text-[11px] bg-rose-100 text-rose-900 border border-rose-300">
+                              EXPIRED PAID
+                            </span>
+                          );
+                        }
+                        if (st === 'pending') {
+                          return (
+                            <span className="font-bold px-2 py-0.5 rounded text-[11px] bg-[#ECCFC1] text-[#6F5A4F]">
+                              PENDING
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="font-bold px-2 py-0.5 rounded text-[11px] bg-[#FFDAD6] text-[#93000A]">
+                            {st.toUpperCase()}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="p-3 text-[#4F4448]">
-                      {new Date(tx.created_at).toLocaleTimeString()}
+                      {tx.created_at ? new Date(tx.created_at).toLocaleTimeString('id-ID') : '-'}
                     </td>
                   </tr>
                 ))

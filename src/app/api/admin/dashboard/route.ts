@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
     // Merge default chairs first
     DEFAULT_SAFE_CHAIRS.forEach((c) => chairMap.set(c.id, c));
-    // Overlay database chairs (Supabase DB is source of truth)
+    // Overlay database chairs (Supabase DB is single source of truth)
     dbChairs.forEach((c) => {
       chairMap.set(c.id, {
         ...c,
@@ -38,34 +38,79 @@ export async function GET(req: NextRequest) {
     const safeChairs = Array.from(chairMap.values());
     safeChairs.sort((a, b) => a.id.localeCompare(b.id));
 
-    // 2. Query transactions with filters
-    let txQuery = supabaseServer
-      .from('transactions')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (filterChairId && filterChairId !== 'ALL') {
-      txQuery = txQuery.eq('chair_id', filterChairId);
-    }
-
+    // 2. Query chair_slips or legacy transactions with filters
     const now = new Date();
+    let timeStartFilter: string | null = null;
+
     if (filterRange === 'today') {
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      txQuery = txQuery.gte('created_at', todayStart);
+      timeStartFilter = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     } else if (filterRange === '7d') {
-      const d7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      txQuery = txQuery.gte('created_at', d7);
+      timeStartFilter = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
     } else if (filterRange === 'month') {
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      txQuery = txQuery.gte('created_at', monthStart);
+      timeStartFilter = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     }
 
-    const { data: transactions } = await txQuery.limit(100);
-    const safeTransactions = transactions || [];
+    // Try querying chair_slips table first
+    let chairSlipsData: any[] = [];
+    try {
+      let slipQuery = supabaseServer
+        .from('chair_slips')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (filterChairId && filterChairId !== 'ALL') {
+        slipQuery = slipQuery.eq('chair_id', filterChairId);
+      }
+      if (timeStartFilter) {
+        slipQuery = slipQuery.gte('created_at', timeStartFilter);
+      }
+
+      const { data: slips } = await slipQuery.limit(100);
+      if (slips && slips.length > 0) {
+        chairSlipsData = slips.map((s) => ({
+          ...s,
+          idempotency_key: s.chair_slip_number || s.id,
+          duration_minutes: s.duration_in_minutes || 4,
+        }));
+      }
+    } catch (e: any) {
+      console.warn('[API Admin Dashboard] chair_slips query note:', e?.message);
+    }
+
+    // Fallback or merge with legacy transactions if needed
+    if (chairSlipsData.length === 0) {
+      try {
+        let txQuery = supabaseServer
+          .from('transactions')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (filterChairId && filterChairId !== 'ALL') {
+          txQuery = txQuery.eq('chair_id', filterChairId);
+        }
+        if (timeStartFilter) {
+          txQuery = txQuery.gte('created_at', timeStartFilter);
+        }
+
+        const { data: legacyTxs } = await txQuery.limit(100);
+        if (legacyTxs && legacyTxs.length > 0) {
+          chairSlipsData = legacyTxs.map((tx) => ({
+            ...tx,
+            chair_slip_number: tx.idempotency_key || tx.id,
+            duration_in_minutes: tx.duration_minutes || 4,
+          }));
+        }
+      } catch (e: any) {
+        console.warn('[API Admin Dashboard] transactions query note:', e?.message);
+      }
+    }
+
+    const safeTransactions = chairSlipsData || [];
 
     // 3. Compute revenue split & metrics
+    // Valid paid statuses include: 'paid', 'session_inprocess', 'done', 'PAID', 'ONGOING', 'COMPLETED'
     const validTransactions = safeTransactions.filter((tx) =>
-      ['PAID', 'ONGOING', 'COMPLETED'].includes(tx.status)
+      ['paid', 'session_inprocess', 'done', 'PAID', 'ONGOING', 'COMPLETED'].includes(tx.status)
     );
 
     const grossRevenue = validTransactions.reduce(
@@ -94,6 +139,7 @@ export async function GET(req: NextRequest) {
       },
       chairs: safeChairs,
       transactions: safeTransactions,
+      chair_slips: safeTransactions,
     });
   } catch (error: any) {
     console.error('[API Admin Dashboard] Error:', error);
