@@ -1,9 +1,37 @@
 -- Migration 05: Payment Hardening, Soft Delete & PARKEE Audit Synchronization
 -- Project: Smart Kursi Pijat Sakura
 
--- 0. Ensure chairs table supports Soft-Delete (deleted_at & updated_at)
+-- =========================================================================
+-- 🛠️ ALTER TABLE CHECKS (Ensures ALL existing tables get updated_at & deleted_at)
+-- =========================================================================
+
+-- 1. Table: chairs
 ALTER TABLE chairs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 ALTER TABLE chairs ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL;
+
+-- 2. Table: chair_slips
+ALTER TABLE chair_slips ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE chair_slips ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL;
+ALTER TABLE chair_slips ADD COLUMN IF NOT EXISTS cancellation_reason VARCHAR(255);
+ALTER TABLE chair_slips ADD COLUMN IF NOT EXISTS note VARCHAR(255);
+ALTER TABLE chair_slips ADD COLUMN IF NOT EXISTS created_from VARCHAR(50) DEFAULT 'EDC_KIOSK';
+
+-- 3. Table: chair_slip_payments
+ALTER TABLE chair_slip_payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE chair_slip_payments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL;
+
+-- 4. Table: chair_slip_summary_detail
+ALTER TABLE chair_slip_summary_detail ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE chair_slip_summary_detail ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL;
+ALTER TABLE chair_slip_summary_detail ADD COLUMN IF NOT EXISTS cancellation_reason VARCHAR(255);
+
+-- 5. Table: chair_slip_settlements
+ALTER TABLE chair_slip_settlements ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE chair_slip_settlements ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL;
+
+-- =========================================================================
+-- 📋 CREATE TABLE DDLs
+-- =========================================================================
 
 -- 1. Main Session Table (Chair Slips)
 CREATE TABLE IF NOT EXISTS chair_slips (
