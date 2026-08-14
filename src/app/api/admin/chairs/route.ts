@@ -49,7 +49,10 @@ export async function GET(req: NextRequest) {
     // 3. Overlay database chairs (DB is single source of truth)
     dbChairs.forEach((c) => {
       const codeKey = c.chair_code || String(c.id);
-      if (!c.deleted_at && !DELETED_CHAIRS_SET.has(codeKey)) {
+      if (c.deleted_at) {
+        chairMap.delete(String(c.id));
+        chairMap.delete(codeKey);
+      } else if (!DELETED_CHAIRS_SET.has(codeKey)) {
         chairMap.set(codeKey, {
           ...c,
           chair_code: codeKey,

@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 
 const DEFAULT_SAFE_CHAIRS = [
-  { id: 'SAKURA-GI-01', name: 'Sakura Series #01', location_name: 'Grand Indonesia Lt 3', status: 'ONLINE', pin: '123456', is_active: true },
-  { id: 'SAKURA-CP-01', name: 'Sakura Series #02', location_name: 'Central Park Fl 1', status: 'ONLINE', pin: '123456', is_active: true },
-  { id: 'SAKURA-MOI-01', name: 'Sakura Series #03', location_name: 'Mall of Indonesia Lt 2', status: 'ONLINE', pin: '123456', is_active: true },
-  { id: 'SAKURA-PIK-01', name: 'Sakura Series #04 - PIK', location_name: 'Pantai Indah Kapuk', status: 'ONLINE', pin: '123456', is_active: true },
-  { id: 'SAKURA-LVB-01', name: 'Stagging Unit', location_name: 'Living Mall Bekasi', status: 'ONLINE', pin: '123456', is_active: true },
+  { id: 'SAKURA-GI-01', chair_code: 'SAKURA-GI-01', name: 'Sakura Series #01', model_type: 'Tokuyo TC-355', location_name: 'Grand Indonesia Lt 3', status: 'ONLINE', pin: '123456', is_active: true },
+  { id: 'SAKURA-CP-01', chair_code: 'SAKURA-CP-01', name: 'Sakura Series #02', model_type: 'Tokuyo TC-355', location_name: 'Central Park Fl 1', status: 'ONLINE', pin: '123456', is_active: true },
+  { id: 'SAKURA-MOI-01', chair_code: 'SAKURA-MOI-01', name: 'Sakura Series #03', model_type: 'Tokuyo TC-355', location_name: 'Mall of Indonesia Lt 2', status: 'ONLINE', pin: '123456', is_active: true },
+  { id: 'SAKURA-PIK-01', chair_code: 'SAKURA-PIK-01', name: 'Sakura Series #04 - PIK', model_type: 'Tokuyo TC-355', location_name: 'Pantai Indah Kapuk', status: 'ONLINE', pin: '123456', is_active: true },
+  { id: 'SAKURA-LVB-01', chair_code: 'SAKURA-LVB-01', name: 'Stagging Unit', model_type: 'Tokuyo TC-355', location_name: 'Living Mall Bekasi', status: 'ONLINE', pin: '123456', is_active: true },
 ];
 
 export async function GET(req: NextRequest) {
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const filterChairId = searchParams.get('chairId'); // Filter per chair ID
     const filterRange = searchParams.get('range') || 'all'; // 'today', '7d', 'month', 'all'
 
-    // 1. Fetch registered chairs from Supabase DB
+    // 1. Fetch registered chairs from Supabase DB (excluding soft-deleted chairs)
     const { data: chairs } = await supabaseServer
       .from('chairs')
       .select('*')
@@ -26,17 +26,27 @@ export async function GET(req: NextRequest) {
 
     // Merge default chairs first
     DEFAULT_SAFE_CHAIRS.forEach((c) => chairMap.set(c.id, c));
+
     // Overlay database chairs (Supabase DB is single source of truth)
     dbChairs.forEach((c) => {
-      chairMap.set(c.id, {
-        ...c,
-        pin: c.pin || '123456',
-        status: c.status || 'ONLINE',
-      });
+      const codeKey = c.chair_code || String(c.id);
+      if (c.deleted_at) {
+        // Explicitly remove soft-deleted chairs from the map
+        chairMap.delete(String(c.id));
+        chairMap.delete(codeKey);
+      } else {
+        chairMap.set(codeKey, {
+          ...c,
+          chair_code: codeKey,
+          model_type: c.model_type || 'Tokuyo TC-355',
+          pin: c.pin || '123456',
+          status: c.status || 'ONLINE',
+        });
+      }
     });
 
     const safeChairs = Array.from(chairMap.values());
-    safeChairs.sort((a, b) => a.id.localeCompare(b.id));
+    safeChairs.sort((a, b) => String(a.chair_code || a.id).localeCompare(String(b.chair_code || b.id)));
 
     // 2. Query chair_slips or legacy transactions with filters
     const now = new Date();
@@ -59,25 +69,19 @@ export async function GET(req: NextRequest) {
         .order('created_at', { ascending: false });
 
       if (filterChairId && filterChairId !== 'ALL') {
-        slipQuery = slipQuery.eq('chair_id', filterChairId);
+        slipQuery = slipQuery.or(`chair_id.eq.${filterChairId},chair_code.eq.${filterChairId}`);
       }
       if (timeStartFilter) {
         slipQuery = slipQuery.gte('created_at', timeStartFilter);
       }
 
-      const { data: slips } = await slipQuery.limit(100);
-      if (slips && slips.length > 0) {
-        chairSlipsData = slips.map((s) => ({
-          ...s,
-          idempotency_key: s.chair_slip_number || s.id,
-          duration_minutes: s.duration_in_minutes || 4,
-        }));
-      }
-    } catch (e: any) {
-      console.warn('[API Admin Dashboard] chair_slips query note:', e?.message);
+      const { data: slips } = await slipQuery;
+      if (slips) chairSlipsData = slips;
+    } catch (e) {
+      console.warn('[API Admin Dashboard] chair_slips query note:', e);
     }
 
-    // Fallback or merge with legacy transactions if needed
+    // Fallback to legacy transactions if chair_slips is empty
     if (chairSlipsData.length === 0) {
       try {
         let txQuery = supabaseServer
@@ -92,57 +96,47 @@ export async function GET(req: NextRequest) {
           txQuery = txQuery.gte('created_at', timeStartFilter);
         }
 
-        const { data: legacyTxs } = await txQuery.limit(100);
-        if (legacyTxs && legacyTxs.length > 0) {
-          chairSlipsData = legacyTxs.map((tx) => ({
-            ...tx,
-            chair_slip_number: tx.idempotency_key || tx.id,
-            duration_in_minutes: tx.duration_minutes || 4,
-          }));
-        }
-      } catch (e: any) {
-        console.warn('[API Admin Dashboard] transactions query note:', e?.message);
+        const { data: legacyTxs } = await txQuery;
+        if (legacyTxs) chairSlipsData = legacyTxs;
+      } catch (e) {
+        console.warn('[API Admin Dashboard] legacy transactions query note:', e);
       }
     }
 
-    const safeTransactions = chairSlipsData || [];
+    // 3. Compute Financial Analytics Metrics (PARKEE Revenue Split: MDR 0.7%, Dev Share 5%, Owner Net 94.3%)
+    let grossRevenue = 0;
+    let totalTransactions = 0;
 
-    // 3. Compute revenue split & metrics
-    // Valid paid statuses include: 'paid', 'session_inprocess', 'done', 'PAID', 'ONGOING', 'COMPLETED'
-    const validTransactions = safeTransactions.filter((tx) =>
-      ['paid', 'session_inprocess', 'done', 'PAID', 'ONGOING', 'COMPLETED'].includes(tx.status)
-    );
+    chairSlipsData.forEach((tx) => {
+      const st = String(tx.status || '').toLowerCase();
+      if (st === 'done' || st === 'completed' || st === 'paid' || st === 'ongoing' || st === 'session_inprocess') {
+        grossRevenue += Number(tx.amount || 0);
+        totalTransactions += 1;
+      }
+    });
 
-    const grossRevenue = validTransactions.reduce(
-      (acc, curr) => acc + Number(curr.amount || 0),
-      0
-    );
+    const mdrFee = Math.round(grossRevenue * 0.007);
+    const devShare = Math.round(grossRevenue * 0.05);
+    const ownerNet = grossRevenue - mdrFee - devShare;
 
-    const mdrFee = Math.round(grossRevenue * 0.007); // 0.7% MDR QRIS
-    const devShare = Math.round(grossRevenue * 0.05); // 5% Revenue Share Developer
-    const ownerNet = Math.round(grossRevenue * 0.943); // 94.3% Net Owner (After 5% dev & 0.7% MDR)
-
-    const onlineCount = safeChairs.filter(
-      (c) => c.status === 'ONLINE' || c.status === 'BUSY'
-    ).length;
+    const onlineCount = safeChairs.filter((c) => (c.status || 'ONLINE') === 'ONLINE').length;
 
     return NextResponse.json({
       success: true,
-      analytics: {
+      summary: {
         grossRevenue,
         mdrFee,
         devShare,
         ownerNet,
-        totalTransactions: validTransactions.length,
+        totalTransactions,
         onlineCount,
         totalChairs: safeChairs.length,
       },
       chairs: safeChairs,
-      transactions: safeTransactions,
-      chair_slips: safeTransactions,
+      transactions: chairSlipsData,
     });
-  } catch (error: any) {
-    console.error('[API Admin Dashboard] Error:', error);
+  } catch (err: any) {
+    console.error('[API Admin Dashboard] GET Error:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
