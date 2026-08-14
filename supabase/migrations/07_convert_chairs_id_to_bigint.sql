@@ -1,10 +1,11 @@
 -- Migration 07: Convert Chairs Primary Key to BIGINT Identity & Enforce chair_code Unique
 -- Project: Smart Kursi Pijat Sakura
+-- ⚠️ JALANKAN SCRIPT INI DI SUPABASE SQL EDITOR
 
 -- 1. Backup existing chairs table data (just in case)
 CREATE TABLE IF NOT EXISTS chairs_backup AS SELECT * FROM chairs;
 
--- 2. Drop legacy chairs table safely
+-- 2. Drop legacy chairs table safely (CASCADE drops FK constraints from chair_slips etc.)
 DROP TABLE IF EXISTS chairs CASCADE;
 
 -- 3. Re-create chairs table with numeric BIGINT identity Primary Key & VARCHAR UNIQUE chair_code
@@ -34,6 +35,13 @@ VALUES
   ('SAKURA-LVB-01', 'Stagging Unit', 'Tokuyo TC-355', 'Living Mall Bekasi', 'ONLINE', '123456', true)
 ON CONFLICT (chair_code) DO NOTHING;
 
--- 5. Ensure chair_slips table has chair_code column for fast denormalized queries
+-- 5. RLS Policies for CRUD operations (allow anon access for serverless API)
+DROP POLICY IF EXISTS "Allow anon select all chairs" ON chairs;
+CREATE POLICY "Allow anon select all chairs" ON chairs FOR SELECT TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "Allow anon insert and update chairs" ON chairs;
+CREATE POLICY "Allow anon insert and update chairs" ON chairs FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+-- 6. Ensure chair_slips table has chair_code column for fast denormalized queries
 ALTER TABLE chair_slips ADD COLUMN IF NOT EXISTS chair_code VARCHAR(50);
 ALTER TABLE chair_slip_summary_detail ADD COLUMN IF NOT EXISTS chair_code VARCHAR(50);
