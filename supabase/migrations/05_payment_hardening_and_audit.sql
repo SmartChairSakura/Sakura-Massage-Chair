@@ -191,3 +191,8 @@ CREATE TABLE IF NOT EXISTS chair_slip_settlements (
 CREATE INDEX IF NOT EXISTS idx_chair_slip_settlements_pending 
   ON chair_slip_settlements (gateway_settlement_status)
   WHERE gateway_settlement_status = 'pending';
+
+-- =========================================================================
+-- 🧹 LEGACY CLEANUP (Optional: Remove old transactions table if migrated)
+-- =========================================================================
+-- DROP TABLE IF EXISTS transactions CASCADE;
