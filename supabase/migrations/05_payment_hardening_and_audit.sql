@@ -1,5 +1,9 @@
--- Migration 05: Payment Hardening, Status Constraints & Chair Slip PARKEE 3-Tier Architecture
+-- Migration 05: Payment Hardening, Soft Delete & PARKEE Audit Synchronization
 -- Project: Smart Kursi Pijat Sakura
+
+-- 0. Ensure chairs table supports Soft-Delete (deleted_at & updated_at)
+ALTER TABLE chairs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE chairs ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL;
 
 -- 1. Main Session Table (Chair Slips)
 CREATE TABLE IF NOT EXISTS chair_slips (
@@ -17,8 +21,12 @@ CREATE TABLE IF NOT EXISTS chair_slips (
   session_start_at TIMESTAMPTZ,
   session_end_at TIMESTAMPTZ,
   cancelled_at TIMESTAMPTZ,
+  cancellation_reason VARCHAR(255),
+  note VARCHAR(255),
+  created_from VARCHAR(50) DEFAULT 'EDC_KIOSK',
   created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
 -- Ensure idempotency key / slip number is unique
@@ -69,7 +77,8 @@ CREATE TABLE IF NOT EXISTS chair_slip_payments (
   payment_status VARCHAR(50) DEFAULT 'pending',
   payment_token TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
 -- 3. Read-Optimized Summary & Audit Log Table (Chair Slip Summary Detail)
@@ -88,8 +97,11 @@ CREATE TABLE IF NOT EXISTS chair_slip_summary_detail (
   dev_share NUMERIC(12,2),
   owner_net NUMERIC(12,2),
   duration_in_minutes INT,
+  cancellation_reason VARCHAR(255),
   metadata JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ DEFAULT now()
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
 -- Automatic Trigger for Status Log in chair_slip_summary_detail
@@ -105,7 +117,9 @@ BEGIN
       changed_by, 
       amount,
       duration_in_minutes,
-      metadata
+      cancellation_reason,
+      metadata,
+      updated_at
     )
     VALUES (
       NEW.id, 
@@ -115,7 +129,9 @@ BEGIN
       'system',
       NEW.amount,
       NEW.duration_in_minutes,
-      jsonb_build_object('updated_at', NEW.updated_at)
+      NEW.cancellation_reason,
+      jsonb_build_object('updated_at', NEW.updated_at),
+      now()
     );
   END IF;
   RETURN NEW;
@@ -139,7 +155,9 @@ CREATE TABLE IF NOT EXISTS chair_slip_settlements (
   net_amount NUMERIC(12,2) NOT NULL,
   settlement_date TIMESTAMPTZ,
   checked_at TIMESTAMPTZ DEFAULT now(),
-  created_at TIMESTAMPTZ DEFAULT now()
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_chair_slip_settlements_pending 
