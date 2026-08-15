@@ -603,28 +603,19 @@ function LocationSettingContent() {
                       key={index}
                       className="p-4 bg-[#FBF9F9] rounded-2xl border border-[#EFEDED] space-y-3 relative"
                     >
-                      <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={item.is_default}
-                            onChange={(e) => handleUpdateBreakdownItem(index, 'is_default', e.target.checked)}
-                            className="w-4 h-4 rounded text-[#795465] focus:ring-[#795465]"
-                          />
-                          <span className="text-xs font-bold text-[#1B1C1C]">Set as default entity</span>
-                        </label>
-
-                        {incomeBreakdown.length > 2 && (
+                      {incomeBreakdown.length > 2 && (
+                        <div className="flex justify-end mb-1">
                           <button
                             type="button"
                             onClick={() => handleRemoveBreakdownItem(index)}
-                            className="p-1.5 hover:bg-[#FFDAD6] text-[#BA1A1A] rounded-xl transition-colors"
-                            title="Remove entity row"
+                            className="p-1.5 hover:bg-[#FFDAD6] text-[#BA1A1A] rounded-xl transition-colors text-xs font-bold flex items-center gap-1"
+                            title="Hapus baris"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Hapus Baris</span>
                           </button>
-                        )}
-                      </div>
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>

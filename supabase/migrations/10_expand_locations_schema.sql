@@ -10,14 +10,17 @@ ALTER TABLE locations ADD COLUMN IF NOT EXISTS longitude NUMERIC(10,7);
 
 -- 2. Add income_breakdown JSONB column for multi-party revenue splits
 ALTER TABLE locations ADD COLUMN IF NOT EXISTS income_breakdown JSONB DEFAULT '[
-  {"entity": "LANDOWNER", "party_name": "Pemilik Lahan / Partner", "percentage": 95, "is_default": true},
-  {"entity": "SYSTEM", "party_name": "Sistem & Operasional", "percentage": 5, "is_default": false}
+  {"entity": "OWNER", "party_name": "Pemilik Lahan / Owner", "percentage": 95, "is_default": true},
+  {"entity": "SYSTEM", "party_name": "Sistem & Developer Tokuyo", "percentage": 5, "is_default": false}
 ]'::jsonb;
 
 -- 3. Update existing locations with default income breakdown if NULL
 UPDATE locations
 SET income_breakdown = jsonb_build_array(
-  jsonb_build_object('entity', 'LANDOWNER', 'party_name', 'Pemilik Lahan ' || name, 'percentage', COALESCE(owner_share_pct, 95.0), 'is_default', true),
-  jsonb_build_object('entity', 'SYSTEM', 'party_name', 'Sistem & Operasional', 'percentage', COALESCE(system_share_pct, 5.0), 'is_default', false)
+  jsonb_build_object('entity', 'OWNER', 'party_name', 'Pemilik Lahan ' || name, 'percentage', COALESCE(owner_share_pct, 95.0), 'is_default', true),
+  jsonb_build_object('entity', 'SYSTEM', 'party_name', 'Sistem & Developer Tokuyo', 'percentage', COALESCE(system_share_pct, 5.0), 'is_default', false)
 )
 WHERE income_breakdown IS NULL;
+
+-- 4. Reload PostgREST schema cache to immediately reflect new columns in API
+NOTIFY pgrst, 'reload schema';
