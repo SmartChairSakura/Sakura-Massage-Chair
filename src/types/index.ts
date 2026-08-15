@@ -1,6 +1,6 @@
 export type LocationStatus = 'active' | 'inactive';
 
-export type IncomeEntity = 'LANDOWNER' | 'PARKING_OFFICER' | 'SYSTEM' | 'OPERATOR' | 'OTHER';
+export type IncomeEntity = 'OWNER' | 'SYSTEM' | 'PARTNER' | 'OTHER';
 
 export interface IncomeBreakdownItem {
   id?: string;

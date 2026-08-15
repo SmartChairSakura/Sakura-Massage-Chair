@@ -16,10 +16,8 @@ import {
   Search,
   Filter,
   Globe,
-  Navigation,
   DollarSign,
   PlusCircle,
-  Info,
 } from 'lucide-react';
 import { Location, IncomeBreakdownItem, IncomeEntity } from '@/types';
 
@@ -41,14 +39,14 @@ const PROVINCE_OPTIONS = [
 
 const DEFAULT_BREAKDOWN_ITEMS: IncomeBreakdownItem[] = [
   {
-    entity: 'LANDOWNER',
-    party_name: 'Pemilik Lahan / Partner',
+    entity: 'OWNER',
+    party_name: 'Pemilik Lahan / Owner',
     percentage: 95,
     is_default: true,
   },
   {
     entity: 'SYSTEM',
-    party_name: 'Sistem & Operasional',
+    party_name: 'Sistem & Developer Tokuyo',
     percentage: 5,
     is_default: false,
   },
@@ -79,7 +77,7 @@ function LocationSettingContent() {
   const [locPicName, setLocPicName] = useState('Operational Team');
   const [locPicPhone, setLocPicPhone] = useState('08123456789');
 
-  // Income Breakdown Multi-party Items
+  // Income Breakdown Items (Revenue Split for Owner & System)
   const [incomeBreakdown, setIncomeBreakdown] = useState<IncomeBreakdownItem[]>(DEFAULT_BREAKDOWN_ITEMS);
 
   const [modalMsg, setModalMsg] = useState('');
@@ -124,8 +122,8 @@ function LocationSettingContent() {
     setIncomeBreakdown((prev) => [
       ...prev,
       {
-        entity: 'PARKING_OFFICER',
-        party_name: 'Mitra Operasional',
+        entity: 'PARTNER',
+        party_name: 'Sub-Partner Lahan',
         percentage: 0,
         is_default: false,
       },
@@ -140,7 +138,6 @@ function LocationSettingContent() {
     setIncomeBreakdown((prev) => {
       const copy = [...prev];
       if (field === 'is_default' && val === true) {
-        // Set all others to false
         copy.forEach((item, i) => {
           item.is_default = i === index;
         });
@@ -164,8 +161,8 @@ function LocationSettingContent() {
     setLocPicName('Operational Team');
     setLocPicPhone('08123456789');
     setIncomeBreakdown([
-      { entity: 'LANDOWNER', party_name: 'Pemilik Lahan / Partner', percentage: 95, is_default: true },
-      { entity: 'SYSTEM', party_name: 'Sistem & Operasional', percentage: 5, is_default: false },
+      { entity: 'OWNER', party_name: 'Pemilik Lahan / Owner', percentage: 95, is_default: true },
+      { entity: 'SYSTEM', party_name: 'Sistem & Developer Tokuyo', percentage: 5, is_default: false },
     ]);
     setModalMsg('');
     setShowModal(true);
@@ -188,8 +185,8 @@ function LocationSettingContent() {
       setIncomeBreakdown(loc.income_breakdown);
     } else {
       setIncomeBreakdown([
-        { entity: 'LANDOWNER', party_name: 'Pemilik Lahan ' + loc.name, percentage: loc.owner_share_pct || 95, is_default: true },
-        { entity: 'SYSTEM', party_name: 'Sistem & Operasional', percentage: loc.system_share_pct || 5, is_default: false },
+        { entity: 'OWNER', party_name: 'Pemilik Lahan ' + loc.name, percentage: loc.owner_share_pct || 95, is_default: true },
+        { entity: 'SYSTEM', party_name: 'Sistem & Developer Tokuyo', percentage: loc.system_share_pct || 5, is_default: false },
       ]);
     }
 
@@ -205,7 +202,7 @@ function LocationSettingContent() {
     }
 
     if (Math.abs(totalBreakdownPct - 100) > 0.01) {
-      setModalMsg(`Total persentase Income Breakdown harus tepat 100%. Current total: ${totalBreakdownPct}%`);
+      setModalMsg(`Total persentase Bagi Hasil (Income Breakdown) harus tepat 100%. Current total: ${totalBreakdownPct}%`);
       return;
     }
 
@@ -309,7 +306,7 @@ function LocationSettingContent() {
             <span>Location Setting & Revenue Split</span>
           </h1>
           <p className="text-xs text-[#4F4448] font-bold mt-1">
-            Kelola daftar lokasi cabang armada kursi pijat, alamat detail, dan persentase income breakdown.
+            Kelola daftar lokasi cabang armada kursi pijat, alamat detail, dan persentase bagi hasil.
           </p>
         </div>
 
@@ -582,12 +579,12 @@ function LocationSettingContent() {
                 </div>
               </div>
 
-              {/* Section 2: Income Breakdown (Multi-party Split) */}
+              {/* Section 2: Income Breakdown (Revenue Split: Owner & System) */}
               <div className="space-y-4 pt-2">
                 <div className="flex items-center justify-between border-b border-[#EFEDED] pb-2">
                   <h3 className="text-xs font-extrabold text-[#795465] uppercase tracking-wider flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-[#795465]" />
-                    <span>Income Breakdown</span>
+                    <span>Income Breakdown (Persentase Bagi Hasil)</span>
                   </h3>
                   <span
                     className={`text-xs font-mono font-extrabold px-2.5 py-0.5 rounded-full ${
@@ -617,7 +614,7 @@ function LocationSettingContent() {
                           <span className="text-xs font-bold text-[#1B1C1C]">Set as default entity</span>
                         </label>
 
-                        {incomeBreakdown.length > 1 && (
+                        {incomeBreakdown.length > 2 && (
                           <button
                             type="button"
                             onClick={() => handleRemoveBreakdownItem(index)}
@@ -641,10 +638,9 @@ function LocationSettingContent() {
                             }
                             className="w-full px-3 py-2 bg-white border border-[#EFEDED] rounded-xl text-xs font-extrabold text-[#1B1C1C] focus:border-[#795465] outline-none cursor-pointer"
                           >
-                            <option value="LANDOWNER">LANDOWNER</option>
-                            <option value="PARKING_OFFICER">PARKING_OFFICER</option>
-                            <option value="OPERATOR">OPERATOR</option>
-                            <option value="SYSTEM">SYSTEM</option>
+                            <option value="OWNER">OWNER (Pemilik Lahan)</option>
+                            <option value="SYSTEM">SYSTEM (Developer / Operasional)</option>
+                            <option value="PARTNER">PARTNER (Mitra Lahan)</option>
                             <option value="OTHER">OTHER</option>
                           </select>
                         </div>
@@ -657,7 +653,7 @@ function LocationSettingContent() {
                             type="text"
                             value={item.party_name}
                             onChange={(e) => handleUpdateBreakdownItem(index, 'party_name', e.target.value)}
-                            placeholder="Pemilik Lahan HO"
+                            placeholder="e.g. Pemilik Lahan HO / Sistem"
                             className="w-full px-3 py-2 bg-white border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:border-[#795465] outline-none"
                           />
                         </div>
