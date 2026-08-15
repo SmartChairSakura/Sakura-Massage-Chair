@@ -7,12 +7,15 @@ import {
   DollarSign,
   PieChart,
   Activity,
-  Armchair,
   CheckCircle2,
   QrCode,
   Percent,
+  Calendar,
+  Layers,
+  MapPin,
+  RefreshCw,
 } from 'lucide-react';
-import { Chair, Transaction } from '@/types';
+import { Location, Transaction } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +24,9 @@ function DashboardContent() {
   const locationIdParam = searchParams.get('location_id') || 'ALL';
 
   const [rangeFilter, setRangeFilter] = useState<string>('all');
-  const [chairs, setChairs] = useState<Chair[]>([]);
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [locations, setLocations] = useState<Location[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [analytics, setAnalytics] = useState({
     grossRevenue: 0,
@@ -42,13 +47,15 @@ function DashboardContent() {
     try {
       const query = new URLSearchParams();
       if (locationIdParam !== 'ALL') query.set('location_id', locationIdParam);
-      if (rangeFilter !== 'all') query.set('range', rangeFilter);
+      if (dateFrom) query.set('date_from', dateFrom);
+      if (dateTo) query.set('date_to', dateTo);
+      if (!dateFrom && !dateTo && rangeFilter !== 'all') query.set('range', rangeFilter);
 
       const res = await fetch(`/api/admin/dashboard?${query.toString()}`);
       const data = await res.json();
 
       if (data.success) {
-        setChairs(data.chairs || []);
+        setLocations(data.locations || []);
         setTransactions(data.transactions || []);
 
         const s = data.summary || {};
@@ -74,7 +81,13 @@ function DashboardContent() {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [locationIdParam, rangeFilter]);
+  }, [locationIdParam, rangeFilter, dateFrom, dateTo]);
+
+  const handleResetDateFilters = () => {
+    setDateFrom('');
+    setDateTo('');
+    setRangeFilter('all');
+  };
 
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -86,38 +99,74 @@ function DashboardContent() {
 
   return (
     <div className="space-y-6">
-      {/* Top Filter Bar */}
-      <div className="bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* Top Filter Bar with Calendar Inputs */}
+      <div className="bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-extrabold text-[#1B1C1C] tracking-tight flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-[#795465]" />
             <span>Sales Summary & Revenue Analytics</span>
           </h1>
           <p className="text-xs text-[#4F4448] font-bold mt-1">
-            Ringkasan omset kotor, biaya MDR QRIS (0.7%), hak net owner, dan bagi hasil system.
+            Overview omset kotor QRIS, biaya MDR (0.7%), hak net owner, dan bagi hasil system.
           </p>
         </div>
 
-        {/* Date Range Tabs */}
-        <div className="flex items-center bg-[#F5F3F3] p-1 rounded-2xl border border-[#EFEDED]">
-          {[
-            { id: 'today', label: 'Hari Ini' },
-            { id: '7d', label: '7 Hari' },
-            { id: 'month', label: 'Bulan Ini' },
-            { id: 'all', label: 'Semua' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setRangeFilter(tab.id)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
-                rangeFilter === tab.id
-                  ? 'bg-[#795465] text-white shadow-sm'
-                  : 'text-[#4F4448] hover:text-[#1B1C1C]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Date Filters (Calendar + Shortcut Tabs) */}
+        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+          {/* Calendar Picker Inputs */}
+          <div className="flex items-center gap-2 bg-[#F5F3F3] p-1.5 rounded-2xl border border-[#EFEDED]">
+            <Calendar className="w-4 h-4 text-[#795465] ml-2 shrink-0" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="bg-transparent text-xs font-bold text-[#1B1C1C] outline-none cursor-pointer"
+              title="Dari Tanggal"
+            />
+            <span className="text-xs text-[#817478] font-extrabold">-</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="bg-transparent text-xs font-bold text-[#1B1C1C] outline-none cursor-pointer"
+              title="Sampai Tanggal"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={handleResetDateFilters}
+                className="p-1 hover:bg-[#EFEDED] rounded-lg text-[#795465] transition-colors"
+                title="Reset Date Calendar"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Shortcut Date Range Tabs */}
+          <div className="flex items-center bg-[#F5F3F3] p-1 rounded-2xl border border-[#EFEDED]">
+            {[
+              { id: 'today', label: 'Hari Ini' },
+              { id: '7d', label: '7 Hari' },
+              { id: 'month', label: 'Bulan Ini' },
+              { id: 'all', label: 'Semua' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                  setRangeFilter(tab.id);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+                  !dateFrom && !dateTo && rangeFilter === tab.id
+                    ? 'bg-[#795465] text-white shadow-sm'
+                    : 'text-[#4F4448] hover:text-[#1B1C1C]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -204,26 +253,26 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* QRIS Method & Status Fleet Section */}
+      {/* QRIS Method & Status Fleet Overview Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* QRIS Payment Breakdown Banner */}
+        {/* QRIS Payment Method Banner */}
         <div className="lg:col-span-1 bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-xl bg-[#F8C8DC] text-[#795465] flex items-center justify-center">
                 <QrCode className="w-4 h-4" />
               </div>
-              <h2 className="text-sm font-extrabold text-[#1B1C1C]">Metode Bayar: QRIS</h2>
+              <h2 className="text-sm font-extrabold text-[#1B1C1C]">Metode Bayar: QRIS Only</h2>
             </div>
             <p className="text-xs text-[#4F4448] font-bold">
-              Seluruh transaksi pembayaran kursi pijat menggunakan integrasi QRIS Statis & Dinamis EDC.
+              100% transaksi pembayaran dilakukan via QRIS Dinamis & Statis EDC. Integrasi tunai (cash) belum diaktifkan.
             </p>
           </div>
 
           <div className="p-4 bg-[#FBF9F9] rounded-2xl border border-[#EFEDED] mt-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 rounded-full bg-[#4E635A]" />
-              <span className="text-xs font-extrabold text-[#1B1C1C]">QRIS Merchant Settlement</span>
+              <span className="text-xs font-extrabold text-[#1B1C1C]">QRIS Settlement</span>
             </div>
             <span className="text-xs font-mono font-extrabold text-[#795465]">100%</span>
           </div>
@@ -235,10 +284,10 @@ function DashboardContent() {
             <div>
               <h2 className="text-sm font-extrabold text-[#1B1C1C] flex items-center gap-2">
                 <Activity className="w-4 h-4 text-[#795465]" />
-                <span>Status Armada & Keterhubungan Database</span>
+                <span>Overview Keterhubungan System & Armada</span>
               </h2>
               <p className="text-xs text-[#4F4448] font-bold mt-0.5">
-                Monitoring unit terhubung secara realtime dengan PostgreSQL Supabase.
+                Monitoring status armada terhubung secara realtime dengan PostgreSQL Supabase.
               </p>
             </div>
             <span className="px-3 py-1 bg-[#CEE5DA] text-[#4E635A] text-[10px] font-extrabold rounded-full">
@@ -260,7 +309,7 @@ function DashboardContent() {
               </div>
             </div>
             <div className="p-4 bg-[#FBF9F9] rounded-2xl border border-[#EFEDED] col-span-2 sm:col-span-1">
-              <span className="text-[10px] font-bold text-[#817478] uppercase">Status Sistem</span>
+              <span className="text-[10px] font-bold text-[#817478] uppercase">Status Database</span>
               <div className="text-xs font-extrabold text-[#4E635A] mt-2 flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Terhubung</span>
@@ -270,41 +319,46 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Registered Fleet Table Overview */}
+      {/* Location Revenue Distribution Breakdown Table */}
       <div className="bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] space-y-4">
         <h2 className="text-sm font-extrabold text-[#1B1C1C] flex items-center gap-2">
-          <Armchair className="w-4 h-4 text-[#795465]" />
-          <span>Daftar Armada Kursi Terdaftar</span>
+          <Layers className="w-4 h-4 text-[#795465]" />
+          <span>Breakdown Bagi Hasil Per Lokasi Cabang</span>
         </h2>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="bg-[#F5F3F3] text-[#1B1C1C] border-b border-[#EFEDED]">
-                <th className="p-3.5 font-extrabold">Kode Unit / EDC</th>
-                <th className="p-3.5 font-extrabold">Model Hardware</th>
-                <th className="p-3.5 font-extrabold">Nama Unit</th>
-                <th className="p-3.5 font-extrabold">Lokasi Cabang</th>
-                <th className="p-3.5 font-extrabold">Status Device</th>
-                <th className="p-3.5 font-extrabold">PIN Password</th>
+                <th className="p-3.5 font-extrabold">Nama Lokasi Cabang</th>
+                <th className="p-3.5 font-extrabold">Kode Unik</th>
+                <th className="p-3.5 font-extrabold">Total Armada</th>
+                <th className="p-3.5 font-extrabold">Config Split (Owner / System)</th>
+                <th className="p-3.5 font-extrabold">Status Operasional</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFEDED]">
-              {chairs.map((c) => (
-                <tr key={String(c.chair_code || c.id)} className="hover:bg-[#FBF9F9] transition-colors">
-                  <td className="p-3.5 font-mono font-extrabold text-[#795465]">
-                    {c.chair_code || String(c.id)}
+              {locations.map((loc) => (
+                <tr key={loc.id} className="hover:bg-[#FBF9F9] transition-colors">
+                  <td className="p-3.5 font-extrabold text-[#1B1C1C]">
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-[#795465]" />
+                      <span>{loc.name}</span>
+                    </div>
                   </td>
-                  <td className="p-3.5 font-extrabold text-[#1B1C1C]">{c.model_type || 'Tokuyo TC-355'}</td>
-                  <td className="p-3.5 font-bold text-[#4F4448]">{c.name}</td>
-                  <td className="p-3.5 font-bold text-[#1B1C1C]">{c.location_name}</td>
+                  <td className="p-3.5 font-mono font-extrabold text-[#795465]">{loc.location_code}</td>
+                  <td className="p-3.5 font-bold text-[#1B1C1C]">{loc.chair_count || 0} Unit Kursi</td>
+                  <td className="p-3.5 font-bold text-[#1B1C1C]">
+                    <span className="text-[#4E635A] font-extrabold">{loc.owner_share_pct}% Owner</span>
+                    <span className="text-[#817478] mx-1">/</span>
+                    <span className="text-[#795465] font-extrabold">{loc.system_share_pct}% System</span>
+                  </td>
                   <td className="p-3.5">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#CEE5DA] text-[#4E635A]">
                       <CheckCircle2 className="w-3 h-3" />
-                      {c.status || 'ONLINE'}
+                      Aktif ({loc.online_chair_count || 0}/{loc.chair_count || 0})
                     </span>
                   </td>
-                  <td className="p-3.5 font-mono font-bold text-[#1B1C1C]">{c.pin || '123456'}</td>
                 </tr>
               ))}
             </tbody>

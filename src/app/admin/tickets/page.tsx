@@ -6,12 +6,14 @@ import {
   Ticket,
   Search,
   Download,
+  Calendar,
   ChevronLeft,
   ChevronRight,
   QrCode,
   CheckCircle2,
   Clock,
   XCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { ChairSlip } from '@/types';
 
@@ -62,12 +64,20 @@ function TicketContent() {
 
   useEffect(() => {
     fetchTickets();
-  }, [locationIdParam, statusFilter, page]);
+  }, [locationIdParam, statusFilter, page, dateFrom, dateTo]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
     fetchTickets();
+  };
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+    setDateFrom('');
+    setDateTo('');
+    setPage(1);
   };
 
   const handleExportCSV = () => {
@@ -169,7 +179,7 @@ function TicketContent() {
         </button>
       </div>
 
-      {/* Search & Filter Bar */}
+      {/* Search & Comprehensive Filters Bar */}
       <div className="bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] space-y-4">
         <form onSubmit={handleSearchSubmit} className="flex flex-wrap items-center gap-3">
           {/* Search Input */}
@@ -182,6 +192,26 @@ function TicketContent() {
               className="w-full px-4 py-2.5 pl-10 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] placeholder-[#817478] focus:bg-white focus:border-[#795465] outline-none"
             />
             <Search className="w-4 h-4 text-[#795465] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          </div>
+
+          {/* Date Calendar Range Filters */}
+          <div className="flex items-center gap-2 bg-[#F5F3F3] p-1.5 rounded-xl border border-[#EFEDED]">
+            <Calendar className="w-4 h-4 text-[#795465] ml-1 shrink-0" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+              className="bg-transparent text-xs font-bold text-[#1B1C1C] outline-none cursor-pointer"
+              title="Dari Tanggal"
+            />
+            <span className="text-xs text-[#817478] font-extrabold">-</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+              className="bg-transparent text-xs font-bold text-[#1B1C1C] outline-none cursor-pointer"
+              title="Sampai Tanggal"
+            />
           </div>
 
           {/* Status Filter Tabs */}
@@ -216,6 +246,18 @@ function TicketContent() {
           >
             Cari
           </button>
+
+          {(searchQuery || statusFilter !== 'ALL' || dateFrom || dateTo) && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="px-3 py-2.5 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#795465] rounded-xl text-xs font-extrabold flex items-center gap-1"
+              title="Reset Semua Filter"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Reset</span>
+            </button>
+          )}
         </form>
 
         {/* Tickets Table */}

@@ -54,8 +54,8 @@ export default function KioskHeader({
     window.location.href = '/';
   };
 
-  // Hide sticky header completely on Admin Dashboard (/admin) or Setup page (/setup)
-  if (pathname === '/admin' || pathname === '/setup') {
+  // Hide sticky header completely on Admin Dashboard (/admin/*) or Setup page (/setup)
+  if (pathname.startsWith('/admin') || pathname === '/setup') {
     return null;
   }
 

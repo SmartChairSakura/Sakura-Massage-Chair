@@ -45,10 +45,15 @@ export async function GET(req: NextRequest) {
     }));
 
     // 3. Filter transactions
+    const dateFrom = searchParams.get('date_from');
+    const dateTo = searchParams.get('date_to');
+
     const now = new Date();
     let timeStartFilter: string | null = null;
 
-    if (filterRange === 'today') {
+    if (dateFrom) {
+      timeStartFilter = new Date(dateFrom).toISOString();
+    } else if (filterRange === 'today') {
       timeStartFilter = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     } else if (filterRange === '7d') {
       timeStartFilter = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -71,6 +76,12 @@ export async function GET(req: NextRequest) {
 
     if (timeStartFilter) {
       slipQuery = slipQuery.gte('created_at', timeStartFilter);
+    }
+
+    if (dateTo) {
+      const endOfDay = new Date(dateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      slipQuery = slipQuery.lte('created_at', endOfDay.toISOString());
     }
 
     const { data: slips } = await slipQuery;

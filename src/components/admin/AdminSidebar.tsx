@@ -20,7 +20,8 @@ export default function AdminSidebar() {
 
   const isActiveRoute = (path: string) => {
     if (path === '/admin/dashboard' && pathname === '/admin/dashboard') return true;
-    if (path === '/admin/locations' && (pathname.startsWith('/admin/locations'))) return true;
+    if (path === '/admin/locations' && (pathname === '/admin/locations')) return true;
+    if (path === '/admin/chairs' && (pathname.startsWith('/admin/chairs') || pathname.includes('/chairs'))) return true;
     if (path === '/admin/tickets' && pathname.startsWith('/admin/tickets')) return true;
     return false;
   };
@@ -33,6 +34,11 @@ export default function AdminSidebar() {
           name: 'Location Setting',
           href: '/admin/locations',
           icon: MapPin,
+        },
+        {
+          name: 'Armada Chair List',
+          href: '/admin/chairs',
+          icon: Armchair,
         },
       ],
     },
