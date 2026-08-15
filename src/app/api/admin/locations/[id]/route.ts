@@ -18,9 +18,14 @@ export async function PATCH(
     if (body.name !== undefined) updatePayload.name = String(body.name).trim();
     if (body.location_code !== undefined) updatePayload.location_code = String(body.location_code).trim().toUpperCase();
     if (body.address !== undefined) updatePayload.address = String(body.address).trim();
+    if (body.country !== undefined) updatePayload.country = String(body.country).trim();
+    if (body.state_province !== undefined) updatePayload.state_province = String(body.state_province).trim();
     if (body.city !== undefined) updatePayload.city = String(body.city).trim();
+    if (body.latitude !== undefined) updatePayload.latitude = body.latitude ? Number(body.latitude) : null;
+    if (body.longitude !== undefined) updatePayload.longitude = body.longitude ? Number(body.longitude) : null;
     if (body.pic_name !== undefined) updatePayload.pic_name = String(body.pic_name).trim();
     if (body.pic_phone !== undefined) updatePayload.pic_phone = String(body.pic_phone).trim();
+    if (body.income_breakdown !== undefined) updatePayload.income_breakdown = Array.isArray(body.income_breakdown) ? body.income_breakdown : null;
     if (body.notes !== undefined) updatePayload.notes = String(body.notes).trim();
     if (body.status !== undefined) updatePayload.status = body.status;
 

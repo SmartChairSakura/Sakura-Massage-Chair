@@ -1,15 +1,30 @@
 export type LocationStatus = 'active' | 'inactive';
 
+export type IncomeEntity = 'LANDOWNER' | 'PARKING_OFFICER' | 'SYSTEM' | 'OPERATOR' | 'OTHER';
+
+export interface IncomeBreakdownItem {
+  id?: string;
+  entity: IncomeEntity;
+  party_name: string;
+  percentage: number;
+  is_default: boolean;
+}
+
 export interface Location {
   id: string; // UUID
   location_code: string; // e.g. "CP-01"
   name: string; // e.g. "Central Park Fl 1"
   address?: string;
+  country?: string;
+  state_province?: string;
   city?: string;
+  latitude?: number;
+  longitude?: number;
   pic_name?: string;
   pic_phone?: string;
   owner_share_pct: number; // e.g. 95.00
   system_share_pct: number; // e.g. 5.00
+  income_breakdown?: IncomeBreakdownItem[];
   status: LocationStatus;
   notes?: string;
   chair_count?: number;

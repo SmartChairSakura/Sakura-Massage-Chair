@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-
-export const dynamic = 'force-dynamic';
+import { useSearchParams } from 'next/navigation';
 import {
   MapPin,
   Plus,
@@ -11,28 +10,78 @@ import {
   Trash2,
   Armchair,
   CheckCircle2,
-  XCircle,
   AlertCircle,
   X,
   ExternalLink,
+  Search,
+  Filter,
+  Globe,
+  Navigation,
+  DollarSign,
+  PlusCircle,
+  Info,
 } from 'lucide-react';
-import { Location } from '@/types';
+import { Location, IncomeBreakdownItem, IncomeEntity } from '@/types';
 
-export default function LocationSettingPage() {
+export const dynamic = 'force-dynamic';
+
+const PROVINCE_OPTIONS = [
+  'DKI Jakarta',
+  'Jawa Barat',
+  'Jawa Tengah',
+  'Jawa Timur',
+  'Banten',
+  'DI Yogyakarta',
+  'Bali',
+  'Sumatera Utara',
+  'Sumatera Selatan',
+  'Kepulauan Riau',
+  'Lainnya',
+];
+
+const DEFAULT_BREAKDOWN_ITEMS: IncomeBreakdownItem[] = [
+  {
+    entity: 'LANDOWNER',
+    party_name: 'Pemilik Lahan / Partner',
+    percentage: 95,
+    is_default: true,
+  },
+  {
+    entity: 'SYSTEM',
+    party_name: 'Sistem & Operasional',
+    percentage: 5,
+    is_default: false,
+  },
+];
+
+function LocationSettingContent() {
+  const searchParams = useSearchParams();
+  const locationIdParam = searchParams.get('location_id') || 'ALL';
+
   const [locations, setLocations] = useState<Location[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal State for Add / Edit Location
   const [showModal, setShowModal] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+
+  // Location Metadata Form States
   const [locName, setLocName] = useState('');
   const [locCode, setLocCode] = useState('');
   const [locAddress, setLocAddress] = useState('');
-  const [locCity, setLocCity] = useState('Jakarta');
+  const [locCountry, setLocCountry] = useState('Indonesia');
+  const [locStateProv, setLocStateProv] = useState('DKI Jakarta');
+  const [locCity, setLocCity] = useState('Kota Jakarta Pusat');
+  const [locLat, setLocLat] = useState('');
+  const [locLng, setLocLng] = useState('');
   const [locPicName, setLocPicName] = useState('Operational Team');
   const [locPicPhone, setLocPicPhone] = useState('08123456789');
-  const [ownerPct, setOwnerPct] = useState<number>(95.0);
-  const [systemPct, setSystemPct] = useState<number>(5.0);
+
+  // Income Breakdown Multi-party Items
+  const [incomeBreakdown, setIncomeBreakdown] = useState<IncomeBreakdownItem[]>(DEFAULT_BREAKDOWN_ITEMS);
+
   const [modalMsg, setModalMsg] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -60,10 +109,46 @@ export default function LocationSettingPage() {
     fetchLocations();
   }, []);
 
-  const handleOwnerPctChange = (val: number) => {
-    const cleanOwner = Math.min(100, Math.max(0, val));
-    setOwnerPct(cleanOwner);
-    setSystemPct(Number((100 - cleanOwner).toFixed(2)));
+  // Compute total owner and system percentages from breakdown list
+  const computedOwnerPct = incomeBreakdown
+    .filter((item) => item.entity !== 'SYSTEM')
+    .reduce((sum, item) => sum + (Number(item.percentage) || 0), 0);
+
+  const computedSystemPct = incomeBreakdown
+    .filter((item) => item.entity === 'SYSTEM')
+    .reduce((sum, item) => sum + (Number(item.percentage) || 0), 0);
+
+  const totalBreakdownPct = computedOwnerPct + computedSystemPct;
+
+  const handleAddBreakdownItem = () => {
+    setIncomeBreakdown((prev) => [
+      ...prev,
+      {
+        entity: 'PARKING_OFFICER',
+        party_name: 'Mitra Operasional',
+        percentage: 0,
+        is_default: false,
+      },
+    ]);
+  };
+
+  const handleRemoveBreakdownItem = (index: number) => {
+    setIncomeBreakdown((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateBreakdownItem = (index: number, field: keyof IncomeBreakdownItem, val: any) => {
+    setIncomeBreakdown((prev) => {
+      const copy = [...prev];
+      if (field === 'is_default' && val === true) {
+        // Set all others to false
+        copy.forEach((item, i) => {
+          item.is_default = i === index;
+        });
+      } else {
+        (copy[index] as any)[field] = val;
+      }
+      return copy;
+    });
   };
 
   const openAddModal = () => {
@@ -71,11 +156,17 @@ export default function LocationSettingPage() {
     setLocName('');
     setLocCode('');
     setLocAddress('');
-    setLocCity('Jakarta');
+    setLocCountry('Indonesia');
+    setLocStateProv('DKI Jakarta');
+    setLocCity('Kota Jakarta Pusat');
+    setLocLat('');
+    setLocLng('');
     setLocPicName('Operational Team');
     setLocPicPhone('08123456789');
-    setOwnerPct(95.0);
-    setSystemPct(5.0);
+    setIncomeBreakdown([
+      { entity: 'LANDOWNER', party_name: 'Pemilik Lahan / Partner', percentage: 95, is_default: true },
+      { entity: 'SYSTEM', party_name: 'Sistem & Operasional', percentage: 5, is_default: false },
+    ]);
     setModalMsg('');
     setShowModal(true);
   };
@@ -85,11 +176,23 @@ export default function LocationSettingPage() {
     setLocName(loc.name);
     setLocCode(loc.location_code);
     setLocAddress(loc.address || '');
-    setLocCity(loc.city || 'Jakarta');
+    setLocCountry(loc.country || 'Indonesia');
+    setLocStateProv(loc.state_province || 'DKI Jakarta');
+    setLocCity(loc.city || 'Kota Jakarta Pusat');
+    setLocLat(loc.latitude ? String(loc.latitude) : '');
+    setLocLng(loc.longitude ? String(loc.longitude) : '');
     setLocPicName(loc.pic_name || 'Operational Team');
     setLocPicPhone(loc.pic_phone || '08123456789');
-    setOwnerPct(loc.owner_share_pct);
-    setSystemPct(loc.system_share_pct);
+
+    if (loc.income_breakdown && loc.income_breakdown.length > 0) {
+      setIncomeBreakdown(loc.income_breakdown);
+    } else {
+      setIncomeBreakdown([
+        { entity: 'LANDOWNER', party_name: 'Pemilik Lahan ' + loc.name, percentage: loc.owner_share_pct || 95, is_default: true },
+        { entity: 'SYSTEM', party_name: 'Sistem & Operasional', percentage: loc.system_share_pct || 5, is_default: false },
+      ]);
+    }
+
     setModalMsg('');
     setShowModal(true);
   };
@@ -101,6 +204,11 @@ export default function LocationSettingPage() {
       return;
     }
 
+    if (Math.abs(totalBreakdownPct - 100) > 0.01) {
+      setModalMsg(`Total persentase Income Breakdown harus tepat 100%. Current total: ${totalBreakdownPct}%`);
+      return;
+    }
+
     setIsSaving(true);
     setModalMsg('');
 
@@ -109,11 +217,16 @@ export default function LocationSettingPage() {
         name: locName.trim(),
         location_code: locCode.trim().toUpperCase(),
         address: locAddress.trim(),
+        country: locCountry.trim(),
+        state_province: locStateProv.trim(),
         city: locCity.trim(),
+        latitude: locLat ? parseFloat(locLat) : null,
+        longitude: locLng ? parseFloat(locLng) : null,
         pic_name: locPicName.trim(),
         pic_phone: locPicPhone.trim(),
-        owner_share_pct: ownerPct,
-        system_share_pct: systemPct,
+        owner_share_pct: computedOwnerPct,
+        system_share_pct: computedSystemPct,
+        income_breakdown: incomeBreakdown,
       };
 
       let res;
@@ -170,6 +283,22 @@ export default function LocationSettingPage() {
     }
   };
 
+  // Filter locations by header location_id, search query, and status filter
+  const filteredLocations = locations.filter((loc) => {
+    const matchesHeaderId = locationIdParam === 'ALL' || loc.id === locationIdParam;
+
+    const matchesSearch =
+      !searchQuery.trim() ||
+      loc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      loc.location_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (loc.city && loc.city.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesStatus =
+      statusFilter === 'ALL' || loc.status === statusFilter;
+
+    return matchesHeaderId && matchesSearch && matchesStatus;
+  });
+
   return (
     <div className="space-y-6">
       {/* Top Header Card */}
@@ -180,7 +309,7 @@ export default function LocationSettingPage() {
             <span>Location Setting & Revenue Split</span>
           </h1>
           <p className="text-xs text-[#4F4448] font-bold mt-1">
-            Kelola daftar lokasi cabang armada kursi pijat dan persentase bagi hasil.
+            Kelola daftar lokasi cabang armada kursi pijat, alamat detail, dan persentase income breakdown.
           </p>
         </div>
 
@@ -193,18 +322,47 @@ export default function LocationSettingPage() {
         </button>
       </div>
 
-      {/* Locations Table */}
-      <div className="bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] overflow-hidden">
-        {isLoading ? (
-          <div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">
-            Memuat daftar lokasi cabang...
+      {/* Filter Bar & Table */}
+      <div className="bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Search Input */}
+          <div className="relative flex-1 min-w-[240px]">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search Name, Unique Code, atau Kota..."
+              className="w-full px-4 py-2.5 pl-10 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] placeholder-[#817478] focus:bg-white focus:border-[#795465] outline-none"
+            />
+            <Search className="w-4 h-4 text-[#795465] absolute left-3.5 top-1/2 -translate-y-1/2" />
           </div>
-        ) : locations.length === 0 ? (
-          <div className="py-12 text-center text-xs text-[#817478] font-bold">
-            Belum ada lokasi terdaftar. Klik "+ NEW LOCATION" untuk menambah lokasi baru.
+
+          {/* Status Filter Dropdown */}
+          <div className="flex items-center gap-2 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-3 py-2">
+            <Filter className="w-4 h-4 text-[#795465] shrink-0" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-transparent text-xs font-extrabold text-[#1B1C1C] outline-none cursor-pointer pr-4"
+            >
+              <option value="ALL">Status ALL STATUS</option>
+              <option value="active">Active / Online</option>
+              <option value="inactive">Inactive / Offline</option>
+            </select>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
+        </div>
+
+        {/* Locations Table */}
+        <div className="overflow-x-auto">
+          {isLoading ? (
+            <div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">
+              Memuat daftar lokasi cabang...
+            </div>
+          ) : filteredLocations.length === 0 ? (
+            <div className="py-12 text-center text-xs text-[#817478] font-bold">
+              Tidak ada lokasi cabang ditemukan. Klik "+ NEW LOCATION" untuk menambah lokasi baru.
+            </div>
+          ) : (
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="bg-[#F5F3F3] text-[#1B1C1C] border-b border-[#EFEDED]">
@@ -217,11 +375,13 @@ export default function LocationSettingPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EFEDED]">
-                {locations.map((loc) => (
+                {filteredLocations.map((loc) => (
                   <tr key={loc.id} className="hover:bg-[#FBF9F9] transition-colors">
                     <td className="p-3.5 font-extrabold text-[#1B1C1C]">
                       <div>{loc.name}</div>
-                      <div className="text-[10px] text-[#817478] font-normal">{loc.city || 'Jakarta'}</div>
+                      <div className="text-[10px] text-[#817478] font-normal">
+                        {loc.city || 'Jakarta'} • {loc.state_province || 'DKI Jakarta'}
+                      </div>
                     </td>
                     <td className="p-3.5 font-mono font-bold text-[#795465]">{loc.location_code}</td>
                     <td className="p-3.5">
@@ -270,131 +430,271 @@ export default function LocationSettingPage() {
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Add / Edit Location Modal */}
+      {/* Comprehensive Add / Edit Location Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] border border-[#EFEDED] shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-5 border-b border-[#EFEDED] flex items-center justify-between bg-[#FBF9F9]">
+          <div className="bg-white rounded-[2rem] border border-[#EFEDED] shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-[#EFEDED] flex items-center justify-between bg-[#FBF9F9] shrink-0">
               <h2 className="text-sm font-extrabold text-[#1B1C1C] uppercase tracking-wider flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-[#795465]" />
-                <span>{editingLocation ? 'Edit Lokasi Cabang' : 'Registrasi Lokasi Baru'}</span>
+                <span>{editingLocation ? 'Location Details & Income Breakdown' : 'New Location Registration'}</span>
               </h2>
               <button onClick={() => setShowModal(false)} className="p-1 hover:bg-[#EFEDED] rounded-lg">
                 <X className="w-4 h-4 text-[#1B1C1C]" />
               </button>
             </div>
 
-            <form onSubmit={handleModalSubmit} className="p-6 space-y-4">
+            {/* Modal Form Content */}
+            <form onSubmit={handleModalSubmit} className="p-6 space-y-6 overflow-y-auto flex-1">
               {modalMsg && (
-                <div className="p-3 rounded-xl bg-[#FFDAD6] text-[#93000A] text-xs font-bold flex items-center gap-2">
+                <div className="p-3.5 rounded-xl bg-[#FFDAD6] text-[#93000A] text-xs font-extrabold flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{modalMsg}</span>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                    Kode Unik Lokasi:
-                  </label>
-                  <input
-                    type="text"
-                    value={locCode}
-                    onChange={(e) => setLocCode(e.target.value)}
-                    placeholder="e.g. CP-01"
-                    required
-                    className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] uppercase focus:bg-white focus:border-[#795465] outline-none"
-                  />
-                </div>
+              {/* Section 1: Location Details */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-extrabold text-[#795465] uppercase tracking-wider border-b border-[#EFEDED] pb-2 flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-[#795465]" />
+                  <span>Location Details</span>
+                </h3>
 
-                <div>
-                  <label className="text-xs font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                    Nama Lokasi Cabang:
-                  </label>
-                  <input
-                    type="text"
-                    value={locName}
-                    onChange={(e) => setLocName(e.target.value)}
-                    placeholder="e.g. Central Park Fl 1"
-                    required
-                    className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                  Alamat Lengkap:
-                </label>
-                <input
-                  type="text"
-                  value={locAddress}
-                  onChange={(e) => setLocAddress(e.target.value)}
-                  placeholder="Jl. Letjen S. Parman No.28"
-                  className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                    PIC Lokasi:
-                  </label>
-                  <input
-                    type="text"
-                    value={locPicName}
-                    onChange={(e) => setLocPicName(e.target.value)}
-                    placeholder="Operational Team"
-                    className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                    Telepon PIC:
-                  </label>
-                  <input
-                    type="text"
-                    value={locPicPhone}
-                    onChange={(e) => setLocPicPhone(e.target.value)}
-                    placeholder="08123456789"
-                    className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Revenue Share Split */}
-              <div className="p-4 bg-[#F5F3F3] rounded-2xl border border-[#EFEDED] space-y-3">
-                <label className="text-xs font-extrabold text-[#795465] uppercase tracking-wider block">
-                  Persentase Bagi Hasil (Revenue Split):
-                </label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <span className="text-[10px] font-bold text-[#1B1C1C] block mb-1">Hak Owner (%)</span>
+                    <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                      Location Name:
+                    </label>
                     <input
-                      type="number"
-                      step="0.5"
-                      value={ownerPct}
-                      onChange={(e) => handleOwnerPctChange(parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 bg-white border border-[#EFEDED] rounded-xl text-xs font-extrabold text-[#4E635A] focus:border-[#795465] outline-none"
+                      type="text"
+                      value={locName}
+                      onChange={(e) => setLocName(e.target.value)}
+                      placeholder="HO On Street / Central Park"
+                      required
+                      className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
                     />
                   </div>
+
                   <div>
-                    <span className="text-[10px] font-bold text-[#1B1C1C] block mb-1">Bagi Hasil System (%)</span>
+                    <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                      Location Code:
+                    </label>
                     <input
-                      type="number"
-                      value={systemPct}
-                      disabled
-                      className="w-full px-3 py-2 bg-[#E9E8E8] border border-[#EFEDED] rounded-xl text-xs font-extrabold text-[#795465]"
+                      type="text"
+                      value={locCode}
+                      onChange={(e) => setLocCode(e.target.value)}
+                      placeholder="001-HO-OnStreet / CP-01"
+                      required
+                      className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-mono font-extrabold text-[#795465] uppercase focus:bg-white focus:border-[#795465] outline-none"
                     />
                   </div>
                 </div>
+
+                <div>
+                  <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                    Address:
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={locAddress}
+                    onChange={(e) => setLocAddress(e.target.value)}
+                    placeholder="Jl. Biak Raya No 48C-E, Jakarta Pusat"
+                    className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                      Country:
+                    </label>
+                    <input
+                      type="text"
+                      value={locCountry}
+                      onChange={(e) => setLocCountry(e.target.value)}
+                      placeholder="Indonesia"
+                      className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                      State / Provinsi:
+                    </label>
+                    <select
+                      value={locStateProv}
+                      onChange={(e) => setLocStateProv(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none cursor-pointer"
+                    >
+                      {PROVINCE_OPTIONS.map((prov) => (
+                        <option key={prov} value={prov}>
+                          {prov}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                      City / Kota:
+                    </label>
+                    <input
+                      type="text"
+                      value={locCity}
+                      onChange={(e) => setLocCity(e.target.value)}
+                      placeholder="Kota Jakarta Pusat"
+                      className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                      Latitude:
+                    </label>
+                    <input
+                      type="text"
+                      value={locLat}
+                      onChange={(e) => setLocLat(e.target.value)}
+                      placeholder="-6.1677739"
+                      className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-mono font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                      Longitude:
+                    </label>
+                    <input
+                      type="text"
+                      value={locLng}
+                      onChange={(e) => setLocLng(e.target.value)}
+                      placeholder="106.812345"
+                      className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-mono font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#EFEDED]">
+              {/* Section 2: Income Breakdown (Multi-party Split) */}
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between border-b border-[#EFEDED] pb-2">
+                  <h3 className="text-xs font-extrabold text-[#795465] uppercase tracking-wider flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-[#795465]" />
+                    <span>Income Breakdown</span>
+                  </h3>
+                  <span
+                    className={`text-xs font-mono font-extrabold px-2.5 py-0.5 rounded-full ${
+                      Math.abs(totalBreakdownPct - 100) < 0.01
+                        ? 'bg-[#CEE5DA] text-[#4E635A]'
+                        : 'bg-[#FFDAD6] text-[#BA1A1A]'
+                    }`}
+                  >
+                    Total: {totalBreakdownPct}% / 100%
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {incomeBreakdown.map((item, index) => (
+                    <div
+                      key={index}
+                      className="p-4 bg-[#FBF9F9] rounded-2xl border border-[#EFEDED] space-y-3 relative"
+                    >
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={item.is_default}
+                            onChange={(e) => handleUpdateBreakdownItem(index, 'is_default', e.target.checked)}
+                            className="w-4 h-4 rounded text-[#795465] focus:ring-[#795465]"
+                          />
+                          <span className="text-xs font-bold text-[#1B1C1C]">Set as default entity</span>
+                        </label>
+
+                        {incomeBreakdown.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBreakdownItem(index)}
+                            className="p-1.5 hover:bg-[#FFDAD6] text-[#BA1A1A] rounded-xl transition-colors"
+                            title="Remove entity row"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-[10px] font-extrabold text-[#817478] uppercase block mb-1">
+                            Income Entity:
+                          </label>
+                          <select
+                            value={item.entity}
+                            onChange={(e) =>
+                              handleUpdateBreakdownItem(index, 'entity', e.target.value as IncomeEntity)
+                            }
+                            className="w-full px-3 py-2 bg-white border border-[#EFEDED] rounded-xl text-xs font-extrabold text-[#1B1C1C] focus:border-[#795465] outline-none cursor-pointer"
+                          >
+                            <option value="LANDOWNER">LANDOWNER</option>
+                            <option value="PARKING_OFFICER">PARKING_OFFICER</option>
+                            <option value="OPERATOR">OPERATOR</option>
+                            <option value="SYSTEM">SYSTEM</option>
+                            <option value="OTHER">OTHER</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-extrabold text-[#817478] uppercase block mb-1">
+                            Party Name:
+                          </label>
+                          <input
+                            type="text"
+                            value={item.party_name}
+                            onChange={(e) => handleUpdateBreakdownItem(index, 'party_name', e.target.value)}
+                            placeholder="Pemilik Lahan HO"
+                            className="w-full px-3 py-2 bg-white border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:border-[#795465] outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-extrabold text-[#817478] uppercase block mb-1">
+                            Percentage (%):
+                          </label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="0"
+                            max="100"
+                            value={item.percentage}
+                            onChange={(e) =>
+                              handleUpdateBreakdownItem(index, 'percentage', parseFloat(e.target.value) || 0)
+                            }
+                            className="w-full px-3 py-2 bg-white border border-[#EFEDED] rounded-xl text-xs font-mono font-extrabold text-[#795465] focus:border-[#795465] outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddBreakdownItem}
+                  className="w-full py-3 bg-[#F5F3F3] hover:bg-[#EFEDED] border border-dashed border-[#795465]/40 rounded-2xl text-xs font-extrabold text-[#795465] flex items-center justify-center gap-2 transition-all"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>+ ADD INCOME BREAKDOWN</span>
+                </button>
+              </div>
+
+              {/* Modal Actions Footer */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#EFEDED] shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
@@ -405,7 +705,7 @@ export default function LocationSettingPage() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-5 py-2.5 bg-[#795465] hover:bg-[#684756] text-white font-extrabold text-xs rounded-xl shadow-md disabled:opacity-50"
+                  className="px-6 py-2.5 bg-[#795465] hover:bg-[#684756] text-white font-extrabold text-xs rounded-xl shadow-md disabled:opacity-50"
                 >
                   {isSaving ? 'Menyimpan...' : 'Simpan Lokasi'}
                 </button>
@@ -455,5 +755,13 @@ export default function LocationSettingPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function LocationSettingPage() {
+  return (
+    <Suspense fallback={<div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">Memuat location setting...</div>}>
+      <LocationSettingContent />
+    </Suspense>
   );
 }
