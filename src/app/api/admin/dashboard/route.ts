@@ -4,20 +4,38 @@ import { supabaseServer } from '@/lib/supabase-server';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const filterChairId = searchParams.get('chairId');
+    const filterLocationId = searchParams.get('location_id') || searchParams.get('locationId') || searchParams.get('chairId');
     const filterRange = searchParams.get('range') || 'all';
 
-    // 1. Fetch registered chairs from DB only (DB is single source of truth)
-    const { data: chairs, error: chairsError } = await supabaseServer
+    // 1. Fetch active locations
+    const { data: locations } = await supabaseServer
+      .from('locations')
+      .select('*')
+      .is('deleted_at', null);
+
+    const locationList = locations || [];
+    const selectedLocation = locationList.find((l: any) => l.id === filterLocationId);
+
+    // Dynamic revenue split percentages (default: 95% Owner / 5% System)
+    const ownerPct = selectedLocation ? Number(selectedLocation.owner_share_pct) : 95.0;
+    const systemPct = selectedLocation ? Number(selectedLocation.system_share_pct) : 5.0;
+
+    // 2. Fetch registered active chairs
+    let chairQuery = supabaseServer
       .from('chairs')
       .select('*')
       .is('deleted_at', null)
       .order('id', { ascending: true });
 
-    if (chairsError) {
-      console.error('[API Dashboard] chairs query error:', chairsError.message);
+    if (filterLocationId && filterLocationId !== 'ALL') {
+      if (selectedLocation) {
+        chairQuery = chairQuery.or(`location_id.eq.${filterLocationId},location_name.eq.${selectedLocation.name}`);
+      } else {
+        chairQuery = chairQuery.eq('location_id', filterLocationId);
+      }
     }
 
+    const { data: chairs } = await chairQuery;
     const safeChairs = (chairs || []).map((c: any) => ({
       ...c,
       chair_code: c.chair_code || String(c.id),
@@ -26,7 +44,7 @@ export async function GET(req: NextRequest) {
       status: c.status || 'ONLINE',
     }));
 
-    // 2. Query chair_slips with optional filters
+    // 3. Filter transactions
     const now = new Date();
     let timeStartFilter: string | null = null;
 
@@ -38,41 +56,43 @@ export async function GET(req: NextRequest) {
       timeStartFilter = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     }
 
-    let chairSlipsData: any[] = [];
-    try {
-      let slipQuery = supabaseServer
-        .from('chair_slips')
-        .select('*')
-        .order('created_at', { ascending: false });
+    let slipQuery = supabaseServer
+      .from('chair_slips')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      if (filterChairId && filterChairId !== 'ALL') {
-        slipQuery = slipQuery.or(`chair_id.eq.${filterChairId},chair_code.eq.${filterChairId}`);
+    if (filterLocationId && filterLocationId !== 'ALL') {
+      if (selectedLocation) {
+        slipQuery = slipQuery.or(`location_id.eq.${filterLocationId},note.ilike.%${selectedLocation.name}%`);
+      } else {
+        slipQuery = slipQuery.eq('location_id', filterLocationId);
       }
-      if (timeStartFilter) {
-        slipQuery = slipQuery.gte('created_at', timeStartFilter);
-      }
-
-      const { data: slips } = await slipQuery;
-      if (slips) chairSlipsData = slips;
-    } catch (e) {
-      console.warn('[API Dashboard] chair_slips query note:', e);
     }
 
-    // 3. Compute Financial Analytics Metrics (PARKEE Revenue Split)
+    if (timeStartFilter) {
+      slipQuery = slipQuery.gte('created_at', timeStartFilter);
+    }
+
+    const { data: slips } = await slipQuery;
+    const chairSlipsData = slips || [];
+
+    // 4. Compute Financial Analytics Metrics (QRIS 100%, 0.7% MDR Fee)
     let grossRevenue = 0;
     let totalTransactions = 0;
 
     chairSlipsData.forEach((tx) => {
       const st = String(tx.status || '').toLowerCase();
-      if (st === 'done' || st === 'completed' || st === 'paid' || st === 'ongoing' || st === 'session_inprocess') {
+      if (['done', 'completed', 'paid', 'ongoing', 'session_inprocess'].includes(st)) {
         grossRevenue += Number(tx.amount || 0);
         totalTransactions += 1;
       }
     });
 
-    const mdrFee = Math.round(grossRevenue * 0.007);
-    const devShare = Math.round(grossRevenue * 0.05);
-    const ownerNet = grossRevenue - mdrFee - devShare;
+    const mdrFee = Math.round(grossRevenue * 0.007); // 0.7% QRIS MDR
+    const netGross = grossRevenue - mdrFee;
+    const ownerNet = Math.round(netGross * (ownerPct / 100));
+    const systemNet = netGross - ownerNet;
+
     const onlineCount = safeChairs.filter((c) => (c.status || 'ONLINE') === 'ONLINE').length;
 
     return NextResponse.json({
@@ -80,17 +100,22 @@ export async function GET(req: NextRequest) {
       summary: {
         grossRevenue,
         mdrFee,
-        devShare,
+        netGross,
         ownerNet,
+        systemNet,
+        devShare: systemNet, // Alias for backward compatibility
         totalTransactions,
         onlineCount,
         totalChairs: safeChairs.length,
+        ownerSharePct: ownerPct,
+        systemSharePct: systemPct,
       },
+      locations: locationList,
       chairs: safeChairs,
       transactions: chairSlipsData,
     });
   } catch (err: any) {
-    console.error('[API Dashboard] GET Error:', err);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('[API Dashboard GET] Error:', err);
+    return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
   }
 }

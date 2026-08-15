@@ -1,3 +1,24 @@
+export type LocationStatus = 'active' | 'inactive';
+
+export interface Location {
+  id: string; // UUID
+  location_code: string; // e.g. "CP-01"
+  name: string; // e.g. "Central Park Fl 1"
+  address?: string;
+  city?: string;
+  pic_name?: string;
+  pic_phone?: string;
+  owner_share_pct: number; // e.g. 95.00
+  system_share_pct: number; // e.g. 5.00
+  status: LocationStatus;
+  notes?: string;
+  chair_count?: number;
+  online_chair_count?: number;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string;
+}
+
 export type ChairStatus = 'ONLINE' | 'OFFLINE' | 'BUSY' | 'MAINTENANCE';
 
 export interface Chair {
@@ -6,6 +27,7 @@ export interface Chair {
   name: string; // e.g. 'Sakura Series #01'
   model_type: string; // e.g. 'Tokuyo TC-355'
   location_name: string; // e.g. 'Grand Indonesia Lt 3'
+  location_id?: string; // UUID FK
   status: ChairStatus;
   pin?: string;
   last_heartbeat?: string;
@@ -37,12 +59,13 @@ export type ChairSlipStatus =
 
 export type PaymentMethod = 'QRIS' | 'QRIS_MIDTRANS' | 'CASH';
 
-// Main Operational Session Entity (PARKEE 3-Tier)
+// Main Operational Session Entity
 export interface ChairSlip {
   id: string;
   chair_slip_number: string;
   chair_id: string;
   chair_code?: string;
+  location_id?: string;
   customer_phone?: string;
   customer_email?: string;
   amount: number;
@@ -62,7 +85,7 @@ export interface ChairSlip {
   deleted_at?: string;
 }
 
-// Gateway Payment Transaction Detail Entity (PARKEE 3-Tier)
+// Gateway Payment Transaction Detail Entity
 export interface ChairSlipPayment {
   id: string;
   chair_slip_id: string;
@@ -81,7 +104,7 @@ export interface ChairSlipPayment {
   deleted_at?: string;
 }
 
-// Audit Log & Read-Optimized Summary Entity (PARKEE 3-Tier)
+// Audit Log & Read-Optimized Summary Entity
 export interface ChairSlipSummaryDetail {
   id: string;
   chair_slip_id: string;
@@ -91,6 +114,7 @@ export interface ChairSlipSummaryDetail {
   chair_name?: string;
   model_type?: string;
   location_name?: string;
+  location_id?: string;
   old_status?: string;
   new_status: string;
   changed_by: string;
