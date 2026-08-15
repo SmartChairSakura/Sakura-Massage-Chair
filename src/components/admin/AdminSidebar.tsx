@@ -13,6 +13,7 @@ import {
   Sparkles,
   Layers,
 } from 'lucide-react';
+import SakuraLogo from '../SakuraLogo';
 
 export default function AdminSidebar() {
   const pathname = usePathname();
@@ -68,23 +69,9 @@ export default function AdminSidebar() {
       {/* Brand Header */}
       <div className="h-20 flex items-center justify-between px-5 border-b border-[#EFEDED] bg-white">
         {!isCollapsed ? (
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#795465] text-white flex items-center justify-center font-extrabold shadow-sm">
-              <Armchair className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="font-extrabold text-sm text-[#1B1C1C] tracking-tight leading-none">
-                Sakura Zen
-              </h1>
-              <span className="text-[10px] font-bold text-[#795465] tracking-wide uppercase">
-                Backoffice System
-              </span>
-            </div>
-          </div>
+          <SakuraLogo size="md" subtitle="BACKOFFICE SYSTEM" />
         ) : (
-          <div className="mx-auto w-10 h-10 rounded-2xl bg-[#795465] text-white flex items-center justify-center font-extrabold">
-            <Armchair className="w-5 h-5" />
-          </div>
+          <SakuraLogo size="sm" showText={false} className="mx-auto" />
         )}
       </div>
 
