@@ -5,8 +5,6 @@
 -- 1. Add standard location metadata columns
 ALTER TABLE locations ADD COLUMN IF NOT EXISTS country VARCHAR(100) DEFAULT 'Indonesia';
 ALTER TABLE locations ADD COLUMN IF NOT EXISTS state_province VARCHAR(100) DEFAULT 'DKI Jakarta';
-ALTER TABLE locations ADD COLUMN IF NOT EXISTS latitude NUMERIC(10,7);
-ALTER TABLE locations ADD COLUMN IF NOT EXISTS longitude NUMERIC(10,7);
 
 -- 2. Add income_breakdown JSONB column for multi-party revenue splits
 ALTER TABLE locations ADD COLUMN IF NOT EXISTS income_breakdown JSONB DEFAULT '[
@@ -22,5 +20,5 @@ SET income_breakdown = jsonb_build_array(
 )
 WHERE income_breakdown IS NULL;
 
--- 4. Reload PostgREST schema cache to immediately reflect new columns in API
+-- 4. Reload Supabase PostgREST API schema cache
 NOTIFY pgrst, 'reload schema';

@@ -18,8 +18,6 @@ export interface Location {
   country?: string;
   state_province?: string;
   city?: string;
-  latitude?: number;
-  longitude?: number;
   pic_name?: string;
   pic_phone?: string;
   owner_share_pct: number; // e.g. 95.00

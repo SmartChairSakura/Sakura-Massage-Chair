@@ -72,8 +72,6 @@ function LocationSettingContent() {
   const [locCountry, setLocCountry] = useState('Indonesia');
   const [locStateProv, setLocStateProv] = useState('DKI Jakarta');
   const [locCity, setLocCity] = useState('Kota Jakarta Pusat');
-  const [locLat, setLocLat] = useState('');
-  const [locLng, setLocLng] = useState('');
   const [locPicName, setLocPicName] = useState('Operational Team');
   const [locPicPhone, setLocPicPhone] = useState('08123456789');
 
@@ -156,8 +154,6 @@ function LocationSettingContent() {
     setLocCountry('Indonesia');
     setLocStateProv('DKI Jakarta');
     setLocCity('Kota Jakarta Pusat');
-    setLocLat('');
-    setLocLng('');
     setLocPicName('Operational Team');
     setLocPicPhone('08123456789');
     setIncomeBreakdown([
@@ -176,8 +172,6 @@ function LocationSettingContent() {
     setLocCountry(loc.country || 'Indonesia');
     setLocStateProv(loc.state_province || 'DKI Jakarta');
     setLocCity(loc.city || 'Kota Jakarta Pusat');
-    setLocLat(loc.latitude ? String(loc.latitude) : '');
-    setLocLng(loc.longitude ? String(loc.longitude) : '');
     setLocPicName(loc.pic_name || 'Operational Team');
     setLocPicPhone(loc.pic_phone || '08123456789');
 
@@ -217,8 +211,6 @@ function LocationSettingContent() {
         country: locCountry.trim(),
         state_province: locStateProv.trim(),
         city: locCity.trim(),
-        latitude: locLat ? parseFloat(locLat) : null,
-        longitude: locLng ? parseFloat(locLng) : null,
         pic_name: locPicName.trim(),
         pic_phone: locPicPhone.trim(),
         owner_share_pct: computedOwnerPct,
@@ -471,7 +463,7 @@ function LocationSettingContent() {
                       type="text"
                       value={locName}
                       onChange={(e) => setLocName(e.target.value)}
-                      placeholder="HO On Street / Central Park"
+                      placeholder="Grand Indonesia Lt 3 / Central Park"
                       required
                       className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
                     />
@@ -485,7 +477,7 @@ function LocationSettingContent() {
                       type="text"
                       value={locCode}
                       onChange={(e) => setLocCode(e.target.value)}
-                      placeholder="001-HO-OnStreet / CP-01"
+                      placeholder="GI-01 / CP-01"
                       required
                       className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-mono font-extrabold text-[#795465] uppercase focus:bg-white focus:border-[#795465] outline-none"
                     />
@@ -500,7 +492,7 @@ function LocationSettingContent() {
                     rows={2}
                     value={locAddress}
                     onChange={(e) => setLocAddress(e.target.value)}
-                    placeholder="Jl. Biak Raya No 48C-E, Jakarta Pusat"
+                    placeholder="Jl. M.H. Thamrin No. 1, Menteng, Jakarta Pusat"
                     className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none resize-none"
                   />
                 </div>
@@ -546,34 +538,6 @@ function LocationSettingContent() {
                       onChange={(e) => setLocCity(e.target.value)}
                       placeholder="Kota Jakarta Pusat"
                       className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                      Latitude:
-                    </label>
-                    <input
-                      type="text"
-                      value={locLat}
-                      onChange={(e) => setLocLat(e.target.value)}
-                      placeholder="-6.1677739"
-                      className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-mono font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                      Longitude:
-                    </label>
-                    <input
-                      type="text"
-                      value={locLng}
-                      onChange={(e) => setLocLng(e.target.value)}
-                      placeholder="106.812345"
-                      className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-mono font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
                     />
                   </div>
                 </div>
@@ -644,7 +608,7 @@ function LocationSettingContent() {
                             type="text"
                             value={item.party_name}
                             onChange={(e) => handleUpdateBreakdownItem(index, 'party_name', e.target.value)}
-                            placeholder="e.g. Pemilik Lahan HO / Sistem"
+                            placeholder="e.g. Pemilik Lahan / Sistem"
                             className="w-full px-3 py-2 bg-white border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:border-[#795465] outline-none"
                           />
                         </div>
