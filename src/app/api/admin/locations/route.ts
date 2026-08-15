@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const newLocationObj = {
+    const newLocationObj: any = {
       location_code: cleanCode,
       name: cleanName,
       address: String(address || '').trim(),
@@ -97,10 +97,13 @@ export async function POST(req: NextRequest) {
       system_share_pct: systemPct,
       income_breakdown: Array.isArray(income_breakdown) ? income_breakdown : null,
       status: 'active',
-      notes: String(notes || '').trim(),
       updated_at: new Date().toISOString(),
       deleted_at: null,
     };
+
+    if (notes && String(notes).trim()) {
+      newLocationObj.notes = String(notes).trim();
+    }
 
     const { data, error } = await supabaseServer
       .from('locations')

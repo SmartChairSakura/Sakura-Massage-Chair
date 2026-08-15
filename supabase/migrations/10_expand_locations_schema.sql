@@ -5,6 +5,7 @@
 -- 1. Add standard location metadata columns
 ALTER TABLE locations ADD COLUMN IF NOT EXISTS country VARCHAR(100) DEFAULT 'Indonesia';
 ALTER TABLE locations ADD COLUMN IF NOT EXISTS state_province VARCHAR(100) DEFAULT 'DKI Jakarta';
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS notes TEXT;
 
 -- 2. Drop latitude & longitude columns if they exist from earlier schema
 ALTER TABLE locations DROP COLUMN IF EXISTS latitude;
