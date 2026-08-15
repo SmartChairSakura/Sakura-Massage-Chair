@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLanguage } from '@/lib/i18n';
 import { LogOut, X, MapPin } from 'lucide-react';
+import SakuraLogo from './SakuraLogo';
 
 interface KioskHeaderProps {
   chairId?: string;
@@ -66,19 +67,7 @@ export default function KioskHeader({
       <header className="fixed top-0 w-full z-40 bg-[#FBF9F9]/95 backdrop-blur-md shadow-[0_2px_15px_rgba(78,59,49,0.04)] border-b border-[#EFEDED]">
         <div className="h-14 max-w-7xl mx-auto px-3 sm:px-8 flex items-center justify-between">
           {/* Brand Logo & Title */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[#F8C8DC] flex items-center justify-center text-[#795465] shadow-xs">
-              <span className="material-symbols-outlined text-xl">spa</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="font-extrabold text-sm sm:text-base leading-none text-[#795465] tracking-tight">
-                Sakura Zen
-              </span>
-              <span className="text-[9px] sm:text-[10px] font-bold text-[#4F4448] uppercase tracking-widest leading-none mt-0.5">
-                Kursi Pijat
-              </span>
-            </div>
-          </div>
+          <SakuraLogo size="sm" subtitle="KURSI PIJAT" />
 
           {/* Right Section: Interactive Location Badge (Logout Button) & Language Dropdown */}
           <div className="flex items-center gap-2">

@@ -13,16 +13,16 @@ export default function SakuraLogo({
   subtitle = 'KURSI PIJAT',
   className = '',
 }: SakuraLogoProps) {
-  const iconSizes = {
+  const containerSizes = {
     sm: 'w-8 h-8',
     md: 'w-11 h-11',
     lg: 'w-16 h-16',
   };
 
-  const flowerSizes = {
-    sm: 'w-4 h-4',
-    md: 'w-6 h-6',
-    lg: 'w-8 h-8',
+  const iconSizes = {
+    sm: 'text-xl',
+    md: 'text-2xl',
+    lg: 'text-4xl',
   };
 
   const titleSizes = {
@@ -31,35 +31,30 @@ export default function SakuraLogo({
     lg: 'text-2xl',
   };
 
+  const subtitleSizes = {
+    sm: 'text-[9px]',
+    md: 'text-[10px]',
+    lg: 'text-xs',
+  };
+
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      {/* Pink Circle Lotus Icon */}
+    <div className={`flex items-center gap-2.5 ${className}`}>
+      {/* Pink Circle (#F8C8DC) with Spa Material Symbol Icon (#795465) */}
       <div
-        className={`${iconSizes[size]} rounded-full bg-[#F8C8DC] flex items-center justify-center shrink-0 shadow-sm`}
+        className={`${containerSizes[size]} rounded-full bg-[#F8C8DC] flex items-center justify-center text-[#795465] shrink-0 shadow-xs`}
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#795465"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={flowerSizes[size]}
-        >
-          {/* 3-Petal Lotus / Sakura Flower Icon */}
-          <path d="M12 2C9.5 6 9 9.5 12 14C15 9.5 14.5 6 12 2Z" fill="#795465" fillOpacity="0.2" />
-          <path d="M12 14C7.5 11.5 4 13 2 17C6.5 18 10 16 12 14Z" fill="#795465" fillOpacity="0.2" />
-          <path d="M12 14C16.5 11.5 20 13 22 17C17.5 18 14 16 12 14Z" fill="#795465" fillOpacity="0.2" />
-        </svg>
+        <span className={`material-symbols-outlined ${iconSizes[size]} select-none leading-none`}>
+          spa
+        </span>
       </div>
 
       {showText && (
-        <div className="flex flex-col">
-          <span className={`${titleSizes[size]} font-extrabold text-[#795465] leading-tight tracking-tight`}>
+        <div className="flex flex-col justify-center">
+          <span className={`${titleSizes[size]} font-extrabold text-[#795465] leading-none tracking-tight`}>
             Sakura Zen
           </span>
           {subtitle && (
-            <span className="text-[10px] font-extrabold text-[#817478] tracking-widest uppercase leading-none mt-0.5">
+            <span className={`${subtitleSizes[size]} font-extrabold text-[#817478] tracking-widest uppercase leading-none mt-1`}>
               {subtitle}
             </span>
           )}
