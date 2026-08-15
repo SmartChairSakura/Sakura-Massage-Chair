@@ -36,7 +36,7 @@ export default function AdminSidebar() {
           icon: MapPin,
         },
         {
-          name: 'Armada Chair List',
+          name: 'Chair List',
           href: '/admin/chairs',
           icon: Armchair,
         },

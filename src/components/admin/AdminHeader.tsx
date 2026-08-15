@@ -14,20 +14,27 @@ export default function AdminHeader() {
     if (pathname.startsWith('/admin/locations')) {
       return [
         { label: 'Home', href: '/admin/dashboard' },
-        { label: 'Location', href: '/admin/locations' },
-        { label: 'Location List', href: '/admin/locations' },
+        { label: 'Backoffice', href: '/admin/locations' },
+        { label: 'Location Setting', href: '/admin/locations' },
+      ];
+    }
+    if (pathname.startsWith('/admin/chairs')) {
+      return [
+        { label: 'Home', href: '/admin/dashboard' },
+        { label: 'Backoffice', href: '/admin/chairs' },
+        { label: 'Chair List', href: '/admin/chairs' },
       ];
     }
     if (pathname.startsWith('/admin/tickets')) {
       return [
         { label: 'Home', href: '/admin/dashboard' },
-        { label: 'Reports', href: '/admin/dashboard' },
+        { label: 'Reports & Analytics', href: '/admin/tickets' },
         { label: 'Tickets', href: '/admin/tickets' },
       ];
     }
     return [
       { label: 'Home', href: '/admin/dashboard' },
-      { label: 'Reports', href: '/admin/dashboard' },
+      { label: 'Reports & Analytics', href: '/admin/dashboard' },
       { label: 'Sales Summary', href: '/admin/dashboard' },
     ];
   };

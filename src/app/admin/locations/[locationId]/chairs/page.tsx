@@ -2,13 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-
-export const dynamic = 'force-dynamic';
 import { useParams } from 'next/navigation';
 import {
   Armchair,
   Plus,
   ArrowLeft,
+  Edit2,
   Trash2,
   CheckCircle2,
   AlertCircle,
@@ -16,6 +15,8 @@ import {
   MapPin,
 } from 'lucide-react';
 import { Chair, Location } from '@/types';
+
+export const dynamic = 'force-dynamic';
 
 export default function ScopedChairListPage() {
   const params = useParams();
@@ -25,8 +26,10 @@ export default function ScopedChairListPage() {
   const [chairs, setChairs] = useState<Chair[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Add Chair Modal
+  // Add / Edit Chair Modal
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingChair, setEditingChair] = useState<Chair | null>(null);
+
   const [newChairCode, setNewChairCode] = useState('');
   const [newChairName, setNewChairName] = useState('');
   const [newModelType, setNewModelType] = useState('Tokuyo TC-355');
@@ -60,7 +63,27 @@ export default function ScopedChairListPage() {
     fetchScopedChairs();
   }, [locationId]);
 
-  const handleAddChairSubmit = async (e: React.FormEvent) => {
+  const openAddModal = () => {
+    setEditingChair(null);
+    setNewChairCode('');
+    setNewChairName('');
+    setNewModelType('Tokuyo TC-355');
+    setNewPin('123456');
+    setModalMsg('');
+    setShowAddModal(true);
+  };
+
+  const openEditModal = (chair: Chair) => {
+    setEditingChair(chair);
+    setNewChairCode(String(chair.chair_code || chair.id));
+    setNewChairName(chair.name || '');
+    setNewModelType(chair.model_type || 'Tokuyo TC-355');
+    setNewPin(chair.pin || '123456');
+    setModalMsg('');
+    setShowAddModal(true);
+  };
+
+  const handleChairFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanCode = newChairCode.trim().toUpperCase();
     const cleanName = newChairName.trim();
@@ -76,28 +99,40 @@ export default function ScopedChairListPage() {
     setModalMsg('');
 
     try {
-      const res = await fetch('/api/admin/chairs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chair_code: cleanCode,
-          name: cleanName,
-          model_type: cleanModel,
-          location_id: locationId,
-          location_name: location?.name || 'Cabang Kiosk',
-          pin: cleanPin,
-        }),
-      });
+      let res;
+      if (editingChair) {
+        res = await fetch('/api/admin/chairs', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chair_code: cleanCode,
+            name: cleanName,
+            model_type: cleanModel,
+            location_id: locationId,
+            location_name: location?.name || 'Cabang Kiosk',
+            pin: cleanPin,
+          }),
+        });
+      } else {
+        res = await fetch(`/api/admin/locations/${locationId}/chairs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chair_code: cleanCode,
+            name: cleanName,
+            model_type: cleanModel,
+            pin: cleanPin,
+          }),
+        });
+      }
 
       const resData = await res.json();
 
       if (resData.success) {
         setShowAddModal(false);
-        setNewChairCode('');
-        setNewChairName('');
         fetchScopedChairs();
       } else {
-        setModalMsg(resData.error || 'Gagal menambahkan unit kursi.');
+        setModalMsg(resData.error || 'Gagal menyimpan unit kursi.');
       }
     } catch (err: any) {
       setModalMsg(`Error: ${err?.message || 'Server unreachable'}`);
@@ -132,7 +167,7 @@ export default function ScopedChairListPage() {
 
   return (
     <div className="space-y-6">
-      {/* Top Context Header Card */}
+      {/* Top Header Card */}
       <div className="bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <Link
@@ -152,10 +187,7 @@ export default function ScopedChairListPage() {
         </div>
 
         <button
-          onClick={() => {
-            setModalMsg('');
-            setShowAddModal(true);
-          }}
+          onClick={openAddModal}
           className="px-4 py-3 bg-[#795465] hover:bg-[#684756] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#795465]/20 flex items-center gap-2 transition-all"
         >
           <Plus className="w-4 h-4" />
@@ -204,13 +236,22 @@ export default function ScopedChairListPage() {
                     </td>
                     <td className="p-3.5 font-mono font-bold text-[#1B1C1C]">{chair.pin || '123456'}</td>
                     <td className="p-3.5 text-center">
-                      <button
-                        onClick={() => setDeleteConfirmChair(chair)}
-                        className="p-2 hover:bg-[#FFDAD6] text-[#BA1A1A] rounded-xl transition-colors"
-                        title="Hapus Unit Kursi"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => openEditModal(chair)}
+                          className="p-2 hover:bg-[#F5F3F3] text-[#795465] rounded-xl transition-colors"
+                          title="Edit Unit Kursi"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirmChair(chair)}
+                          className="p-2 hover:bg-[#FFDAD6] text-[#BA1A1A] rounded-xl transition-colors"
+                          title="Hapus Unit Kursi"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -220,21 +261,21 @@ export default function ScopedChairListPage() {
         )}
       </div>
 
-      {/* Add Chair Modal */}
+      {/* Add / Edit Chair Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] border border-[#EFEDED] shadow-2xl w-full max-w-md overflow-hidden">
+          <div className="bg-white rounded-[2rem] border border-[#EFEDED] shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-5 border-b border-[#EFEDED] flex items-center justify-between bg-[#FBF9F9]">
               <h2 className="text-sm font-extrabold text-[#1B1C1C] uppercase tracking-wider flex items-center gap-2">
                 <Armchair className="w-4 h-4 text-[#795465]" />
-                <span>Registrasi Unit Kursi Baru</span>
+                <span>{editingChair ? 'Edit Unit Kursi' : 'Registrasi Unit Kursi Baru'}</span>
               </h2>
               <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-[#EFEDED] rounded-lg">
                 <X className="w-4 h-4 text-[#1B1C1C]" />
               </button>
             </div>
 
-            <form onSubmit={handleAddChairSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleChairFormSubmit} className="p-6 space-y-4">
               {modalMsg && (
                 <div className="p-3 rounded-xl bg-[#FFDAD6] text-[#93000A] text-xs font-bold flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -243,21 +284,7 @@ export default function ScopedChairListPage() {
               )}
 
               <div>
-                <label className="text-xs font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                  Kode Unit / Username EDC:
-                </label>
-                <input
-                  type="text"
-                  value={newChairCode}
-                  onChange={(e) => setNewChairCode(e.target.value)}
-                  placeholder="e.g. SAKURA-CP-02"
-                  required
-                  className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] uppercase focus:bg-white focus:border-[#795465] outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
                   Tipe / Model Hardware:
                 </label>
                 <input
@@ -270,33 +297,58 @@ export default function ScopedChairListPage() {
               </div>
 
               <div>
-                <label className="text-xs font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                  Nama Unit Kursi (Alias):
+                <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                  Kode Unit / Username EDC (Unique):
+                </label>
+                <input
+                  type="text"
+                  value={newChairCode}
+                  onChange={(e) => setNewChairCode(e.target.value)}
+                  placeholder="GI-01 / CP-01"
+                  required
+                  disabled={!!editingChair}
+                  className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-mono font-extrabold text-[#795465] uppercase focus:bg-white focus:border-[#795465] outline-none disabled:opacity-60"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                  Nama Unit (Alias / Label):
                 </label>
                 <input
                   type="text"
                   value={newChairName}
                   onChange={(e) => setNewChairName(e.target.value)}
-                  placeholder="e.g. Sakura Series #05"
+                  placeholder="Sakura Series #01"
                   required
                   className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                  PIN Password EDC (Default 123456):
+                <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                  Lokasi Cabang Penempatan:
+                </label>
+                <div className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#795465]">
+                  {location?.name} ({location?.location_code})
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                  PIN EDC Login (Default: 123456):
                 </label>
                 <input
                   type="text"
+                  maxLength={6}
                   value={newPin}
                   onChange={(e) => setNewPin(e.target.value)}
                   placeholder="123456"
-                  className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
+                  className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-mono font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#EFEDED]">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#EFEDED]">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
@@ -309,7 +361,7 @@ export default function ScopedChairListPage() {
                   disabled={isSaving}
                   className="px-5 py-2.5 bg-[#795465] hover:bg-[#684756] text-white font-extrabold text-xs rounded-xl shadow-md disabled:opacity-50"
                 >
-                  {isSaving ? 'Menyimpan...' : 'Simpan Unit Kursi'}
+                  {isSaving ? 'Menyimpan...' : editingChair ? 'Simpan Perubahan' : 'Daftarkan Unit'}
                 </button>
               </div>
             </form>
@@ -317,7 +369,7 @@ export default function ScopedChairListPage() {
         </div>
       )}
 
-      {/* Delete Chair Confirmation Modal */}
+      {/* Delete Confirmation Modal */}
       {deleteConfirmChair && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-[2rem] border border-[#EFEDED] shadow-2xl w-full max-w-md p-6 text-center space-y-4">
@@ -327,7 +379,7 @@ export default function ScopedChairListPage() {
             <div>
               <h3 className="text-base font-extrabold text-[#1B1C1C]">Hapus Unit Kursi?</h3>
               <p className="text-xs text-[#4F4448] font-bold mt-1">
-                Apakah Anda yakin ingin menghapus unit <span className="text-[#795465] font-extrabold">"{deleteConfirmChair.chair_code || deleteConfirmChair.id}"</span>?
+                Apakah Anda yakin ingin menghapus unit <span className="text-[#795465] font-extrabold">"{deleteConfirmChair.chair_code || deleteConfirmChair.name}"</span>?
               </p>
             </div>
 

@@ -136,3 +136,43 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+
+// PATCH: Update an existing chair by ID or chair_code
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { id, chair_code, name, model_type, location_name, pin, status } = body;
+    const targetCode = String(chair_code || id || '').trim().toUpperCase();
+
+    if (!targetCode) {
+      return NextResponse.json({ success: false, error: 'Kode Unit / ID wajib diisi.' }, { status: 400 });
+    }
+
+    const updateData: any = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (name !== undefined) updateData.name = String(name).trim();
+    if (model_type !== undefined) updateData.model_type = String(model_type).trim();
+    if (location_name !== undefined) updateData.location_name = String(location_name).trim();
+    if (pin !== undefined) updateData.pin = String(pin).trim();
+    if (status !== undefined) updateData.status = String(status).trim();
+
+    const { data, error } = await supabaseServer
+      .from('chairs')
+      .update(updateData)
+      .eq('chair_code', targetCode)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.error('[API Chairs PATCH] DB error:', error.message);
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, chair: data });
+  } catch (err: any) {
+    console.error('[API Chairs PATCH] Exception:', err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
