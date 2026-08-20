@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS public.admin_users (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Ensure role check constraint supports MANAGEMENT, OWNER, and SUPER_ADMIN
+ALTER TABLE public.admin_users DROP CONSTRAINT IF EXISTS admin_users_role_check;
+ALTER TABLE public.admin_users ADD CONSTRAINT admin_users_role_check CHECK (role IN ('SUPER_ADMIN', 'MANAGEMENT', 'OWNER'));
+
 -- Index for quick lookup during auth & sessions
 CREATE INDEX IF NOT EXISTS idx_admin_users_email ON public.admin_users(email);
 CREATE INDEX IF NOT EXISTS idx_admin_users_username ON public.admin_users(username);

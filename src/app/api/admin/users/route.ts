@@ -42,13 +42,13 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error('[API Users GET] DB Error:', error);
-      return NextResponse.json({ success: false, error: 'Gagal mengambil data user.' }, { status: 500 });
+      return NextResponse.json({ success: false, error: `Gagal mengambil data user: ${error.message}` }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, users: users || [] });
   } catch (err: any) {
     console.error('[API Users GET] Server Error:', err);
-    return NextResponse.json({ success: false, error: 'Terjadi kesalahan server.' }, { status: 500 });
+    return NextResponse.json({ success: false, error: `Terjadi kesalahan server: ${err?.message || err}` }, { status: 500 });
   }
 }
 
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     console.error('[API Users POST] Server Error:', err);
-    return NextResponse.json({ success: false, error: 'Terjadi kesalahan server.' }, { status: 500 });
+    return NextResponse.json({ success: false, error: `Terjadi kesalahan server: ${err?.message || err}` }, { status: 500 });
   }
 }
 
@@ -164,13 +164,13 @@ export async function PATCH(req: NextRequest) {
 
     if (updateError) {
       console.error('[API Users PATCH] DB Update Error:', updateError);
-      return NextResponse.json({ success: false, error: 'Gagal memperbarui data user.' }, { status: 500 });
+      return NextResponse.json({ success: false, error: `Gagal memperbarui data user: ${updateError.message}` }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, message: 'Data user berhasil diperbarui.' });
   } catch (err: any) {
     console.error('[API Users PATCH] Server Error:', err);
-    return NextResponse.json({ success: false, error: 'Terjadi kesalahan server.' }, { status: 500 });
+    return NextResponse.json({ success: false, error: `Terjadi kesalahan server: ${err?.message || err}` }, { status: 500 });
   }
 }
 
@@ -196,12 +196,12 @@ export async function DELETE(req: NextRequest) {
 
     if (deleteError) {
       console.error('[API Users DELETE] DB Error:', deleteError);
-      return NextResponse.json({ success: false, error: 'Gagal menonaktifkan user.' }, { status: 500 });
+      return NextResponse.json({ success: false, error: `Gagal menonaktifkan user: ${deleteError.message}` }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, message: 'User berhasil dinonaktifkan.' });
   } catch (err: any) {
     console.error('[API Users DELETE] Server Error:', err);
-    return NextResponse.json({ success: false, error: 'Terjadi kesalahan server.' }, { status: 500 });
+    return NextResponse.json({ success: false, error: `Terjadi kesalahan server: ${err?.message || err}` }, { status: 500 });
   }
 }
