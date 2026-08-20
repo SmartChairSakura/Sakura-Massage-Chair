@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     const cleanPhone = String(phone_number || '').trim();
     const cleanPass = String(password || '').trim();
     const cleanRole = (role === 'MANAGEMENT' || role === 'OWNER' ? 'MANAGEMENT' : 'SUPER_ADMIN');
-    const locId = location_id ? String(location_id) : null;
+    const locId = (location_id && String(location_id).trim() !== '') ? String(location_id).trim() : null;
 
     if (!cleanName || !cleanEmail || !cleanPass) {
       return NextResponse.json({ success: false, error: 'Nama Lengkap, Email, dan Password wajib diisi.' }, { status: 400 });
@@ -78,11 +78,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Password minimal 6 karakter.' }, { status: 400 });
     }
 
-    if (cleanRole === 'MANAGEMENT' && !locId) {
-      return NextResponse.json({ success: false, error: 'Role MANAGEMENT wajib memilih Cabang Lokasi.' }, { status: 400 });
-    }
-
-    // Check if email already exists
+    // Check if email or username already exists
     const { data: existingUser } = await supabaseServer
       .from('admin_users')
       .select('id')
@@ -150,7 +146,7 @@ export async function PATCH(req: NextRequest) {
     if (email !== undefined) updatePayload.email = String(email).trim().toLowerCase();
     if (phone_number !== undefined) updatePayload.phone_number = String(phone_number).trim();
     if (role !== undefined) updatePayload.role = (role === 'MANAGEMENT' || role === 'OWNER') ? 'MANAGEMENT' : 'SUPER_ADMIN';
-    if (location_id !== undefined) updatePayload.location_id = location_id ? String(location_id) : null;
+    if (location_id !== undefined) updatePayload.location_id = (location_id && String(location_id).trim() !== '') ? String(location_id).trim() : null;
     if (is_active !== undefined) updatePayload.is_active = Boolean(is_active);
 
     if (new_password) {

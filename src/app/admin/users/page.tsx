@@ -357,7 +357,7 @@ function UserManagementContent() {
                 </tr>
               ) : (
                 users.map((user) => {
-                  const locationName = user.locations?.name || (user.role === 'SUPER_ADMIN' ? 'All Locations' : '-');
+                  const locationName = user.locations?.name || 'All Locations';
                   const isManagementRole = user.role === 'MANAGEMENT' || user.role === 'OWNER';
 
                   return (
@@ -539,7 +539,7 @@ function UserManagementContent() {
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as 'SUPER_ADMIN' | 'MANAGEMENT' })}
                     className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
                   >
-                    <option value="MANAGEMENT">Management Cabang</option>
+                    <option value="MANAGEMENT">Management</option>
                     <option value="SUPER_ADMIN">Super Admin</option>
                   </select>
                 </div>
@@ -547,12 +547,11 @@ function UserManagementContent() {
                 <div>
                   <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Cabang Lokasi</label>
                   <select
-                    disabled={formData.role === 'SUPER_ADMIN'}
                     value={formData.location_id}
                     onChange={(e) => setFormData({ ...formData, location_id: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465] disabled:opacity-50"
+                    className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
                   >
-                    <option value="">-- Pilih Cabang --</option>
+                    <option value="">Semua Lokasi (All Locations)</option>
                     {locations.map((loc) => (
                       <option key={loc.id} value={loc.id}>
                         {loc.name}
@@ -653,7 +652,7 @@ function UserManagementContent() {
                     onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value as 'SUPER_ADMIN' | 'MANAGEMENT' })}
                     className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
                   >
-                    <option value="MANAGEMENT">Management Cabang</option>
+                    <option value="MANAGEMENT">Management</option>
                     <option value="SUPER_ADMIN">Super Admin</option>
                   </select>
                 </div>
@@ -661,12 +660,11 @@ function UserManagementContent() {
                 <div>
                   <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Cabang Lokasi</label>
                   <select
-                    disabled={editFormData.role === 'SUPER_ADMIN'}
                     value={editFormData.location_id}
                     onChange={(e) => setEditFormData({ ...editFormData, location_id: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465] disabled:opacity-50"
+                    className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
                   >
-                    <option value="">-- Pilih Cabang --</option>
+                    <option value="">Semua Lokasi (All Locations)</option>
                     {locations.map((loc) => (
                       <option key={loc.id} value={loc.id}>
                         {loc.name}
