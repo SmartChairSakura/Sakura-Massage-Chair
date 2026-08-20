@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.admin_users (
     password_hash TEXT NOT NULL,
     full_name VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'SUPER_ADMIN' CHECK (role IN ('SUPER_ADMIN', 'OWNER')),
-    location_id BIGINT REFERENCES public.locations(id) ON DELETE SET NULL,
+    location_id UUID REFERENCES public.locations(id) ON DELETE SET NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     otp_code VARCHAR(10),
     otp_expires_at TIMESTAMPTZ,
@@ -44,7 +44,7 @@ ON public.admin_users FOR ALL USING (true);
 -- Default accounts:
 -- 1. rifaldi@parkee.app / parkee@1234 (SUPER_ADMIN)
 -- 2. admin@sakurazen.id / sakura123 (SUPER_ADMIN)
--- 3. owner@sakurazen.id / owner123 (OWNER - Mall of Indonesia)
+-- 3. owner@sakurazen.id / owner123 (OWNER - Linked to dynamic location)
 
 INSERT INTO public.admin_users (
     email, 
@@ -83,10 +83,11 @@ INSERT INTO public.admin_users (
     '$2b$10$jkY.kEyly6PkBhR.j1x5U.YkobNrug7o7h.7wekufPJ3jCteTNCgu', -- owner123
     'Mitra Owner MOI',
     'OWNER',
-    1, -- Mall of Indonesia Lt 2
+    (SELECT id FROM public.locations LIMIT 1), -- Dynamic UUID FK to first location
     TRUE
 )
 ON CONFLICT (email) DO UPDATE SET 
     password_hash = EXCLUDED.password_hash,
     role = EXCLUDED.role,
+    location_id = EXCLUDED.location_id,
     updated_at = NOW();

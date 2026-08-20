@@ -7,7 +7,6 @@ import {
   Plus,
   RefreshCw,
   Key,
-  Edit2,
   CheckCircle2,
   XCircle,
   Building2,
@@ -20,7 +19,7 @@ import {
 } from 'lucide-react';
 
 interface Location {
-  id: number;
+  id: string;
   name: string;
   location_code: string;
 }
@@ -32,7 +31,7 @@ interface UserData {
   phone_number: string | null;
   full_name: string;
   role: 'SUPER_ADMIN' | 'OWNER';
-  location_id: number | null;
+  location_id: string | null;
   is_active: boolean;
   last_login_at: string | null;
   created_at: string;

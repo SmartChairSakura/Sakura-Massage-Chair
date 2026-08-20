@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     const cleanPhone = String(phone_number || '').trim();
     const cleanPass = String(password || '').trim();
     const cleanRole = (role === 'OWNER' ? 'OWNER' : 'SUPER_ADMIN') as 'SUPER_ADMIN' | 'OWNER';
-    const locId = location_id ? Number(location_id) : null;
+    const locId = location_id ? String(location_id) : null;
 
     if (!cleanName || !cleanEmail || !cleanPass) {
       return NextResponse.json({ success: false, error: 'Nama Lengkap, Email, dan Password wajib diisi.' }, { status: 400 });
@@ -144,7 +144,7 @@ export async function PATCH(req: NextRequest) {
     if (full_name !== undefined) updatePayload.full_name = String(full_name).trim();
     if (phone_number !== undefined) updatePayload.phone_number = String(phone_number).trim();
     if (role !== undefined) updatePayload.role = role === 'OWNER' ? 'OWNER' : 'SUPER_ADMIN';
-    if (location_id !== undefined) updatePayload.location_id = location_id ? Number(location_id) : null;
+    if (location_id !== undefined) updatePayload.location_id = location_id ? String(location_id) : null;
     if (is_active !== undefined) updatePayload.is_active = Boolean(is_active);
 
     if (new_password) {

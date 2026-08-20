@@ -8,7 +8,7 @@ export interface AdminSessionPayload {
   username: string;
   name: string;
   role: UserRole;
-  location_id: number | null;
+  location_id: string | null;
 }
 
 export const AUTH_COOKIE_NAME = 'sakura_admin_session';
@@ -42,7 +42,7 @@ export async function verifySessionJWT(token: string): Promise<AdminSessionPaylo
       username: String(payload.username || ''),
       name: String(payload.name || ''),
       role: (payload.role as UserRole) || 'SUPER_ADMIN',
-      location_id: payload.location_id !== undefined && payload.location_id !== null ? Number(payload.location_id) : null,
+      location_id: payload.location_id ? String(payload.location_id) : null,
     };
   } catch (err) {
     return null;

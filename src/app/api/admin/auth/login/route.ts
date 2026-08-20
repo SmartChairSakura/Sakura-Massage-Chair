@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
         username: user.username,
         name: user.full_name,
         role: user.role === 'OWNER' ? 'OWNER' : 'SUPER_ADMIN',
-        location_id: user.location_id ? Number(user.location_id) : null,
+        location_id: user.location_id ? String(user.location_id) : null,
       };
 
       // Update last_login_at timestamp in background
