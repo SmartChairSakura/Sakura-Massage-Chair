@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -10,18 +10,30 @@ import {
   ChevronLeft,
   ChevronRight,
   Armchair,
-  Sparkles,
-  Layers,
+  Users,
 } from 'lucide-react';
 import SakuraLogo from '../SakuraLogo';
 
 export default function AdminSidebar() {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [userRole, setUserRole] = useState<'SUPER_ADMIN' | 'OWNER' | null>('SUPER_ADMIN');
+
+  useEffect(() => {
+    fetch('/api/admin/auth/me')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.user) {
+          setUserRole(data.user.role);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const isActiveRoute = (path: string) => {
+    if (path === '/admin/users' && pathname.startsWith('/admin/users')) return true;
     if (path === '/admin/dashboard' && pathname === '/admin/dashboard') return true;
-    if (path === '/admin/locations' && (pathname === '/admin/locations')) return true;
+    if (path === '/admin/locations' && pathname === '/admin/locations') return true;
     if (path === '/admin/chairs' && (pathname.startsWith('/admin/chairs') || pathname.includes('/chairs'))) return true;
     if (path === '/admin/tickets' && pathname.startsWith('/admin/tickets')) return true;
     return false;
@@ -31,6 +43,15 @@ export default function AdminSidebar() {
     {
       title: 'BACKOFFICE',
       items: [
+        ...(userRole === 'SUPER_ADMIN'
+          ? [
+              {
+                name: 'User Management',
+                href: '/admin/users',
+                icon: Users,
+              },
+            ]
+          : []),
         {
           name: 'Location Setting',
           href: '/admin/locations',

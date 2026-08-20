@@ -1,41 +1,91 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseServer } from '@/lib/supabase-server';
+import { comparePassword, signSessionJWT, AUTH_COOKIE_NAME, AdminSessionPayload } from '@/lib/auth-server';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { email, password } = body;
 
-    const inputEmail = String(email || '').trim().toLowerCase();
+    const inputAccount = String(email || '').trim().toLowerCase();
     const inputPassword = String(password || '').trim();
 
-    if (!inputEmail || !inputPassword) {
+    if (!inputAccount || !inputPassword) {
       return NextResponse.json(
         { success: false, error: 'Email/Username dan Password wajib diisi.' },
         { status: 400 }
       );
     }
 
-    // Standard default admin credentials for Sakura Zen Backoffice
-    const VALID_EMAIL = 'admin@sakurazen.id';
-    const VALID_USERNAMES = ['admin', 'admin@sakurazen.id', 'support@sakurazen.id', 'rifaldi@parkee.app'];
-    const VALID_PASSWORDS = ['sakura123', 'admin123', 'parkee@1234'];
+    let sessionUser: AdminSessionPayload | null = null;
 
-    const isValidUser = VALID_USERNAMES.includes(inputEmail) || inputEmail.includes('admin') || inputEmail.includes('sakura');
-    const isValidPass = VALID_PASSWORDS.includes(inputPassword) || inputPassword.length >= 6;
+    // 1. Query Supabase admin_users table by email or username
+    const { data: dbUsers, error: dbError } = await supabaseServer
+      .from('admin_users')
+      .select('id, email, username, full_name, role, location_id, password_hash, is_active')
+      .or(`email.eq.${inputAccount},username.eq.${inputAccount}`)
+      .limit(1);
 
-    if (!isValidUser || !isValidPass) {
-      return NextResponse.json(
-        { success: false, error: 'Email atau Password salah.' },
-        { status: 401 }
-      );
+    if (!dbError && dbUsers && dbUsers.length > 0) {
+      const user = dbUsers[0];
+
+      if (!user.is_active) {
+        return NextResponse.json(
+          { success: false, error: 'Akun Anda sedang dinonaktifkan. Silakan hubungi Super Admin.' },
+          { status: 403 }
+        );
+      }
+
+      const isPassValid = await comparePassword(inputPassword, user.password_hash);
+      if (!isPassValid) {
+        return NextResponse.json(
+          { success: false, error: 'Email/Username atau Password salah.' },
+          { status: 401 }
+        );
+      }
+
+      sessionUser = {
+        id: String(user.id),
+        email: user.email,
+        username: user.username,
+        name: user.full_name,
+        role: user.role === 'OWNER' ? 'OWNER' : 'SUPER_ADMIN',
+        location_id: user.location_id ? Number(user.location_id) : null,
+      };
+
+      // Update last_login_at timestamp in background
+      await supabaseServer
+        .from('admin_users')
+        .update({ last_login_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+    } else {
+      // Fallback for initial bootstrap if migration 11 hasn't been executed on DB
+      const VALID_USERNAMES = ['admin', 'admin@sakurazen.id', 'support@sakurazen.id', 'rifaldi@parkee.app'];
+      const VALID_PASSWORDS = ['sakura123', 'admin123', 'parkee@1234'];
+
+      const isValidUser = VALID_USERNAMES.includes(inputAccount);
+      const isValidPass = VALID_PASSWORDS.includes(inputPassword);
+
+      if (!isValidUser || !isValidPass) {
+        return NextResponse.json(
+          { success: false, error: 'Email/Username atau Password salah.' },
+          { status: 401 }
+        );
+      }
+
+      sessionUser = {
+        id: 'admin_sakura_01',
+        email: inputAccount.includes('@') ? inputAccount : 'rifaldi@parkee.app',
+        username: inputAccount,
+        name: 'Administrator Sakura Zen',
+        role: 'SUPER_ADMIN',
+        location_id: null,
+      };
     }
 
-    const sessionUser = {
-      id: 'admin_sakura_01',
-      name: 'Administrator Sakura Zen',
-      email: inputEmail,
-      role: 'SUPER_ADMIN',
-    };
+    // 2. Sign JWT session token
+    const token = await signSessionJWT(sessionUser);
 
     const response = NextResponse.json({
       success: true,
@@ -43,12 +93,13 @@ export async function POST(req: NextRequest) {
       user: sessionUser,
     });
 
-    // Set secure cookie for admin session
-    response.cookies.set('sakura_admin_session', JSON.stringify(sessionUser), {
-      httpOnly: false, // Accessible to client-side auth checks
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+    // 3. Set secure HttpOnly cookie for admin session
+    response.cookies.set(AUTH_COOKIE_NAME, token, {
+      httpOnly: true, // Prevents XSS cookie theft
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7, // 7 days expiration
     });
 
     return response;
@@ -63,6 +114,6 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const response = NextResponse.json({ success: true, message: 'Logout berhasil.' });
-  response.cookies.delete('sakura_admin_session');
+  response.cookies.delete(AUTH_COOKIE_NAME);
   return response;
 }

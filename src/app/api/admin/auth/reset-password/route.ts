@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { otpStore } from '@/lib/otp-store';
+import { supabaseServer } from '@/lib/supabase-server';
+import { hashPassword } from '@/lib/auth-server';
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,7 +35,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Kode OTP Verifikasi Salah.' }, { status: 401 });
     }
 
-    // Success! Clear OTP store
+    // Hash the new password with bcrypt
+    const hashedPassword = await hashPassword(cleanPass);
+
+    // Update password_hash in Supabase admin_users table
+    const { error: dbError } = await supabaseServer
+      .from('admin_users')
+      .update({
+        password_hash: hashedPassword,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('email', cleanEmail);
+
+    if (dbError) {
+      console.warn('[Reset Password] Supabase update warning:', dbError.message);
+    }
+
+    // Clear OTP store
     otpStore.delete(cleanEmail);
 
     return NextResponse.json({

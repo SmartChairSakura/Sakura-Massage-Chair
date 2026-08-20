@@ -1,16 +1,45 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { RefreshCw, User, LogOut, ChevronRight, Home } from 'lucide-react';
 import LocationSelector from './LocationSelector';
 
+interface UserSession {
+  name: string;
+  role: 'SUPER_ADMIN' | 'OWNER';
+  location_name?: string | null;
+}
+
 export default function AdminHeader() {
   const pathname = usePathname();
   const router = useRouter();
+  const [session, setSession] = useState<UserSession | null>(null);
+
+  useEffect(() => {
+    fetch('/api/admin/auth/me')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.user) {
+          setSession({
+            name: data.user.name || 'Admin Sakura',
+            role: data.user.role || 'SUPER_ADMIN',
+            location_name: data.user.location_name,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Generate breadcrumb items
   const getBreadcrumbs = () => {
+    if (pathname.startsWith('/admin/users')) {
+      return [
+        { label: 'Home', href: '/admin/dashboard' },
+        { label: 'Backoffice', href: '/admin/users' },
+        { label: 'User Management', href: '/admin/users' },
+      ];
+    }
     if (pathname.startsWith('/admin/locations')) {
       return [
         { label: 'Home', href: '/admin/dashboard' },
@@ -49,7 +78,7 @@ export default function AdminHeader() {
     try {
       await fetch('/api/admin/auth/login', { method: 'DELETE' });
     } catch (e) {
-      console.warn('Logout note:', e);
+      console.warn('Logout error:', e);
     }
     router.replace('/admin/login');
   };
@@ -96,8 +125,25 @@ export default function AdminHeader() {
             <User className="w-4 h-4 text-[#795465]" />
           </div>
           <div className="hidden md:block">
-            <p className="text-xs font-extrabold text-[#1B1C1C] leading-none">Admin Sakura</p>
-            <p className="text-[10px] text-[#4F4448] font-bold">Super Admin</p>
+            <p className="text-xs font-extrabold text-[#1B1C1C] leading-none">
+              {session?.name || 'Admin Sakura'}
+            </p>
+            <div className="mt-1 flex items-center gap-1.5">
+              <span
+                className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                  session?.role === 'OWNER'
+                    ? 'bg-[#F8C8DC] text-[#795465]'
+                    : 'bg-[#795465] text-white'
+                }`}
+              >
+                {session?.role === 'OWNER' ? 'Owner Mitra' : 'Super Admin'}
+              </span>
+              {session?.location_name && (
+                <span className="text-[10px] text-[#817478] truncate max-w-[120px]">
+                  • {session.location_name}
+                </span>
+              )}
+            </div>
           </div>
           <button
             onClick={handleLogout}
