@@ -7,7 +7,7 @@ import LocationSelector from './LocationSelector';
 
 interface UserSession {
   name: string;
-  role: 'SUPER_ADMIN' | 'OWNER';
+  role: 'SUPER_ADMIN' | 'MANAGEMENT' | 'OWNER';
   location_name?: string | null;
 }
 
@@ -83,6 +83,8 @@ export default function AdminHeader() {
     router.replace('/admin/login');
   };
 
+  const isManagement = session?.role === 'MANAGEMENT' || session?.role === 'OWNER';
+
   return (
     <header className="h-20 bg-white border-b border-[#EFEDED] px-6 flex items-center justify-between shrink-0 shadow-sm">
       {/* Left: Breadcrumbs */}
@@ -109,7 +111,7 @@ export default function AdminHeader() {
         {/* Global Location Selector */}
         <LocationSelector />
 
-        {/* Refresh Button */}
+        {/* Global Refresh Button */}
         <button
           onClick={handleRefresh}
           className="flex items-center gap-1.5 px-3 py-2 bg-[#F5F3F3] hover:bg-[#EFEDED] border border-[#EFEDED] rounded-xl text-xs font-extrabold text-[#1B1C1C] transition-colors"
@@ -131,12 +133,12 @@ export default function AdminHeader() {
             <div className="mt-1 flex items-center gap-1.5">
               <span
                 className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider ${
-                  session?.role === 'OWNER'
+                  isManagement
                     ? 'bg-[#F8C8DC] text-[#795465]'
                     : 'bg-[#795465] text-white'
                 }`}
               >
-                {session?.role === 'OWNER' ? 'Owner Mitra' : 'Super Admin'}
+                {isManagement ? 'Management' : 'Super Admin'}
               </span>
               {session?.location_name && (
                 <span className="text-[10px] text-[#817478] truncate max-w-[120px]">

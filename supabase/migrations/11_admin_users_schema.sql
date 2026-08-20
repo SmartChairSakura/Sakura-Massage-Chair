@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.admin_users (
     phone_number VARCHAR(50),
     password_hash TEXT NOT NULL,
     full_name VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL DEFAULT 'SUPER_ADMIN' CHECK (role IN ('SUPER_ADMIN', 'OWNER')),
+    role VARCHAR(50) NOT NULL DEFAULT 'SUPER_ADMIN' CHECK (role IN ('SUPER_ADMIN', 'MANAGEMENT', 'OWNER')),
     location_id UUID REFERENCES public.locations(id) ON DELETE SET NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     otp_code VARCHAR(10),
@@ -44,7 +44,7 @@ ON public.admin_users FOR ALL USING (true);
 -- Default accounts:
 -- 1. rifaldi@parkee.app / parkee@1234 (SUPER_ADMIN)
 -- 2. admin@sakurazen.id / sakura123 (SUPER_ADMIN)
--- 3. owner@sakurazen.id / owner123 (OWNER - Linked to dynamic location)
+-- 3. owner@sakurazen.id / owner123 (MANAGEMENT)
 
 INSERT INTO public.admin_users (
     email, 
@@ -61,7 +61,7 @@ INSERT INTO public.admin_users (
     'rifaldi',
     '081234567890',
     '$2b$10$JLwP127dHc7hgg4VQmKfheiRyuPZKrB5EfPL9SEw5svZkLVTncNay', -- parkee@1234
-    'Rifaldi (PARKEE HO)',
+    'Rifaldi',
     'SUPER_ADMIN',
     NULL,
     TRUE
@@ -71,7 +71,7 @@ INSERT INTO public.admin_users (
     'admin_sakura',
     '081198765432',
     '$2b$10$Pzm7GlNBWlI30AgNat3NVOYoQMF8RW39FKxvtYj3gFTz8PJKXW672', -- sakura123
-    'Admin Sakura Zen HO',
+    'Admin Sakura Zen',
     'SUPER_ADMIN',
     NULL,
     TRUE
@@ -81,12 +81,13 @@ INSERT INTO public.admin_users (
     'owner_moi',
     '081555443322',
     '$2b$10$jkY.kEyly6PkBhR.j1x5U.YkobNrug7o7h.7wekufPJ3jCteTNCgu', -- owner123
-    'Mitra Owner MOI',
-    'OWNER',
+    'Management MOI',
+    'MANAGEMENT',
     (SELECT id FROM public.locations LIMIT 1), -- Dynamic UUID FK to first location
     TRUE
 )
 ON CONFLICT (email) DO UPDATE SET 
+    full_name = EXCLUDED.full_name,
     password_hash = EXCLUDED.password_hash,
     role = EXCLUDED.role,
     location_id = EXCLUDED.location_id,

@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Users,
   Search,
   Plus,
   RefreshCw,
   Key,
+  Edit2,
   CheckCircle2,
   XCircle,
   Building2,
@@ -30,7 +32,7 @@ interface UserData {
   username: string;
   phone_number: string | null;
   full_name: string;
-  role: 'SUPER_ADMIN' | 'OWNER';
+  role: 'SUPER_ADMIN' | 'MANAGEMENT' | 'OWNER';
   location_id: string | null;
   is_active: boolean;
   last_login_at: string | null;
@@ -38,7 +40,10 @@ interface UserData {
   locations?: Location | null;
 }
 
-export default function UserManagementPage() {
+function UserManagementContent() {
+  const searchParams = useSearchParams();
+  const selectedLocationId = searchParams.get('location_id') || 'all';
+
   const [users, setUsers] = useState<UserData[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +51,7 @@ export default function UserManagementPage() {
 
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
 
@@ -56,9 +62,20 @@ export default function UserManagementPage() {
     username: '',
     phone_number: '',
     password: '',
-    role: 'OWNER' as 'SUPER_ADMIN' | 'OWNER',
+    role: 'MANAGEMENT' as 'SUPER_ADMIN' | 'MANAGEMENT',
     location_id: '',
   });
+
+  const [editFormData, setEditFormData] = useState({
+    id: '',
+    full_name: '',
+    email: '',
+    phone_number: '',
+    role: 'MANAGEMENT' as 'SUPER_ADMIN' | 'MANAGEMENT',
+    location_id: '',
+    is_active: true,
+  });
+
   const [newPassword, setNewPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -67,7 +84,8 @@ export default function UserManagementPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/users?search=${encodeURIComponent(search)}`);
+      const url = `/api/admin/users?search=${encodeURIComponent(search)}&location_id=${encodeURIComponent(selectedLocationId)}`;
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
         setUsers(data.users || []);
@@ -94,7 +112,7 @@ export default function UserManagementPage() {
   useEffect(() => {
     fetchUsers();
     fetchLocations();
-  }, []);
+  }, [selectedLocationId]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,13 +144,55 @@ export default function UserManagementPage() {
           username: '',
           phone_number: '',
           password: '',
-          role: 'OWNER',
+          role: 'MANAGEMENT',
           location_id: '',
         });
         fetchUsers();
       }
     } catch (e) {
       setErrorMsg('Terjadi kesalahan jaringan.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditModal = (user: UserData) => {
+    setSelectedUser(user);
+    const normalizedRole = (user.role === 'MANAGEMENT' || user.role === 'OWNER') ? 'MANAGEMENT' : 'SUPER_ADMIN';
+    setEditFormData({
+      id: user.id,
+      full_name: user.full_name,
+      email: user.email,
+      phone_number: user.phone_number || '',
+      role: normalizedRole,
+      location_id: user.location_id || '',
+      is_active: user.is_active,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editFormData),
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        setErrorMsg(data.error || 'Gagal memperbarui data user.');
+      } else {
+        setSuccessMsg('Data user berhasil diperbarui.');
+        setShowEditModal(false);
+        fetchUsers();
+      }
+    } catch (e) {
+      setErrorMsg('Terjadi kesalahan server.');
     } finally {
       setSubmitting(false);
     }
@@ -229,7 +289,7 @@ export default function UserManagementPage() {
             <div>
               <h1 className="text-xl font-black text-[#1B1C1C] tracking-tight">User Management</h1>
               <p className="text-xs text-[#817478] font-medium">
-                Kelola akun administrator HO dan Mitra Owner cabang.
+                Kelola akun administrator dan tim Management lokasi cabang.
               </p>
             </div>
           </div>
@@ -264,14 +324,6 @@ export default function UserManagementPage() {
             className="w-full pl-11 pr-4 py-3 bg-white border border-[#EFEDED] rounded-2xl text-xs font-bold text-[#1B1C1C] focus:outline-none focus:border-[#795465] transition-colors"
           />
         </form>
-
-        <button
-          onClick={fetchUsers}
-          className="flex items-center gap-2 px-4 py-3 bg-white border border-[#EFEDED] hover:bg-[#FBF9F9] text-[#795465] rounded-2xl text-xs font-extrabold shadow-sm transition-all"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          <span>REFRESH TABLE</span>
-        </button>
       </div>
 
       {/* Users Table */}
@@ -305,7 +357,8 @@ export default function UserManagementPage() {
                 </tr>
               ) : (
                 users.map((user) => {
-                  const locationName = user.locations?.name || (user.role === 'SUPER_ADMIN' ? 'All Head Office' : '-');
+                  const locationName = user.locations?.name || (user.role === 'SUPER_ADMIN' ? 'All Locations' : '-');
+                  const isManagementRole = user.role === 'MANAGEMENT' || user.role === 'OWNER';
 
                   return (
                     <tr key={user.id} className="hover:bg-[#FBF9F9] transition-colors">
@@ -324,13 +377,13 @@ export default function UserManagementPage() {
                       <td className="py-4 px-6">
                         <span
                           className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wider ${
-                            user.role === 'SUPER_ADMIN'
-                              ? 'bg-[#795465] text-white shadow-sm'
-                              : 'bg-[#F8C8DC] text-[#795465]'
+                            isManagementRole
+                              ? 'bg-[#F8C8DC] text-[#795465]'
+                              : 'bg-[#795465] text-white shadow-sm'
                           }`}
                         >
                           <ShieldCheck className="w-3 h-3" />
-                          {user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Owner Mitra'}
+                          {isManagementRole ? 'MANAGEMENT' : 'SUPER ADMIN'}
                         </span>
                       </td>
                       <td className="py-4 px-6 text-[#4F4448]">
@@ -359,6 +412,13 @@ export default function UserManagementPage() {
                           : 'Belum Pernah'}
                       </td>
                       <td className="py-4 px-6 text-right space-x-2">
+                        <button
+                          onClick={() => openEditModal(user)}
+                          className="p-2 bg-[#F5F3F3] hover:bg-[#F8C8DC] text-[#795465] rounded-xl transition-colors"
+                          title="Edit User Details"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() => {
                             setSelectedUser(user);
@@ -401,7 +461,7 @@ export default function UserManagementPage() {
                 </div>
                 <div>
                   <h3 className="text-base font-black text-[#1B1C1C]">Tambah User Account Baru</h3>
-                  <p className="text-[11px] text-[#817478] font-medium">Buat kredensial login untuk Admin atau Owner.</p>
+                  <p className="text-[11px] text-[#817478] font-medium">Buat kredensial login untuk Admin atau Management.</p>
                 </div>
               </div>
               <button onClick={() => setShowCreateModal(false)} className="p-2 hover:bg-[#F5F3F3] rounded-xl text-[#817478]">
@@ -476,11 +536,11 @@ export default function UserManagementPage() {
                   <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Job Role</label>
                   <select
                     value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value as 'SUPER_ADMIN' | 'OWNER' })}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value as 'SUPER_ADMIN' | 'MANAGEMENT' })}
                     className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
                   >
-                    <option value="OWNER">Owner Mitra Cabang</option>
-                    <option value="SUPER_ADMIN">Super Admin (HO)</option>
+                    <option value="MANAGEMENT">Management Cabang</option>
+                    <option value="SUPER_ADMIN">Super Admin</option>
                   </select>
                 </div>
 
@@ -516,6 +576,132 @@ export default function UserManagementPage() {
                   className="px-5 py-2.5 bg-[#795465] hover:bg-[#634251] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#795465]/20 disabled:opacity-50"
                 >
                   {submitting ? 'Menyimpan...' : 'Simpan & Buat User'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal EDIT USER */}
+      {showEditModal && selectedUser && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl border border-[#EFEDED] shadow-2xl p-6 sm:p-8 space-y-6">
+            <div className="flex items-center justify-between border-b border-[#EFEDED] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-[#F8C8DC]/40 rounded-2xl text-[#795465]">
+                  <Edit2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-[#1B1C1C]">Edit User Account</h3>
+                  <p className="text-[11px] text-[#817478] font-medium">Ubah rincian profil dan penetapan cabang lokasi.</p>
+                </div>
+              </div>
+              <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-[#F5F3F3] rounded-xl text-[#817478]">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-4 text-xs font-bold text-[#1B1C1C]">
+              <div>
+                <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Nama Lengkap</label>
+                <div className="relative">
+                  <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#817478]" />
+                  <input
+                    type="text"
+                    required
+                    value={editFormData.full_name}
+                    onChange={(e) => setEditFormData({ ...editFormData, full_name: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#817478]" />
+                    <input
+                      type="email"
+                      required
+                      value={editFormData.email}
+                      onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                      className="w-full pl-10 pr-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">No. Handphone</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#817478]" />
+                    <input
+                      type="text"
+                      value={editFormData.phone_number}
+                      onChange={(e) => setEditFormData({ ...editFormData, phone_number: e.target.value })}
+                      className="w-full pl-10 pr-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Job Role</label>
+                  <select
+                    value={editFormData.role}
+                    onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value as 'SUPER_ADMIN' | 'MANAGEMENT' })}
+                    className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
+                  >
+                    <option value="MANAGEMENT">Management Cabang</option>
+                    <option value="SUPER_ADMIN">Super Admin</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Cabang Lokasi</label>
+                  <select
+                    disabled={editFormData.role === 'SUPER_ADMIN'}
+                    value={editFormData.location_id}
+                    onChange={(e) => setEditFormData({ ...editFormData, location_id: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465] disabled:opacity-50"
+                  >
+                    <option value="">-- Pilih Cabang --</option>
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Status Account</label>
+                <select
+                  value={editFormData.is_active ? 'active' : 'inactive'}
+                  onChange={(e) => setEditFormData({ ...editFormData, is_active: e.target.value === 'active' })}
+                  className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#EFEDED]">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-5 py-2.5 border border-[#EFEDED] hover:bg-[#FBF9F9] rounded-xl text-xs font-extrabold text-[#817478]"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-5 py-2.5 bg-[#795465] hover:bg-[#634251] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#795465]/20 disabled:opacity-50"
+                >
+                  {submitting ? 'Memproses...' : 'Simpan Perubahan'}
                 </button>
               </div>
             </form>
@@ -580,5 +766,18 @@ export default function UserManagementPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function UserManagementPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-12 text-center text-[#817478]">
+        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[#795465]" />
+        <span>Memuat Halaman User Management...</span>
+      </div>
+    }>
+      <UserManagementContent />
+    </Suspense>
   );
 }

@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search')?.trim().toLowerCase() || '';
+    const locationId = searchParams.get('location_id')?.trim();
 
     let query = supabaseServer
       .from('admin_users')
@@ -31,6 +32,10 @@ export async function GET(req: NextRequest) {
 
     if (search) {
       query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,phone_number.ilike.%${search}%`);
+    }
+
+    if (locationId && locationId !== 'all') {
+      query = query.or(`location_id.eq.${locationId},role.eq.SUPER_ADMIN`);
     }
 
     const { data: users, error } = await query;
@@ -62,7 +67,7 @@ export async function POST(req: NextRequest) {
     const cleanUsername = String(username || cleanEmail.split('@')[0] || '').trim().toLowerCase();
     const cleanPhone = String(phone_number || '').trim();
     const cleanPass = String(password || '').trim();
-    const cleanRole = (role === 'OWNER' ? 'OWNER' : 'SUPER_ADMIN') as 'SUPER_ADMIN' | 'OWNER';
+    const cleanRole = (role === 'MANAGEMENT' || role === 'OWNER' ? 'MANAGEMENT' : 'SUPER_ADMIN');
     const locId = location_id ? String(location_id) : null;
 
     if (!cleanName || !cleanEmail || !cleanPass) {
@@ -73,8 +78,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Password minimal 6 karakter.' }, { status: 400 });
     }
 
-    if (cleanRole === 'OWNER' && !locId) {
-      return NextResponse.json({ success: false, error: 'Role OWNER wajib memilih Cabang Lokasi.' }, { status: 400 });
+    if (cleanRole === 'MANAGEMENT' && !locId) {
+      return NextResponse.json({ success: false, error: 'Role MANAGEMENT wajib memilih Cabang Lokasi.' }, { status: 400 });
     }
 
     // Check if email already exists
@@ -131,7 +136,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, full_name, phone_number, role, location_id, is_active, new_password } = body;
+    const { id, full_name, email, phone_number, role, location_id, is_active, new_password } = body;
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'ID User wajib diisi.' }, { status: 400 });
@@ -142,8 +147,9 @@ export async function PATCH(req: NextRequest) {
     };
 
     if (full_name !== undefined) updatePayload.full_name = String(full_name).trim();
+    if (email !== undefined) updatePayload.email = String(email).trim().toLowerCase();
     if (phone_number !== undefined) updatePayload.phone_number = String(phone_number).trim();
-    if (role !== undefined) updatePayload.role = role === 'OWNER' ? 'OWNER' : 'SUPER_ADMIN';
+    if (role !== undefined) updatePayload.role = (role === 'MANAGEMENT' || role === 'OWNER') ? 'MANAGEMENT' : 'SUPER_ADMIN';
     if (location_id !== undefined) updatePayload.location_id = location_id ? String(location_id) : null;
     if (is_active !== undefined) updatePayload.is_active = Boolean(is_active);
 
@@ -162,7 +168,7 @@ export async function PATCH(req: NextRequest) {
 
     if (updateError) {
       console.error('[API Users PATCH] DB Update Error:', updateError);
-      return NextResponse.json({ success: false, error: 'Gagal memperbarui user.' }, { status: 500 });
+      return NextResponse.json({ success: false, error: 'Gagal memperbarui data user.' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, message: 'Data user berhasil diperbarui.' });

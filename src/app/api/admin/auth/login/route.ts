@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
-import { comparePassword, signSessionJWT, AUTH_COOKIE_NAME, AdminSessionPayload } from '@/lib/auth-server';
+import { comparePassword, signSessionJWT, AUTH_COOKIE_NAME, AdminSessionPayload, UserRole } from '@/lib/auth-server';
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,12 +44,14 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const role: UserRole = (user.role === 'MANAGEMENT' || user.role === 'OWNER') ? 'MANAGEMENT' : 'SUPER_ADMIN';
+
       sessionUser = {
         id: String(user.id),
         email: user.email,
         username: user.username,
         name: user.full_name,
-        role: user.role === 'OWNER' ? 'OWNER' : 'SUPER_ADMIN',
+        role,
         location_id: user.location_id ? String(user.location_id) : null,
       };
 

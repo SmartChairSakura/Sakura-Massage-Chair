@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
 
-export type UserRole = 'SUPER_ADMIN' | 'OWNER';
+export type UserRole = 'SUPER_ADMIN' | 'MANAGEMENT' | 'OWNER';
 
 export interface AdminSessionPayload {
   id: string;
