@@ -10,52 +10,85 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing idempotencyKey or transactionId' }, { status: 400 });
     }
 
-    const targetKey = idempotencyKey || transactionId;
-    const targetStatus = status || 'PAID';
+    const targetKey = String(idempotencyKey || transactionId).trim();
+    const targetStatus = String(status || 'PAID').toUpperCase();
+    const slipStatus = targetStatus === 'PAID' ? 'done' : targetStatus.toLowerCase();
+    const now = new Date().toISOString();
 
-    // 1. Query existing transaction status to check idempotency guard
-    const { data: existingTx, error: fetchError } = await supabaseServer
-      .from('transactions')
-      .select('id, status, idempotency_key')
-      .or(`idempotency_key.eq.${targetKey},id.eq.${targetKey}`)
-      .single();
+    // 1. Query existing chair_slip record
+    const { data: existingSlip } = await supabaseServer
+      .from('chair_slips')
+      .select('*')
+      .or(`chair_slip_number.eq.${targetKey},id.eq.${targetKey}`)
+      .maybeSingle();
 
-    if (existingTx && existingTx.status === targetStatus) {
-      console.warn(`[Webhook] Duplicate notification received for key: ${targetKey}. Already ${targetStatus}.`);
-      return NextResponse.json({
-        success: true,
-        message: 'Idempotency guard: Transaction already in target status.',
-        transaction: existingTx,
-      });
+    if (existingSlip) {
+      // Idempotency check
+      if (['done', 'paid', 'completed', 'session_inprocess'].includes(existingSlip.status)) {
+        return NextResponse.json({
+          success: true,
+          message: 'Idempotency guard: Chair slip already in target status.',
+          transaction: existingSlip,
+        });
+      }
+
+      // Update chair_slips to 'done' and record session start time
+      const { data: updatedSlip, error: updateSlipErr } = await supabaseServer
+        .from('chair_slips')
+        .update({
+          status: 'done',
+          session_start_at: now,
+          updated_at: now,
+        })
+        .eq('id', existingSlip.id)
+        .select()
+        .maybeSingle();
+
+      if (updateSlipErr) {
+        console.warn('[Webhook] chair_slips update error:', updateSlipErr.message);
+      }
+
+      // Insert payment split record into chair_slip_payments
+      const grossAmt = Number(existingSlip.amount || 0);
+      const mdrFee = Math.round(grossAmt * 0.007);
+      const devShare = Math.round(grossAmt * 0.05);
+      const ownerNet = grossAmt - mdrFee - devShare;
+
+      try {
+        await supabaseServer.from('chair_slip_payments').insert({
+          chair_slip_id: existingSlip.id,
+          pg_ref_number: targetKey,
+          amount: grossAmt,
+          sub_amount: grossAmt,
+          mdr_fee: mdrFee,
+          dev_share: devShare,
+          owner_net: ownerNet,
+          payment_method: 'QRIS',
+          payment_status: 'SETTLEMENT',
+          created_at: now,
+        });
+      } catch (payErr: any) {
+        console.warn('[Webhook] chair_slip_payments insert note:', payErr?.message);
+      }
     }
 
-    // 2. Update transaction status in Supabase
+    // 2. Also update legacy transactions table
     const { data: updatedTx, error: updateError } = await supabaseServer
       .from('transactions')
       .update({
         status: targetStatus,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       })
       .or(`idempotency_key.eq.${targetKey},id.eq.${targetKey}`)
       .select()
-      .single();
+      .maybeSingle();
 
-    if (updateError) {
-      console.warn('[Webhook] DB update note (fallback active):', updateError.message);
-      return NextResponse.json({
-        success: true,
-        transactionId: targetKey,
-        status: targetStatus,
-        message: 'Webhook processed (Fallback mode).',
-      });
-    }
-
-    console.log(`[Webhook] Transaction ${updatedTx.id} status updated to ${updatedTx.status}`);
+    console.log(`[Webhook] Transaction & Slip ${targetKey} status updated to ${targetStatus} / done`);
 
     return NextResponse.json({
       success: true,
-      transaction: updatedTx,
-      message: 'Transaction updated to PAID and broadcast via Supabase Realtime.',
+      transaction: updatedTx || existingSlip,
+      message: 'Transaction & Chair Slip updated to PAID / done successfully.',
     });
   } catch (error: any) {
     console.error('[Webhook] Error processing payment webhook:', error);

@@ -28,7 +28,7 @@ export default function DurationSelectPage() {
       const custObj = {
         phone: 'GUEST',
         email: '',
-        chair_id: chairObj.id || 'SAKURA-GI-01',
+        chair_id: chairObj.chair_code || String(chairObj.id || 'SAKURA-GI-01'),
         location_name: chairObj.location_name || 'Lokasi Kiosk',
       };
       setCustomer(custObj);

@@ -33,10 +33,9 @@ export default function KioskHeader({
     if (paired) {
       try {
         const parsed = JSON.parse(paired);
-        if (parsed.id) {
-          setDynamicChairId(parsed.id);
-          setIsPaired(true);
-        }
+        const displayCode = parsed.chair_code || String(parsed.id || 'SAKURA-GI-01');
+        setDynamicChairId(displayCode);
+        setIsPaired(true);
         if (parsed.location_name) setDynamicLocation(parsed.location_name);
       } catch (e) {
         console.warn('Paired chair read note:', e);

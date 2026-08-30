@@ -13,14 +13,58 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const idempotencyKey = `TRX-${chairId}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    // Lookup chair unit details from chairs table
+    const cleanChairId = String(chairId).trim();
+    const { data: chairData } = await supabaseServer
+      .from('chairs')
+      .select('*')
+      .or(`chair_code.eq.${cleanChairId},id.eq.${cleanChairId}`)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    const chairCode = chairData ? chairData.chair_code : cleanChairId;
+    const locationId = chairData ? chairData.location_id : null;
+    const locationName = chairData ? chairData.location_name : '';
+
+    const idempotencyKey = `TRX-${chairCode}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     // Generate Mock QRIS URL / Payment Gateway Integration placeholder
     const mockQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=00020101021226670016ID.CO.MIDTRANS.WWW0118936009143000000000021550000000000000050303360540${amount}5802ID5910SMART_CHAIR6007JAKARTA63048F3A`;
 
+    // 1. Insert into master table: chair_slips
+    const slipPayload = {
+      chair_slip_number: idempotencyKey,
+      chair_id: chairData ? String(chairData.id) : cleanChairId,
+      chair_code: chairCode,
+      location_id: locationId,
+      customer_phone: customerPhone || 'GUEST',
+      customer_email: customerEmail || '',
+      amount: Number(amount),
+      duration_in_minutes: Number(durationMinutes),
+      pulse_count: Number(pulseCount),
+      payment_method: 'QRIS',
+      status: 'pending',
+      qr_url: mockQrUrl,
+      note: locationName,
+      created_from: 'EDC_KIOSK',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data: createdSlip, error: slipError } = await supabaseServer
+      .from('chair_slips')
+      .insert([slipPayload])
+      .select()
+      .maybeSingle();
+
+    if (slipError) {
+      console.warn('[API create-qris] chair_slips insert note:', slipError.message);
+    }
+
+    // 2. Insert into legacy transactions table for backward compatibility
     const transactionPayload = {
       idempotency_key: idempotencyKey,
-      chair_id: chairId,
+      chair_id: chairCode,
       customer_phone: customerPhone || 'GUEST',
       customer_email: customerEmail || '',
       amount: Number(amount),
@@ -32,34 +76,37 @@ export async function POST(req: NextRequest) {
       qr_url: mockQrUrl,
     };
 
-    // Insert transaction into Supabase database
-    const { data: createdTransaction, error: dbError } = await supabaseServer
+    const { data: createdTransaction } = await supabaseServer
       .from('transactions')
       .insert([transactionPayload])
       .select()
-      .single();
+      .maybeSingle();
 
-    if (dbError) {
-      console.warn('[API create-qris] Supabase DB Insert Note (fallback to in-memory response if table not yet migrated):', dbError.message);
-      // Fallback response for offline/pre-migration development
-      const fallbackTransaction = {
-        id: crypto.randomUUID(),
-        ...transactionPayload,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      return NextResponse.json({
-        success: true,
-        transaction: fallbackTransaction,
-        note: 'Fallback mode active until Supabase migration executed.',
-      });
-    }
+    const resultTransaction = createdSlip
+      ? {
+          id: createdSlip.id,
+          idempotency_key: createdSlip.chair_slip_number,
+          chair_id: createdSlip.chair_code || createdSlip.chair_id,
+          customer_phone: createdSlip.customer_phone,
+          amount: Number(createdSlip.amount),
+          duration_minutes: createdSlip.duration_in_minutes,
+          pulse_count: createdSlip.pulse_count,
+          payment_method: createdSlip.payment_method,
+          status: createdSlip.status,
+          qr_url: createdSlip.qr_url,
+          created_at: createdSlip.created_at,
+        }
+      : createdTransaction || {
+          id: crypto.randomUUID(),
+          ...transactionPayload,
+          created_at: new Date().toISOString(),
+        };
 
-    console.log('[API create-qris] Saved transaction to Supabase:', createdTransaction.id);
+    console.log('[API create-qris] Saved transaction & slip to Supabase:', idempotencyKey);
 
     return NextResponse.json({
       success: true,
-      transaction: createdTransaction,
+      transaction: resultTransaction,
     });
   } catch (error: any) {
     console.error('[API create-qris] Error:', error);
