@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
     const ownerNet = Math.round(netGross * (ownerPct / 100));
     const systemNet = netGross - ownerNet;
 
-    // Convert dailyMap to sorted array for Trend Line Chart
+    // Convert dailyMap to sorted array for Trend Line Charts
     const sortedDays = Object.keys(dailyMap).sort();
     const dailyTrend = sortedDays.map((dayKey) => {
       const dayGross = dailyMap[dayKey].gross;
@@ -130,8 +130,10 @@ export async function GET(req: NextRequest) {
       return {
         rawDate: dayKey,
         dateLabel,
+        grossSales: dayGross,
         gross: dayGross,
         ownerNet: dayOwnerNet,
+        ticketCount: dailyMap[dayKey].transactions,
         transactions: dailyMap[dayKey].transactions,
       };
     });
@@ -141,18 +143,32 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       summary: {
+        // Intuitive snake_case keys matching business terms
+        gross_sales: grossRevenue,
+        mdr_fee: mdrFee,
+        net_sales: netGross,
+        owner_net: ownerNet,
+        system_share: systemNet,
+        total_tickets: totalTransactions,
+        online_fleet: onlineCount,
+        total_fleet: safeChairs.length,
+        owner_share_pct: ownerPct,
+        system_share_pct: systemPct,
+        period_change_pct: 0,
+
+        // Legacy camelCase keys for 100% backward compatibility
         grossRevenue,
         mdrFee,
         netGross,
         ownerNet,
         systemNet,
-        devShare: systemNet, // Alias for backward compatibility
+        devShare: systemNet,
         totalTransactions,
         onlineCount,
         totalChairs: safeChairs.length,
         ownerSharePct: ownerPct,
         systemSharePct: systemPct,
-        periodChangePct: 0, // Baseline change indicator
+        periodChangePct: 0,
       },
       dailyTrend,
       locations: locationList,
