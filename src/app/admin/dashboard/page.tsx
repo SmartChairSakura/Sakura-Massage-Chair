@@ -8,26 +8,41 @@ import {
   PieChart,
   Activity,
   CheckCircle2,
-  QrCode,
-  Percent,
   Calendar,
   Layers,
   MapPin,
   RefreshCw,
+  Percent,
+  ChevronDown,
+  Filter,
+  ArrowUpRight,
 } from 'lucide-react';
 import { Location, Transaction } from '@/types';
 
 export const dynamic = 'force-dynamic';
+
+interface DailyTrendItem {
+  rawDate: string;
+  dateLabel: string;
+  gross: number;
+  ownerNet: number;
+  transactions: number;
+}
 
 function DashboardContent() {
   const searchParams = useSearchParams();
   const locationIdParam = searchParams.get('location_id') || 'ALL';
 
   const [rangeFilter, setRangeFilter] = useState<string>('all');
+  const [dateType, setDateType] = useState<'created_at' | 'settled_at'>('created_at');
+  const [showCustomDate, setShowCustomDate] = useState<boolean>(false);
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [locations, setLocations] = useState<Location[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [dailyTrend, setDailyTrend] = useState<DailyTrendItem[]>([]);
+  const [hoveredTrendPoint, setHoveredTrendPoint] = useState<DailyTrendItem | null>(null);
+
   const [analytics, setAnalytics] = useState({
     grossRevenue: 0,
     mdrFee: 0,
@@ -39,6 +54,7 @@ function DashboardContent() {
     totalChairs: 0,
     ownerSharePct: 95.0,
     systemSharePct: 5.0,
+    periodChangePct: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -47,6 +63,7 @@ function DashboardContent() {
     try {
       const query = new URLSearchParams();
       if (locationIdParam !== 'ALL') query.set('location_id', locationIdParam);
+      query.set('date_type', dateType);
       if (dateFrom) query.set('date_from', dateFrom);
       if (dateTo) query.set('date_to', dateTo);
       if (!dateFrom && !dateTo && rangeFilter !== 'all') query.set('range', rangeFilter);
@@ -57,6 +74,7 @@ function DashboardContent() {
       if (data.success) {
         setLocations(data.locations || []);
         setTransactions(data.transactions || []);
+        setDailyTrend(data.dailyTrend || []);
 
         const s = data.summary || {};
         setAnalytics({
@@ -70,6 +88,7 @@ function DashboardContent() {
           totalChairs: s.totalChairs || (data.chairs || []).length,
           ownerSharePct: s.ownerSharePct || 95.0,
           systemSharePct: s.systemSharePct || 5.0,
+          periodChangePct: s.periodChangePct || 0,
         });
       }
     } catch (err) {
@@ -81,12 +100,13 @@ function DashboardContent() {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [locationIdParam, rangeFilter, dateFrom, dateTo]);
+  }, [locationIdParam, rangeFilter, dateType, dateFrom, dateTo]);
 
   const handleResetDateFilters = () => {
     setDateFrom('');
     setDateTo('');
     setRangeFilter('all');
+    setShowCustomDate(false);
   };
 
   const formatRupiah = (val: number) => {
@@ -97,52 +117,124 @@ function DashboardContent() {
     }).format(val);
   };
 
+  // SVG Line Chart Coordinate Generator
+  const renderTrendChart = () => {
+    if (dailyTrend.length === 0) {
+      return (
+        <div className="h-48 flex flex-col items-center justify-center text-[#817478] bg-[#FBF9F9] rounded-2xl border border-dashed border-[#EFEDED]">
+          <TrendingUp className="w-8 h-8 mb-2 text-[#D2C3C7]" />
+          <p className="text-xs font-bold">Belum ada data tren omset pada rentang tanggal terpilih.</p>
+        </div>
+      );
+    }
+
+    const width = 600;
+    const height = 180;
+    const padding = 25;
+
+    const maxVal = Math.max(...dailyTrend.map((d) => d.gross), 100000);
+    const minVal = 0;
+
+    const points = dailyTrend.map((d, idx) => {
+      const x = padding + (idx / Math.max(1, dailyTrend.length - 1)) * (width - padding * 2);
+      const y = height - padding - ((d.gross - minVal) / (maxVal - minVal)) * (height - padding * 2);
+      return { x, y, data: d };
+    });
+
+    const pathD = points.reduce(
+      (acc, pt, idx) => (idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`),
+      ''
+    );
+
+    return (
+      <div className="relative w-full overflow-x-auto">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-48 overflow-visible">
+          {/* Grid lines */}
+          <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="#EFEDED" strokeDasharray="3 3" />
+          <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="#EFEDED" strokeDasharray="3 3" />
+          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#EFEDED" />
+
+          {/* Line path */}
+          <path d={pathD} fill="none" stroke="#795465" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+
+          {/* Point markers */}
+          {points.map((pt, idx) => (
+            <g key={idx} className="cursor-pointer" onMouseEnter={() => setHoveredTrendPoint(pt.data)}>
+              <circle
+                cx={pt.x}
+                cy={pt.y}
+                r={hoveredTrendPoint?.rawDate === pt.data.rawDate ? 6 : 4}
+                fill={hoveredTrendPoint?.rawDate === pt.data.rawDate ? '#4E635A' : '#795465'}
+                stroke="#FFFFFF"
+                strokeWidth="2"
+                className="transition-all"
+              />
+            </g>
+          ))}
+        </svg>
+
+        {/* Tooltip Overlay */}
+        {hoveredTrendPoint && (
+          <div className="p-3 bg-[#1B1C1C] text-white rounded-xl shadow-xl text-xs space-y-1 my-2">
+            <div className="flex items-center justify-between gap-4 font-bold border-b border-zinc-700 pb-1">
+              <span>{hoveredTrendPoint.dateLabel}</span>
+              <span className="text-[#F8C8DC]">{hoveredTrendPoint.transactions} Sesi</span>
+            </div>
+            <div className="flex items-center justify-between gap-4 font-mono">
+              <span className="text-zinc-400">Gross:</span>
+              <span>{formatRupiah(hoveredTrendPoint.gross)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4 font-mono font-bold text-emerald-400">
+              <span>Owner Net:</span>
+              <span>{formatRupiah(hoveredTrendPoint.ownerNet)}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
-      {/* Top Filter Bar with Calendar Inputs */}
-      <div className="bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
+      {/* Top Streamlined Filter Bar */}
+      <div className="bg-white rounded-3xl border border-[#EFEDED] p-6 shadow-sm flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-extrabold text-[#1B1C1C] tracking-tight flex items-center gap-2">
+          <h1 className="text-xl font-black text-[#1B1C1C] tracking-tight flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-[#795465]" />
-            <span>Sales Summary & Revenue Analytics</span>
+            <span>Sales Summary</span>
           </h1>
-          <p className="text-xs text-[#4F4448] font-bold mt-1">
-            Overview omset kotor QRIS, biaya MDR (0.7%), hak net owner, dan bagi hasil system.
+          <p className="text-xs text-[#817478] font-medium mt-1">
+            Ringkasan omset penjualan QRIS, biaya MDR (0.7%), hak bersih owner, dan bagi hasil sistem.
           </p>
         </div>
 
-        {/* Date Filters (Calendar + Shortcut Tabs) */}
+        {/* Filter Controls (Presets + Settlement Toggle + Custom Date) */}
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-          {/* Calendar Picker Inputs */}
-          <div className="flex items-center gap-2 bg-[#F5F3F3] p-1.5 rounded-2xl border border-[#EFEDED]">
-            <Calendar className="w-4 h-4 text-[#795465] ml-2 shrink-0" />
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="bg-transparent text-xs font-bold text-[#1B1C1C] outline-none cursor-pointer"
-              title="Dari Tanggal"
-            />
-            <span className="text-xs text-[#817478] font-extrabold">-</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="bg-transparent text-xs font-bold text-[#1B1C1C] outline-none cursor-pointer"
-              title="Sampai Tanggal"
-            />
-            {(dateFrom || dateTo) && (
-              <button
-                onClick={handleResetDateFilters}
-                className="p-1 hover:bg-[#EFEDED] rounded-lg text-[#795465] transition-colors"
-                title="Reset Date Calendar"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-              </button>
-            )}
+          {/* Toggle: Date Mode (Created At vs Settled At) */}
+          <div className="flex items-center bg-[#F5F3F3] p-1 rounded-2xl border border-[#EFEDED]">
+            <button
+              onClick={() => setDateType('created_at')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+                dateType === 'created_at'
+                  ? 'bg-[#795465] text-white shadow-sm'
+                  : 'text-[#4F4448] hover:text-[#1B1C1C]'
+              }`}
+            >
+              Created At
+            </button>
+            <button
+              onClick={() => setDateType('settled_at')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+                dateType === 'settled_at'
+                  ? 'bg-[#795465] text-white shadow-sm'
+                  : 'text-[#4F4448] hover:text-[#1B1C1C]'
+              }`}
+            >
+              Settled At
+            </button>
           </div>
 
-          {/* Shortcut Date Range Tabs */}
+          {/* Preset Date Range Buttons */}
           <div className="flex items-center bg-[#F5F3F3] p-1 rounded-2xl border border-[#EFEDED]">
             {[
               { id: 'today', label: 'Hari Ini' },
@@ -156,8 +248,9 @@ function DashboardContent() {
                   setDateFrom('');
                   setDateTo('');
                   setRangeFilter(tab.id);
+                  setShowCustomDate(false);
                 }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
                   !dateFrom && !dateTo && rangeFilter === tab.id
                     ? 'bg-[#795465] text-white shadow-sm'
                     : 'text-[#4F4448] hover:text-[#1B1C1C]'
@@ -167,194 +260,192 @@ function DashboardContent() {
               </button>
             ))}
           </div>
+
+          {/* Collapsible Custom Date Filter */}
+          <button
+            onClick={() => setShowCustomDate(!showCustomDate)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border border-[#EFEDED] text-xs font-extrabold transition-colors ${
+              dateFrom || dateTo ? 'bg-[#795465] text-white' : 'bg-[#F5F3F3] text-[#1B1C1C] hover:bg-[#EFEDED]'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>{dateFrom || dateTo ? 'Custom Date' : 'Custom'}</span>
+            <ChevronDown className="w-3 h-3" />
+          </button>
         </div>
       </div>
 
-      {/* 4-Tier Financial Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Revenue Gross */}
-        <div className="bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-[#795465] uppercase tracking-wider">
-              Total Omset Kotor (Gross)
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-[#F8C8DC] text-[#795465] flex items-center justify-center font-extrabold">
-              <DollarSign className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl font-extrabold text-[#1B1C1C]">
-              {formatRupiah(analytics.grossRevenue)}
-            </div>
-            <span className="text-[10px] font-bold text-[#817478] mt-0.5 block">
-              {analytics.totalTransactions} Transaksi QRIS Sukses
-            </span>
-          </div>
+      {/* Expanded Custom Date Picker Bar */}
+      {showCustomDate && (
+        <div className="p-4 bg-white rounded-2xl border border-[#EFEDED] shadow-sm flex items-center gap-3 animate-in fade-in zoom-in-95 duration-150">
+          <span className="text-xs font-extrabold text-[#795465] uppercase">Custom Date Range:</span>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="px-3 py-1.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] outline-none"
+          />
+          <span className="text-xs font-bold text-[#817478]">-</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="px-3 py-1.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] outline-none"
+          />
+          <button
+            onClick={handleResetDateFilters}
+            className="p-1.5 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#795465] rounded-xl transition-colors"
+            title="Reset Date"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
         </div>
+      )}
 
-        {/* Card 2: MDR Fee (0.7%) */}
-        <div className="bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] space-y-3">
+      {/* Hero Financial Summary: Waterfall Flow Architecture */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Highlight Card: Owner Net */}
+        <div className="lg:col-span-2 bg-[#FBF9F9] border-2 border-[#4E635A]/30 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col justify-between space-y-6 relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-[#BA1A1A] uppercase tracking-wider">
-              MDR Fee (0.7% QRIS)
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-[#FFDAD6] text-[#BA1A1A] flex items-center justify-center font-extrabold">
-              <Percent className="w-4 h-4" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black">
+                <DollarSign className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-xs font-black text-emerald-800 uppercase tracking-wider block">
+                  Owner Net ({analytics.ownerSharePct}%)
+                </span>
+                <p className="text-[11px] text-[#817478] font-bold">Pendapatan Bersih Pemilik Lahan</p>
+              </div>
             </div>
-          </div>
-          <div>
-            <div className="text-2xl font-extrabold text-[#1B1C1C]">
-              {formatRupiah(analytics.mdrFee)}
-            </div>
-            <span className="text-[10px] font-bold text-[#817478] mt-0.5 block">
-              Dipotong Bank / Gateway QRIS
-            </span>
-          </div>
-        </div>
 
-        {/* Card 3: Hak Owner Net (95%) */}
-        <div className="bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-[#4E635A] uppercase tracking-wider">
-              Hak Owner Net ({analytics.ownerSharePct}%)
+            <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-black">
+              <ArrowUpRight className="w-3.5 h-3.5" />
+              {analytics.periodChangePct >= 0 ? `+${analytics.periodChangePct}%` : `${analytics.periodChangePct}%`}
             </span>
-            <div className="w-9 h-9 rounded-xl bg-[#CEE5DA] text-[#4E635A] flex items-center justify-center font-extrabold">
-              <TrendingUp className="w-4 h-4" />
-            </div>
           </div>
+
           <div>
-            <div className="text-2xl font-extrabold text-[#4E635A]">
+            <div className="text-4xl sm:text-5xl font-black text-[#1B1C1C] tracking-tight">
               {formatRupiah(analytics.ownerNet)}
             </div>
-            <span className="text-[10px] font-bold text-[#817478] mt-0.5 block">
-              Bersih Setelah MDR & Bagi Hasil
-            </span>
-          </div>
-        </div>
-
-        {/* Card 4: Bagi Hasil System Net (5%) */}
-        <div className="bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-[#795465] uppercase tracking-wider">
-              Bagi Hasil System ({analytics.systemSharePct}%)
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-[#F8C8DC] text-[#795465] flex items-center justify-center font-extrabold">
-              <PieChart className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl font-extrabold text-[#795465]">
-              {formatRupiah(analytics.systemNet)}
-            </div>
-            <span className="text-[10px] font-bold text-[#817478] mt-0.5 block">
-              Pengembang & Operasional
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* QRIS Method & Status Fleet Overview Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* QRIS Payment Method Banner */}
-        <div className="lg:col-span-1 bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-xl bg-[#F8C8DC] text-[#795465] flex items-center justify-center">
-                <QrCode className="w-4 h-4" />
-              </div>
-              <h2 className="text-sm font-extrabold text-[#1B1C1C]">Metode Bayar: QRIS Only</h2>
-            </div>
-            <p className="text-xs text-[#4F4448] font-bold">
-              100% transaksi pembayaran dilakukan via QRIS Dinamis & Statis EDC. Integrasi tunai (cash) belum diaktifkan.
+            <p className="text-xs font-bold text-[#817478] mt-2">
+              Bersih setelah pemotongan MDR ({analytics.mdrFee > 0 ? formatRupiah(analytics.mdrFee) : '0.7%'}) dan Pembagian Sistem ({analytics.systemSharePct}%).
             </p>
           </div>
 
-          <div className="p-4 bg-[#FBF9F9] rounded-2xl border border-[#EFEDED] mt-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-[#4E635A]" />
-              <span className="text-xs font-extrabold text-[#1B1C1C]">QRIS Settlement</span>
+          {/* Waterfall Financial Deduction Flow */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-[#EFEDED] text-xs">
+            <div className="p-3 bg-white rounded-2xl border border-[#EFEDED]">
+              <span className="text-[10px] font-extrabold text-[#795465] uppercase block">Gross Sales</span>
+              <span className="font-extrabold text-[#1B1C1C] text-sm block mt-0.5">{formatRupiah(analytics.grossRevenue)}</span>
             </div>
-            <span className="text-xs font-mono font-extrabold text-[#795465]">100%</span>
+
+            <div className="p-3 bg-white rounded-2xl border border-[#EFEDED]">
+              <span className="text-[10px] font-extrabold text-[#BA1A1A] uppercase block">[-] MDR (0.7%)</span>
+              <span className="font-extrabold text-[#BA1A1A] text-sm block mt-0.5">{formatRupiah(analytics.mdrFee)}</span>
+            </div>
+
+            <div className="p-3 bg-white rounded-2xl border border-[#EFEDED]">
+              <span className="text-[10px] font-extrabold text-[#4E635A] uppercase block">[=] Net Sales</span>
+              <span className="font-extrabold text-[#4E635A] text-sm block mt-0.5">{formatRupiah(analytics.netGross)}</span>
+            </div>
+
+            <div className="p-3 bg-white rounded-2xl border border-[#EFEDED]">
+              <span className="text-[10px] font-extrabold text-[#795465] uppercase block">System Share ({analytics.systemSharePct}%)</span>
+              <span className="font-extrabold text-[#795465] text-sm block mt-0.5">{formatRupiah(analytics.systemNet)}</span>
+            </div>
           </div>
         </div>
 
-        {/* Status Fleet Summary Card */}
-        <div className="lg:col-span-2 bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-sm font-extrabold text-[#1B1C1C] flex items-center gap-2">
-                <Activity className="w-4 h-4 text-[#795465]" />
-                <span>Overview Keterhubungan System & Armada</span>
-              </h2>
-              <p className="text-xs text-[#4F4448] font-bold mt-0.5">
-                Monitoring status armada terhubung secara realtime dengan PostgreSQL Supabase.
-              </p>
+        {/* Business Capacity Summary Cards */}
+        <div className="lg:col-span-1 space-y-4 flex flex-col justify-between">
+          {/* Online Fleet Card */}
+          <div className="bg-white rounded-3xl border border-[#EFEDED] p-6 shadow-sm flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[10px] font-extrabold text-[#817478] uppercase tracking-wider block">Online Fleet</span>
+              <div className="text-2xl font-black text-emerald-700">
+                {analytics.onlineCount} / {analytics.totalChairs} <span className="text-xs text-[#817478] font-bold">Unit</span>
+              </div>
+              <p className="text-[11px] text-[#817478] font-bold">Unit Kursi Siap Operasional</p>
             </div>
-            <span className="px-3 py-1 bg-[#CEE5DA] text-[#4E635A] text-[10px] font-extrabold rounded-full">
-              Realtime Sync
-            </span>
+            <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold">
+              <Activity className="w-5 h-5" />
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2">
-            <div className="p-4 bg-[#FBF9F9] rounded-2xl border border-[#EFEDED]">
-              <span className="text-[10px] font-bold text-[#817478] uppercase">Armada Online</span>
-              <div className="text-xl font-extrabold text-[#4E635A] mt-1">
-                {analytics.onlineCount} / {analytics.totalChairs}
+          {/* Total Transactions Card */}
+          <div className="bg-white rounded-3xl border border-[#EFEDED] p-6 shadow-sm flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[10px] font-extrabold text-[#817478] uppercase tracking-wider block">Total Transactions</span>
+              <div className="text-2xl font-black text-[#795465]">
+                {analytics.totalTransactions} <span className="text-xs text-[#817478] font-bold">Tiket</span>
               </div>
+              <p className="text-[11px] text-[#817478] font-bold">Sesi Pijat QRIS Sukses</p>
             </div>
-            <div className="p-4 bg-[#FBF9F9] rounded-2xl border border-[#EFEDED]">
-              <span className="text-[10px] font-bold text-[#817478] uppercase">Total Sesi QRIS</span>
-              <div className="text-xl font-extrabold text-[#795465] mt-1">
-                {analytics.totalTransactions} Sesi
-              </div>
-            </div>
-            <div className="p-4 bg-[#FBF9F9] rounded-2xl border border-[#EFEDED] col-span-2 sm:col-span-1">
-              <span className="text-[10px] font-bold text-[#817478] uppercase">Status Database</span>
-              <div className="text-xs font-extrabold text-[#4E635A] mt-2 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Terhubung</span>
-              </div>
+            <div className="w-10 h-10 rounded-2xl bg-[#F8C8DC] text-[#795465] flex items-center justify-center font-bold">
+              <Layers className="w-5 h-5" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Location Revenue Distribution Breakdown Table */}
-      <div className="bg-white rounded-[2rem] border border-[#EFEDED] p-6 shadow-[0_20px_50px_rgba(78,59,49,0.05)] space-y-4">
-        <h2 className="text-sm font-extrabold text-[#1B1C1C] flex items-center gap-2">
+      {/* Daily Revenue Trend Chart (1-Color QRIS Line Chart) */}
+      <div className="bg-white rounded-3xl border border-[#EFEDED] p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-black text-[#1B1C1C] flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-[#795465]" />
+              <span>Grafik Tren Penjualan Harian (QRIS)</span>
+            </h2>
+            <p className="text-xs text-[#817478] font-medium mt-0.5">
+              Fluktuasi omset penjualan per hari dalam rentang tanggal terpilih.
+            </p>
+          </div>
+          <span className="px-3 py-1 bg-[#F5F3F3] text-[#795465] text-[10px] font-extrabold rounded-full border border-[#EFEDED]">
+            QRIS Trend
+          </span>
+        </div>
+
+        {renderTrendChart()}
+      </div>
+
+      {/* Location Revenue Breakdown Table */}
+      <div className="bg-white rounded-3xl border border-[#EFEDED] p-6 shadow-sm space-y-4">
+        <h2 className="text-sm font-black text-[#1B1C1C] flex items-center gap-2">
           <Layers className="w-4 h-4 text-[#795465]" />
           <span>Breakdown Bagi Hasil Per Lokasi Cabang</span>
         </h2>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-[#F5F3F3] text-[#1B1C1C] border-b border-[#EFEDED]">
-                <th className="p-3.5 font-extrabold">Nama Lokasi Cabang</th>
-                <th className="p-3.5 font-extrabold">Kode Unik</th>
-                <th className="p-3.5 font-extrabold">Total Armada</th>
-                <th className="p-3.5 font-extrabold">Config Split (Owner / System)</th>
-                <th className="p-3.5 font-extrabold">Status Operasional</th>
+              <tr className="bg-[#FBF9F9] text-[#795465] border-b border-[#EFEDED] text-[10px] font-extrabold uppercase tracking-wider">
+                <th className="p-4">Nama Lokasi Cabang</th>
+                <th className="p-4">Kode Unik</th>
+                <th className="p-4">Total Armada</th>
+                <th className="p-4">Config Split (Owner / System)</th>
+                <th className="p-4">Status Operasional</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EFEDED]">
+            <tbody className="divide-y divide-[#EFEDED] font-bold text-[#1B1C1C]">
               {locations.map((loc) => (
                 <tr key={loc.id} className="hover:bg-[#FBF9F9] transition-colors">
-                  <td className="p-3.5 font-extrabold text-[#1B1C1C]">
-                    <div className="flex items-center gap-1.5">
+                  <td className="p-4 font-extrabold text-[#1B1C1C]">
+                    <div className="flex items-center gap-2">
                       <MapPin className="w-3.5 h-3.5 text-[#795465]" />
                       <span>{loc.name}</span>
                     </div>
                   </td>
-                  <td className="p-3.5 font-mono font-extrabold text-[#795465]">{loc.location_code}</td>
-                  <td className="p-3.5 font-bold text-[#1B1C1C]">{loc.chair_count || 0} Unit Kursi</td>
-                  <td className="p-3.5 font-bold text-[#1B1C1C]">
-                    <span className="text-[#4E635A] font-extrabold">{loc.owner_share_pct}% Owner</span>
+                  <td className="p-4 font-mono font-extrabold text-[#795465]">{loc.location_code}</td>
+                  <td className="p-4 text-[#1B1C1C]">{loc.chair_count || 0} Unit Kursi</td>
+                  <td className="p-4">
+                    <span className="text-emerald-700 font-extrabold">{loc.owner_share_pct}% Owner</span>
                     <span className="text-[#817478] mx-1">/</span>
                     <span className="text-[#795465] font-extrabold">{loc.system_share_pct}% System</span>
                   </td>
-                  <td className="p-3.5">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#CEE5DA] text-[#4E635A]">
+                  <td className="p-4">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       <CheckCircle2 className="w-3 h-3" />
                       Aktif ({loc.online_chair_count || 0}/{loc.chair_count || 0})
                     </span>
@@ -371,7 +462,7 @@ function DashboardContent() {
 
 export default function SalesSummaryDashboardPage() {
   return (
-    <Suspense fallback={<div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">Memuat dashboard analytics...</div>}>
+    <Suspense fallback={<div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">Memuat Sales Summary...</div>}>
       <DashboardContent />
     </Suspense>
   );

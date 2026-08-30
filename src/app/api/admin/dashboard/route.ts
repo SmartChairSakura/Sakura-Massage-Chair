@@ -6,6 +6,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const filterLocationId = searchParams.get('location_id') || searchParams.get('locationId') || searchParams.get('chairId');
     const filterRange = searchParams.get('range') || 'all';
+    const dateType = searchParams.get('date_type') === 'settled_at' ? 'settled_at' : 'created_at';
+    const dateColumn = dateType === 'settled_at' ? 'updated_at' : 'created_at';
 
     // 1. Fetch active locations
     const { data: locations } = await supabaseServer
@@ -75,13 +77,13 @@ export async function GET(req: NextRequest) {
     }
 
     if (timeStartFilter) {
-      slipQuery = slipQuery.gte('created_at', timeStartFilter);
+      slipQuery = slipQuery.gte(dateColumn, timeStartFilter);
     }
 
     if (dateTo) {
       const endOfDay = new Date(dateTo);
       endOfDay.setHours(23, 59, 59, 999);
-      slipQuery = slipQuery.lte('created_at', endOfDay.toISOString());
+      slipQuery = slipQuery.lte(dateColumn, endOfDay.toISOString());
     }
 
     const { data: slips } = await slipQuery;
@@ -90,12 +92,23 @@ export async function GET(req: NextRequest) {
     // 4. Compute Financial Analytics Metrics (QRIS 100%, 0.7% MDR Fee)
     let grossRevenue = 0;
     let totalTransactions = 0;
+    const dailyMap: Record<string, { gross: number; transactions: number }> = {};
 
     chairSlipsData.forEach((tx) => {
       const st = String(tx.status || '').toLowerCase();
       if (['done', 'completed', 'paid', 'ongoing', 'session_inprocess'].includes(st)) {
-        grossRevenue += Number(tx.amount || 0);
+        const amt = Number(tx.amount || 0);
+        grossRevenue += amt;
         totalTransactions += 1;
+
+        // Group by day for daily trend chart
+        const txDate = tx[dateColumn] ? new Date(tx[dateColumn]) : new Date(tx.created_at);
+        const dayKey = txDate.toISOString().slice(0, 10);
+        if (!dailyMap[dayKey]) {
+          dailyMap[dayKey] = { gross: 0, transactions: 0 };
+        }
+        dailyMap[dayKey].gross += amt;
+        dailyMap[dayKey].transactions += 1;
       }
     });
 
@@ -103,6 +116,25 @@ export async function GET(req: NextRequest) {
     const netGross = grossRevenue - mdrFee;
     const ownerNet = Math.round(netGross * (ownerPct / 100));
     const systemNet = netGross - ownerNet;
+
+    // Convert dailyMap to sorted array for Trend Line Chart
+    const sortedDays = Object.keys(dailyMap).sort();
+    const dailyTrend = sortedDays.map((dayKey) => {
+      const dayGross = dailyMap[dayKey].gross;
+      const dayMdr = Math.round(dayGross * 0.007);
+      const dayNet = dayGross - dayMdr;
+      const dayOwnerNet = Math.round(dayNet * (ownerPct / 100));
+      const dateObj = new Date(dayKey);
+      const dateLabel = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+
+      return {
+        rawDate: dayKey,
+        dateLabel,
+        gross: dayGross,
+        ownerNet: dayOwnerNet,
+        transactions: dailyMap[dayKey].transactions,
+      };
+    });
 
     const onlineCount = safeChairs.filter((c) => (c.status || 'ONLINE') === 'ONLINE').length;
 
@@ -120,7 +152,9 @@ export async function GET(req: NextRequest) {
         totalChairs: safeChairs.length,
         ownerSharePct: ownerPct,
         systemSharePct: systemPct,
+        periodChangePct: 0, // Baseline change indicator
       },
+      dailyTrend,
       locations: locationList,
       chairs: safeChairs,
       transactions: chairSlipsData,
