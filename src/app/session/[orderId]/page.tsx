@@ -22,30 +22,88 @@ export default function LiveOngoingSessionPage() {
     if (data) {
       const tx = JSON.parse(data);
       setTransaction(tx);
-      setSecondsLeft((tx.duration_minutes || 16) * 60);
+
+      const orderKey = tx.idempotency_key || tx.chair_slip_number || orderId;
+      // Auto-sync ticket status in Supabase to 'done' when entering session
+      if (orderKey) {
+        fetch('/api/webhooks/payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            idempotencyKey: orderKey,
+            transactionId: tx.id || orderId,
+            status: 'PAID',
+          }),
+        }).catch((err) => console.warn('[Session] Webhook auto-sync note:', err));
+      }
     }
-  }, []);
+  }, [orderId]);
 
-  // Live session countdown timer & auto Breaker OFF on completion
+  // Live session countdown timer with absolute timestamp target & visibilitychange listener
   useEffect(() => {
-    if (secondsLeft <= 0) {
-      // Send Breaker OFF command (0xA0 0x01 0x00 0xA1) on session completion
-      stopTokuyoChair(null).catch((err) => console.warn('Session finish Breaker OFF note:', err));
+    if (!transaction) return;
 
+    const durationMins = transaction.duration_minutes || transaction.duration_in_minutes || 4;
+    const orderKey = transaction.idempotency_key || transaction.chair_slip_number || orderId;
+    const storageKey = `session_end_time_${orderKey}`;
+
+    let endTime = Number(sessionStorage.getItem(storageKey));
+    if (!endTime || isNaN(endTime)) {
+      endTime = Date.now() + durationMins * 60 * 1000;
+      sessionStorage.setItem(storageKey, String(endTime));
+    }
+
+    const calculateRemaining = () => {
+      const diff = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+      setSecondsLeft(diff);
+      return diff;
+    };
+
+    const initialDiff = calculateRemaining();
+
+    if (initialDiff <= 0) {
+      stopTokuyoChair(null).catch((err) => console.warn('Session finish Breaker OFF note:', err));
       const timeout = setTimeout(() => {
         sessionStorage.removeItem('current_transaction');
-        // Auto return to duration page / standby for next customer
+        sessionStorage.removeItem(storageKey);
         router.push('/duration');
       }, 4000);
       return () => clearTimeout(timeout);
     }
 
     const interval = setInterval(() => {
-      setSecondsLeft((prev) => prev - 1);
-    }, 1000);
+      const currentDiff = calculateRemaining();
+      if (currentDiff <= 0) {
+        clearInterval(interval);
+        stopTokuyoChair(null).catch((err) => console.warn('Session finish Breaker OFF note:', err));
+        sessionStorage.removeItem('current_transaction');
+        sessionStorage.removeItem(storageKey);
+        router.push('/duration');
+      }
+    }, 500);
 
-    return () => clearInterval(interval);
-  }, [secondsLeft, router]);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const currentDiff = calculateRemaining();
+        if (currentDiff <= 0) {
+          clearInterval(interval);
+          stopTokuyoChair(null).catch((err) => console.warn('Session finish Breaker OFF note:', err));
+          sessionStorage.removeItem('current_transaction');
+          sessionStorage.removeItem(storageKey);
+          router.push('/duration');
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [transaction, orderId, router]);
 
   const formatTimer = (seconds: number) => {
     const m = Math.floor(seconds / 60);

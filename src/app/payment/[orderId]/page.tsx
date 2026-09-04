@@ -56,12 +56,41 @@ export default function PaymentQrisPage() {
   }, [orderId, transaction?.idempotency_key, router]);
 
   useEffect(() => {
-    if (timeLeft <= 0) return;
+    const orderKey = transaction?.idempotency_key || orderId;
+    const storageKey = `payment_qris_end_time_${orderKey}`;
+    let endTime = Number(sessionStorage.getItem(storageKey));
+    if (!endTime || isNaN(endTime)) {
+      endTime = Date.now() + 180 * 1000;
+      sessionStorage.setItem(storageKey, String(endTime));
+    }
+
+    const calculateRemaining = () => {
+      const diff = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+      setTimeLeft(diff);
+      return diff;
+    };
+
+    calculateRemaining();
+
     const interval = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [timeLeft]);
+      calculateRemaining();
+    }, 500);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        calculateRemaining();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [transaction?.idempotency_key, orderId]);
 
   const formatTimer = (seconds: number) => {
     const m = Math.floor(seconds / 60);

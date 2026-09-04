@@ -15,29 +15,31 @@ export async function POST(req: NextRequest) {
     const slipStatus = targetStatus === 'PAID' ? 'done' : targetStatus.toLowerCase();
     const now = new Date().toISOString();
 
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetKey);
+
     // 1. Query existing chair_slip record
-    const { data: existingSlip } = await supabaseServer
-      .from('chair_slips')
-      .select('*')
-      .or(`chair_slip_number.eq.${targetKey},id.eq.${targetKey}`)
-      .maybeSingle();
+    let slipQuery = supabaseServer.from('chair_slips').select('*');
+    if (isUuid) {
+      slipQuery = slipQuery.or(`chair_slip_number.eq.${targetKey},id.eq.${targetKey}`);
+    } else {
+      slipQuery = slipQuery.eq('chair_slip_number', targetKey);
+    }
+
+    const { data: existingSlip, error: slipQueryErr } = await slipQuery.maybeSingle();
+
+    if (slipQueryErr) {
+      console.warn('[Webhook] chair_slips lookup note:', slipQueryErr.message);
+    }
+
+    let finalSlip = existingSlip;
 
     if (existingSlip) {
-      // Idempotency check
-      if (['done', 'paid', 'completed', 'session_inprocess'].includes(existingSlip.status)) {
-        return NextResponse.json({
-          success: true,
-          message: 'Idempotency guard: Chair slip already in target status.',
-          transaction: existingSlip,
-        });
-      }
-
       // Update chair_slips to 'done' and record session start time
       const { data: updatedSlip, error: updateSlipErr } = await supabaseServer
         .from('chair_slips')
         .update({
-          status: 'done',
-          session_start_at: now,
+          status: slipStatus,
+          session_start_at: existingSlip.session_start_at || now,
           updated_at: now,
         })
         .eq('id', existingSlip.id)
@@ -46,6 +48,8 @@ export async function POST(req: NextRequest) {
 
       if (updateSlipErr) {
         console.warn('[Webhook] chair_slips update error:', updateSlipErr.message);
+      } else if (updatedSlip) {
+        finalSlip = updatedSlip;
       }
 
       // Insert payment split record into chair_slip_payments
@@ -73,22 +77,25 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Also update legacy transactions table
-    const { data: updatedTx, error: updateError } = await supabaseServer
-      .from('transactions')
-      .update({
-        status: targetStatus,
-        updated_at: now,
-      })
-      .or(`idempotency_key.eq.${targetKey},id.eq.${targetKey}`)
-      .select()
-      .maybeSingle();
+    let txQuery = supabaseServer.from('transactions').update({
+      status: targetStatus,
+      updated_at: now,
+    });
 
-    console.log(`[Webhook] Transaction & Slip ${targetKey} status updated to ${targetStatus} / done`);
+    if (isUuid) {
+      txQuery = txQuery.or(`idempotency_key.eq.${targetKey},id.eq.${targetKey}`);
+    } else {
+      txQuery = txQuery.eq('idempotency_key', targetKey);
+    }
+
+    const { data: updatedTx } = await txQuery.select().maybeSingle();
+
+    console.log(`[Webhook] Transaction & Slip ${targetKey} status updated to ${targetStatus} / ${slipStatus}`);
 
     return NextResponse.json({
       success: true,
-      transaction: updatedTx || existingSlip,
-      message: 'Transaction & Chair Slip updated to PAID / done successfully.',
+      transaction: updatedTx || finalSlip,
+      message: `Transaction & Chair Slip updated to ${targetStatus} / ${slipStatus} successfully.`,
     });
   } catch (error: any) {
     console.error('[Webhook] Error processing payment webhook:', error);
