@@ -59,15 +59,32 @@ export default function LiveOngoingSessionPage() {
       return diff;
     };
 
-    const initialDiff = calculateRemaining();
-
-    if (initialDiff <= 0) {
+    const handleSessionFinish = () => {
       stopTokuyoChair(null).catch((err) => console.warn('Session finish Breaker OFF note:', err));
+      // Call ACK API to record session_end_at in Supabase chair_slips
+      fetch('/api/admin/chairs/ack', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chair_slip_id: transaction?.id,
+          chair_slip_number: orderKey,
+          chair_id: transaction?.chair_id,
+          status_event: 'done',
+        }),
+      }).catch((err) => console.warn('Ack session finish note:', err));
+
       const timeout = setTimeout(() => {
         sessionStorage.removeItem('current_transaction');
         sessionStorage.removeItem(storageKey);
         router.push('/duration');
       }, 4000);
+      return timeout;
+    };
+
+    const initialDiff = calculateRemaining();
+
+    if (initialDiff <= 0) {
+      const timeout = handleSessionFinish();
       return () => clearTimeout(timeout);
     }
 
@@ -75,10 +92,7 @@ export default function LiveOngoingSessionPage() {
       const currentDiff = calculateRemaining();
       if (currentDiff <= 0) {
         clearInterval(interval);
-        stopTokuyoChair(null).catch((err) => console.warn('Session finish Breaker OFF note:', err));
-        sessionStorage.removeItem('current_transaction');
-        sessionStorage.removeItem(storageKey);
-        router.push('/duration');
+        handleSessionFinish();
       }
     }, 500);
 
@@ -87,10 +101,7 @@ export default function LiveOngoingSessionPage() {
         const currentDiff = calculateRemaining();
         if (currentDiff <= 0) {
           clearInterval(interval);
-          stopTokuyoChair(null).catch((err) => console.warn('Session finish Breaker OFF note:', err));
-          sessionStorage.removeItem('current_transaction');
-          sessionStorage.removeItem(storageKey);
-          router.push('/duration');
+          handleSessionFinish();
         }
       }
     };
