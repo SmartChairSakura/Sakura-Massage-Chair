@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
+import { getAdminSession } from '@/lib/auth-server';
 
 // GET: Fetch all active chairs directly from DB (no cache, no defaults)
 export async function GET(req: NextRequest) {
   try {
+    const session = await getAdminSession(req);
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Unauthorized', chairs: [] }, { status: 401 });
+    }
+
     const startTime = Date.now();
     const { data: chairs, error } = await supabaseServer
       .from('chairs')

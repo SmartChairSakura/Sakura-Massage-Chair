@@ -1,7 +1,7 @@
 'use client';
 
-import React, { Suspense } from 'react';
-import { usePathname } from 'next/navigation';
+import React, { Suspense, useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import AdminHeader from '@/components/admin/AdminHeader';
 
@@ -9,10 +9,81 @@ export const dynamic = 'force-dynamic';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const isLoginPage = pathname === '/admin/login';
+
+  const [isVerifyingSession, setIsVerifyingSession] = useState(!isLoginPage);
+  const [hasValidSession, setHasValidSession] = useState(false);
+
+  useEffect(() => {
+    // Skip verification when user is on login page
+    if (isLoginPage) {
+      setIsVerifyingSession(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    const verifyActiveSession = async () => {
+      try {
+        const res = await fetch('/api/admin/auth/me', {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
+        });
+
+        if (!res.ok) {
+          throw new Error('Session invalid');
+        }
+
+        const data = await res.json();
+        if (isMounted) {
+          if (data.success && data.user) {
+            setHasValidSession(true);
+            setIsVerifyingSession(false);
+          } else {
+            setHasValidSession(false);
+            setIsVerifyingSession(false);
+            router.replace(`/admin/login?from=${encodeURIComponent(pathname)}`);
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setHasValidSession(false);
+          setIsVerifyingSession(false);
+          router.replace(`/admin/login?from=${encodeURIComponent(pathname)}`);
+        }
+      }
+    };
+
+    verifyActiveSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [pathname, isLoginPage, router]);
 
   // If on login page, render children directly without sidebar & header
-  if (pathname === '/admin/login') {
+  if (isLoginPage) {
     return <>{children}</>;
+  }
+
+  // Security gate: show clean verification state while authenticating
+  if (isVerifyingSession) {
+    return (
+      <div className="flex min-h-screen bg-[#FBF9F9] items-center justify-center font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-[#795465]/20 border-t-[#795465] rounded-full animate-spin" />
+          <span className="text-xs font-bold text-[#817478] uppercase tracking-wider">
+            Verifying Security Session...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Prevent rendering protected admin UI if unauthenticated
+  if (!hasValidSession) {
+    return null;
   }
 
   return (

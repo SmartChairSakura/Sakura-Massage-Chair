@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
+import { getAdminSession } from '@/lib/auth-server';
 
 export const dynamic = 'force-dynamic';
 
 // GET: Paginated & Filterable Ticket Transactions
 export async function GET(req: NextRequest) {
   try {
+    const session = await getAdminSession(req);
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Unauthorized', tickets: [] }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const locationId = searchParams.get('location_id') || searchParams.get('locationId');
     const status = searchParams.get('status');

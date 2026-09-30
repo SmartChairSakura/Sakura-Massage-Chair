@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
+import { getAdminSession } from '@/lib/auth-server';
 
 // GET: List all chairs scoped to a specific location_id
 export async function GET(
@@ -7,6 +8,11 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getAdminSession(req);
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Unauthorized', chairs: [] }, { status: 401 });
+    }
+
     const locationId = params.id;
     if (!locationId) {
       return NextResponse.json({ success: false, error: 'ID Lokasi wajib diisi.', chairs: [] }, { status: 400 });

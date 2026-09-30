@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
+import { getAdminSession } from '@/lib/auth-server';
 
 // PATCH: Update location details or status
 export async function PATCH(
@@ -7,6 +8,11 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getAdminSession(req);
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     const locationId = params.id;
     if (!locationId) {
       return NextResponse.json({ success: false, error: 'Location ID is required.' }, { status: 400 });
@@ -69,6 +75,11 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getAdminSession(req);
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     const locationId = params.id;
     if (!locationId) {
       return NextResponse.json({ success: false, error: 'Location ID is required.' }, { status: 400 });

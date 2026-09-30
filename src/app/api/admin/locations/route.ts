@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
+import { getAdminSession } from '@/lib/auth-server';
 
 // GET: List all active locations with aggregated chair count
 export async function GET(req: NextRequest) {
   try {
+    const session = await getAdminSession(req);
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Unauthorized', locations: [] }, { status: 401 });
+    }
+
     const { data: locations, error } = await supabaseServer
       .from('locations')
       .select('*')

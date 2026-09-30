@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 days expiration
+      maxAge: 60 * 60 * 24, // 24 hours expiration
     });
 
     return response;
@@ -116,6 +116,13 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const response = NextResponse.json({ success: true, message: 'Signed out successfully.' });
-  response.cookies.delete(AUTH_COOKIE_NAME);
+  response.cookies.set(AUTH_COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+    expires: new Date(0),
+  });
   return response;
 }

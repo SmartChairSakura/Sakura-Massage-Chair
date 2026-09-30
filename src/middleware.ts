@@ -19,31 +19,43 @@ export async function middleware(req: NextRequest) {
   // 3. Handle unauthenticated requests to protected admin routes
   if (!isAuthenticated && !isPublicAuthRoute) {
     if (pathname.startsWith('/api/admin')) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Unauthorized. Please sign in to continue.' },
         { status: 401 }
       );
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      return response;
     }
-    if (pathname.startsWith('/admin')) {
+    if (pathname === '/admin' || pathname.startsWith('/admin/')) {
       const loginUrl = new URL('/admin/login', req.url);
       loginUrl.searchParams.set('from', pathname);
-      return NextResponse.redirect(loginUrl);
+      const response = NextResponse.redirect(loginUrl);
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      return response;
     }
   }
 
   // 4. Handle authenticated users attempting to access login page
   if (isAuthenticated && pathname === '/admin/login') {
-    return NextResponse.redirect(new URL('/admin/dashboard', req.url));
+    const response = NextResponse.redirect(new URL('/admin/dashboard', req.url));
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    return response;
   }
 
   // 5. RBAC Protection: Restrict User Management (/admin/users) to SUPER_ADMIN only
-  if (isAuthenticated && session.role !== 'SUPER_ADMIN' && pathname.startsWith('/admin/users')) {
-    return NextResponse.redirect(new URL('/admin/dashboard', req.url));
+  if (isAuthenticated && session?.role !== 'SUPER_ADMIN' && pathname.startsWith('/admin/users')) {
+    const response = NextResponse.redirect(new URL('/admin/dashboard', req.url));
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    return response;
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  if (pathname === '/admin' || pathname.startsWith('/admin/') || pathname.startsWith('/api/admin/')) {
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  }
+  return response;
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*'],
+  matcher: ['/admin', '/admin/:path*', '/api/admin/:path*'],
 };

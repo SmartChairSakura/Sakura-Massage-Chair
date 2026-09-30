@@ -24,7 +24,7 @@ export async function signSessionJWT(payload: AdminSessionPayload): Promise<stri
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('7d')
+    .setExpirationTime('24h')
     .sign(JWT_SECRET_KEY);
 }
 

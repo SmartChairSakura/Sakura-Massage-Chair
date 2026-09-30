@@ -8,10 +8,10 @@ import SakuraLogo from '@/components/SakuraLogo';
 export default function AdminLoginPage() {
   const router = useRouter();
 
-  // Login Form States
-  const [email, setEmail] = useState('admin@sakurazen.id');
-  const [password, setPassword] = useState('sakura123');
-  const [rememberDevice, setRememberDevice] = useState(true);
+  // Login Form States (Clean initial states for security)
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberDevice, setRememberDevice] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -189,10 +189,10 @@ export default function AdminLoginPage() {
 
         {/* Login Form */}
         <form onSubmit={handleLoginSubmit} className="w-full flex flex-col gap-5">
-          {/* Admin Email Input */}
+          {/* Email Address Input */}
           <div className="flex flex-col gap-2">
             <label className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider">
-              Admin Email
+              Email Address
             </label>
             <div className="relative flex items-center">
               <Mail className="w-4 h-4 text-[#795465] absolute left-3.5" />
@@ -200,8 +200,9 @@ export default function AdminLoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@sakurazen.id"
+                placeholder="name@company.com"
                 required
+                autoComplete="email"
                 className="w-full bg-[#F5F3F3] text-[#1B1C1C] font-bold text-xs py-3.5 pl-11 pr-4 rounded-xl border border-[#EFEDED] focus:bg-white focus:border-[#795465] outline-none transition-all placeholder:text-[#817478]"
               />
             </div>
@@ -306,11 +307,6 @@ export default function AdminLoginPage() {
             {forgotMsg && (
               <div className="p-3.5 rounded-xl bg-[#F5F3F3] border border-[#EFEDED] text-xs font-bold text-[#1B1C1C] space-y-1">
                 <p>{forgotMsg}</p>
-                {forgotDevOtp && (
-                  <p className="text-[#795465] font-mono font-extrabold">
-                    [Dev OTP Simulator]: <span className="underline">{forgotDevOtp}</span>
-                  </p>
-                )}
               </div>
             )}
 
@@ -319,14 +315,15 @@ export default function AdminLoginPage() {
               <form onSubmit={handleSendOtp} className="space-y-4">
                 <div>
                   <label className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider block mb-1">
-                    Registered Admin Email:
+                    Registered Email Address:
                   </label>
                   <input
                     type="email"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
-                    placeholder="admin@sakurazen.id"
+                    placeholder="name@company.com"
                     required
+                    autoComplete="email"
                     className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] outline-none focus:border-[#795465]"
                   />
                 </div>
