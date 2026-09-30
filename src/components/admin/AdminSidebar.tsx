@@ -65,7 +65,7 @@ export default function AdminSidebar() {
       ],
     },
     {
-      title: 'REPORTS & ANALYTICS',
+      title: 'ANALYTICS',
       items: [
         {
           name: 'Sales Summary',

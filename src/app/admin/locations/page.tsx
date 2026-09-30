@@ -157,8 +157,8 @@ function LocationSettingContent() {
     setLocPicName('Operational Team');
     setLocPicPhone('08123456789');
     setIncomeBreakdown([
-      { entity: 'OWNER', party_name: 'Pemilik Lahan / Owner', percentage: 95, is_default: true },
-      { entity: 'SYSTEM', party_name: 'Sistem & Developer Tokuyo', percentage: 5, is_default: false },
+      { entity: 'OWNER', party_name: 'Venue Owner', percentage: 95, is_default: true },
+      { entity: 'SYSTEM', party_name: 'Platform / System', percentage: 5, is_default: false },
     ]);
     setModalMsg('');
     setShowModal(true);
@@ -179,8 +179,8 @@ function LocationSettingContent() {
       setIncomeBreakdown(loc.income_breakdown);
     } else {
       setIncomeBreakdown([
-        { entity: 'OWNER', party_name: 'Pemilik Lahan ' + loc.name, percentage: loc.owner_share_pct || 95, is_default: true },
-        { entity: 'SYSTEM', party_name: 'Sistem & Developer Tokuyo', percentage: loc.system_share_pct || 5, is_default: false },
+        { entity: 'OWNER', party_name: 'Venue Owner (' + loc.name + ')', percentage: loc.owner_share_pct || 95, is_default: true },
+        { entity: 'SYSTEM', party_name: 'Platform / System', percentage: loc.system_share_pct || 5, is_default: false },
       ]);
     }
 
@@ -191,12 +191,12 @@ function LocationSettingContent() {
   const handleModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!locName.trim() || !locCode.trim()) {
-      setModalMsg('Nama Lokasi dan Kode Unik wajib diisi.');
+      setModalMsg('Branch name and site code are required.');
       return;
     }
 
     if (Math.abs(totalBreakdownPct - 100) > 0.01) {
-      setModalMsg(`Total persentase Bagi Hasil (Income Breakdown) harus tepat 100%. Current total: ${totalBreakdownPct}%`);
+      setModalMsg(`Total revenue share breakdown must equal exactly 100%. Current total: ${totalBreakdownPct}%`);
       return;
     }
 
@@ -239,7 +239,7 @@ function LocationSettingContent() {
         setShowModal(false);
         fetchLocations();
       } else {
-        setModalMsg(resData.error || 'Gagal menyimpan lokasi.');
+        setModalMsg(resData.error || 'Failed to save location.');
       }
     } catch (err: any) {
       setModalMsg(`Error: ${err?.message || 'Server error'}`);
@@ -263,7 +263,7 @@ function LocationSettingContent() {
         setDeleteConfirmLoc(null);
         fetchLocations();
       } else {
-        setDeleteErrorMsg(resData.error || 'Gagal menghapus lokasi.');
+        setDeleteErrorMsg(resData.error || 'Failed to delete location.');
       }
     } catch (err: any) {
       setDeleteErrorMsg(`Error: ${err?.message || 'Server error'}`);
@@ -295,10 +295,10 @@ function LocationSettingContent() {
         <div>
           <h1 className="text-xl font-extrabold text-[#1B1C1C] tracking-tight flex items-center gap-2">
             <MapPin className="w-5 h-5 text-[#795465]" />
-            <span>Location Setting & Revenue Split</span>
+            <span>Locations & Revenue Sharing</span>
           </h1>
           <p className="text-xs text-[#4F4448] font-bold mt-1">
-            Kelola daftar lokasi cabang armada kursi pijat, alamat detail, dan persentase bagi hasil.
+            Manage branch sites, operational contacts, and revenue share terms.
           </p>
         </div>
 
@@ -307,7 +307,7 @@ function LocationSettingContent() {
           className="px-4 py-3 bg-[#795465] hover:bg-[#684756] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#795465]/20 flex items-center gap-2 transition-all"
         >
           <Plus className="w-4 h-4" />
-          <span>+ NEW LOCATION</span>
+          <span>+ Add Location</span>
         </button>
       </div>
 
@@ -320,7 +320,7 @@ function LocationSettingContent() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search Name, Unique Code, atau Kota..."
+              placeholder="Search by branch name, code, or city..."
               className="w-full px-4 py-2.5 pl-10 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] placeholder-[#817478] focus:bg-white focus:border-[#795465] outline-none"
             />
             <Search className="w-4 h-4 text-[#795465] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -334,9 +334,9 @@ function LocationSettingContent() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="bg-transparent text-xs font-extrabold text-[#1B1C1C] outline-none cursor-pointer pr-4"
             >
-              <option value="ALL">Status ALL STATUS</option>
-              <option value="active">Active / Online</option>
-              <option value="inactive">Inactive / Offline</option>
+              <option value="ALL">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
             </select>
           </div>
         </div>
@@ -345,22 +345,22 @@ function LocationSettingContent() {
         <div className="overflow-x-auto">
           {isLoading ? (
             <div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">
-              Memuat daftar lokasi cabang...
+              Loading branches...
             </div>
           ) : filteredLocations.length === 0 ? (
             <div className="py-12 text-center text-xs text-[#817478] font-bold">
-              Tidak ada lokasi cabang ditemukan. Klik "+ NEW LOCATION" untuk menambah lokasi baru.
+              No locations found. Click "+ Add Location" to register your first branch.
             </div>
           ) : (
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="bg-[#F5F3F3] text-[#1B1C1C] border-b border-[#EFEDED]">
-                  <th className="p-3.5 font-extrabold">Nama Lokasi</th>
-                  <th className="p-3.5 font-extrabold">Kode Unik</th>
-                  <th className="p-3.5 font-extrabold">Status Lokasi</th>
-                  <th className="p-3.5 font-extrabold">Armada Kursi</th>
-                  <th className="p-3.5 font-extrabold">Revenue Split (Owner / System)</th>
-                  <th className="p-3.5 font-extrabold text-center">Aksi</th>
+                  <th className="p-3.5 font-extrabold">Branch Name</th>
+                  <th className="p-3.5 font-extrabold">Site Code</th>
+                  <th className="p-3.5 font-extrabold">Status</th>
+                  <th className="p-3.5 font-extrabold">Fleet Size</th>
+                  <th className="p-3.5 font-extrabold">Revenue Split (Owner / Platform)</th>
+                  <th className="p-3.5 font-extrabold text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EFEDED]">
@@ -385,21 +385,21 @@ function LocationSettingContent() {
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#795465] font-extrabold rounded-xl transition-colors"
                       >
                         <Armchair className="w-3.5 h-3.5" />
-                        <span>{loc.chair_count || 0} Unit Chair List</span>
+                        <span>{loc.chair_count || 0} Chairs</span>
                         <ExternalLink className="w-3 h-3 ml-0.5" />
                       </Link>
                     </td>
                     <td className="p-3.5 font-bold text-[#1B1C1C]">
                       <span className="text-[#4E635A] font-extrabold">{loc.owner_share_pct}% Owner</span>
                       <span className="text-[#817478] mx-1">/</span>
-                      <span className="text-[#795465] font-extrabold">{loc.system_share_pct}% System</span>
+                      <span className="text-[#795465] font-extrabold">{loc.system_share_pct}% Platform</span>
                     </td>
                     <td className="p-3.5 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
                           onClick={() => openEditModal(loc)}
                           className="p-2 hover:bg-[#F5F3F3] text-[#795465] rounded-xl transition-colors"
-                          title="Edit Lokasi"
+                          title="Edit Location"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
@@ -409,7 +409,7 @@ function LocationSettingContent() {
                             setDeleteConfirmLoc(loc);
                           }}
                           className="p-2 hover:bg-[#FFDAD6] text-[#BA1A1A] rounded-xl transition-colors"
-                          title="Hapus Lokasi"
+                          title="Delete Location"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -431,7 +431,7 @@ function LocationSettingContent() {
             <div className="p-5 border-b border-[#EFEDED] flex items-center justify-between bg-[#FBF9F9] shrink-0">
               <h2 className="text-sm font-extrabold text-[#1B1C1C] uppercase tracking-wider flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-[#795465]" />
-                <span>{editingLocation ? 'Location Details & Income Breakdown' : 'New Location Registration'}</span>
+                <span>{editingLocation ? 'Edit Location & Revenue Share' : 'Add New Location'}</span>
               </h2>
               <button onClick={() => setShowModal(false)} className="p-1 hover:bg-[#EFEDED] rounded-lg">
                 <X className="w-4 h-4 text-[#1B1C1C]" />
@@ -457,7 +457,7 @@ function LocationSettingContent() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                      Location Name:
+                      Branch Name:
                     </label>
                     <input
                       type="text"
@@ -471,7 +471,7 @@ function LocationSettingContent() {
 
                   <div>
                     <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                      Location Code:
+                      Site Code:
                     </label>
                     <input
                       type="text"
@@ -513,7 +513,7 @@ function LocationSettingContent() {
 
                   <div>
                     <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                      State / Provinsi:
+                      State / Province:
                     </label>
                     <select
                       value={locStateProv}
@@ -530,7 +530,7 @@ function LocationSettingContent() {
 
                   <div>
                     <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                      City / Kota:
+                      City:
                     </label>
                     <input
                       type="text"
@@ -548,7 +548,7 @@ function LocationSettingContent() {
                 <div className="flex items-center justify-between border-b border-[#EFEDED] pb-2">
                   <h3 className="text-xs font-extrabold text-[#795465] uppercase tracking-wider flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-[#795465]" />
-                    <span>Income Breakdown (Persentase Bagi Hasil)</span>
+                    <span>Revenue Share Breakdown</span>
                   </h3>
                   <span
                     className={`text-xs font-mono font-extrabold px-2.5 py-0.5 rounded-full ${
@@ -573,10 +573,10 @@ function LocationSettingContent() {
                             type="button"
                             onClick={() => handleRemoveBreakdownItem(index)}
                             className="p-1.5 hover:bg-[#FFDAD6] text-[#BA1A1A] rounded-xl transition-colors text-xs font-bold flex items-center gap-1"
-                            title="Hapus baris"
+                            title="Remove row"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                            <span>Hapus Baris</span>
+                            <span>Remove</span>
                           </button>
                         </div>
                       )}
@@ -593,9 +593,9 @@ function LocationSettingContent() {
                             }
                             className="w-full px-3 py-2 bg-white border border-[#EFEDED] rounded-xl text-xs font-extrabold text-[#1B1C1C] focus:border-[#795465] outline-none cursor-pointer"
                           >
-                            <option value="OWNER">OWNER (Pemilik Lahan)</option>
-                            <option value="SYSTEM">SYSTEM (Developer / Operasional)</option>
-                            <option value="PARTNER">PARTNER (Mitra Lahan)</option>
+                            <option value="OWNER">OWNER (Venue Owner)</option>
+                            <option value="SYSTEM">SYSTEM (Platform / Ops)</option>
+                            <option value="PARTNER">PARTNER (Location Partner)</option>
                             <option value="OTHER">OTHER</option>
                           </select>
                         </div>
@@ -608,7 +608,7 @@ function LocationSettingContent() {
                             type="text"
                             value={item.party_name}
                             onChange={(e) => handleUpdateBreakdownItem(index, 'party_name', e.target.value)}
-                            placeholder="e.g. Pemilik Lahan / Sistem"
+                            placeholder="e.g. Venue Owner / Platform"
                             className="w-full px-3 py-2 bg-white border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:border-[#795465] outline-none"
                           />
                         </div>
@@ -640,7 +640,7 @@ function LocationSettingContent() {
                   className="w-full py-3 bg-[#F5F3F3] hover:bg-[#EFEDED] border border-dashed border-[#795465]/40 rounded-2xl text-xs font-extrabold text-[#795465] flex items-center justify-center gap-2 transition-all"
                 >
                   <PlusCircle className="w-4 h-4" />
-                  <span>+ ADD INCOME BREAKDOWN</span>
+                  <span>+ ADD REVENUE SHARE ROW</span>
                 </button>
               </div>
 
@@ -651,14 +651,14 @@ function LocationSettingContent() {
                   onClick={() => setShowModal(false)}
                   className="px-4 py-2.5 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#1B1C1C] font-extrabold text-xs rounded-xl"
                 >
-                  Batal
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
                   className="px-6 py-2.5 bg-[#795465] hover:bg-[#684756] text-white font-extrabold text-xs rounded-xl shadow-md disabled:opacity-50"
                 >
-                  {isSaving ? 'Menyimpan...' : 'Simpan Lokasi'}
+                  {isSaving ? 'Saving...' : 'Save Location'}
                 </button>
               </div>
             </form>
@@ -674,9 +674,9 @@ function LocationSettingContent() {
               <Trash2 className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-[#1B1C1C]">Hapus Lokasi Cabang?</h3>
+              <h3 className="text-base font-extrabold text-[#1B1C1C]">Delete Branch Location?</h3>
               <p className="text-xs text-[#4F4448] font-bold mt-1">
-                Apakah Anda yakin ingin menghapus lokasi <span className="text-[#795465] font-extrabold">"{deleteConfirmLoc.name}"</span>?
+                Are you sure you want to delete <span className="text-[#795465] font-extrabold">"{deleteConfirmLoc.name}"</span>? This will affect associated chairs.
               </p>
             </div>
 
@@ -692,14 +692,14 @@ function LocationSettingContent() {
                 onClick={() => setDeleteConfirmLoc(null)}
                 className="px-4 py-2.5 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#1B1C1C] font-extrabold text-xs rounded-xl"
               >
-                Batal
+                Cancel
               </button>
               <button
                 onClick={handleDeleteLocationConfirm}
                 disabled={isDeleting}
                 className="px-5 py-2.5 bg-[#BA1A1A] hover:bg-[#93000A] text-white font-extrabold text-xs rounded-xl shadow-md disabled:opacity-50"
               >
-                {isDeleting ? 'Menghapus...' : 'Ya, Hapus Lokasi'}
+                {isDeleting ? 'Deleting...' : 'Delete Location'}
               </button>
             </div>
           </div>
@@ -711,7 +711,7 @@ function LocationSettingContent() {
 
 export default function LocationSettingPage() {
   return (
-    <Suspense fallback={<div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">Memuat location setting...</div>}>
+    <Suspense fallback={<div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">Loading location settings...</div>}>
       <LocationSettingContent />
     </Suspense>
   );

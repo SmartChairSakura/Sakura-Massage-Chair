@@ -115,10 +115,10 @@ export default function AdminHeader() {
         <button
           onClick={handleRefresh}
           className="flex items-center gap-1.5 px-3 py-2 bg-[#F5F3F3] hover:bg-[#EFEDED] border border-[#EFEDED] rounded-xl text-xs font-extrabold text-[#1B1C1C] transition-colors"
-          title="Refresh Data"
+          title="Refresh"
         >
           <RefreshCw className="w-3.5 h-3.5 text-[#795465]" />
-          <span className="hidden sm:inline">REFRESH</span>
+          <span className="hidden sm:inline">Refresh</span>
         </button>
 
         {/* Admin Profile & Logout */}
@@ -150,7 +150,7 @@ export default function AdminHeader() {
           <button
             onClick={handleLogout}
             className="p-2 hover:bg-[#FFDAD6] text-[#BA1A1A] rounded-xl transition-colors"
-            title="Keluar / Logout"
+            title="Sign Out"
           >
             <LogOut className="w-4 h-4" />
           </button>

@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     if (action === 'LOGIN') {
       const cleanPin = String(pin || '').trim();
       if (!inputCode || !cleanPin) {
-        return NextResponse.json({ success: false, error: 'Kode Unit dan PIN wajib diisi' }, { status: 400 });
+        return NextResponse.json({ success: false, error: 'Chair code and PIN are required.' }, { status: 400 });
       }
 
       const { data: chair, error } = await supabaseServer
@@ -61,12 +61,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'Database error' }, { status: 500 });
       }
       if (!chair) {
-        return NextResponse.json({ success: false, error: `Kode Unit '${inputCode}' tidak ditemukan.` }, { status: 404 });
+        return NextResponse.json({ success: false, error: `Chair code '${inputCode}' was not found.` }, { status: 404 });
       }
 
       const validPin = chair.pin || '123456';
       if (cleanPin !== validPin) {
-        return NextResponse.json({ success: false, error: 'PIN Password Salah.' }, { status: 401 });
+        return NextResponse.json({ success: false, error: 'Invalid PIN password.' }, { status: 401 });
       }
 
       return NextResponse.json({ success: true, chair });
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     const cleanPin = String(pin || '123456').trim();
 
     if (!inputCode || !cleanName || !cleanLocation) {
-      return NextResponse.json({ success: false, error: 'Kode Unit, Nama, dan Lokasi wajib diisi' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Chair code, name, and location are required.' }, { status: 400 });
     }
 
     const { data, error } = await supabaseServer
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, db_synced: true, chair: data });
+    return NextResponse.json({ success: true, db_synced: true, message: 'Chair successfully saved.', chair: data });
   } catch (err: any) {
     console.error('[API Chairs POST] Exception:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -117,7 +117,7 @@ export async function DELETE(req: NextRequest) {
     const chairCode = searchParams.get('id') || searchParams.get('chair_code');
 
     if (!chairCode) {
-      return NextResponse.json({ success: false, error: 'Parameter chair_code wajib diisi' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Chair code parameter is required.' }, { status: 400 });
     }
 
     const { error } = await supabaseServer
@@ -130,7 +130,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: `Unit '${chairCode}' berhasil dihapus.` });
+    return NextResponse.json({ success: true, message: `Chair '${chairCode}' deleted successfully.` });
   } catch (err: any) {
     console.error('[API Chairs DELETE] Exception:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -145,7 +145,7 @@ export async function PATCH(req: NextRequest) {
     const targetCode = String(chair_code || id || '').trim().toUpperCase();
 
     if (!targetCode) {
-      return NextResponse.json({ success: false, error: 'Kode Unit / ID wajib diisi.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Chair code or ID is required.' }, { status: 400 });
     }
 
     const updateData: any = {
@@ -170,7 +170,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, chair: data });
+    return NextResponse.json({ success: true, message: 'Chair updated successfully.', chair: data });
   } catch (err: any) {
     console.error('[API Chairs PATCH] Exception:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

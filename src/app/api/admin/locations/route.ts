@@ -72,14 +72,14 @@ export async function POST(req: NextRequest) {
 
     if (!cleanCode || !cleanName) {
       return NextResponse.json(
-        { success: false, error: 'Kode Unik Lokasi dan Nama Lokasi wajib diisi.' },
+        { success: false, error: 'Site code and branch name are required.' },
         { status: 400 }
       );
     }
 
     if (Math.abs(ownerPct + systemPct - 100) > 0.01) {
       return NextResponse.json(
-        { success: false, error: 'Total persentase Hak Owner + Bagi Hasil System harus 100%.' },
+        { success: false, error: 'Total revenue share must equal exactly 100%.' },
         { status: 400 }
       );
     }
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Lokasi '${cleanName}' berhasil disimpan.`,
+      message: `Location '${cleanName}' saved successfully.`,
       location: data,
     });
   } catch (err: any) {

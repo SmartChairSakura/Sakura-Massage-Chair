@@ -132,12 +132,12 @@ function ChairListContent() {
     const cleanPin = pin.trim() || '123456';
 
     if (!cleanCode || !cleanName) {
-      setModalMsg('Kode Unit dan Nama Unit wajib diisi.');
+      setModalMsg('Chair code and unit name are required.');
       return;
     }
 
     if (!locationId) {
-      setModalMsg('Silakan pilih lokasi cabang terdaftar.');
+      setModalMsg('Please select a registered branch location.');
       return;
     }
 
@@ -158,7 +158,7 @@ function ChairListContent() {
             name: cleanName,
             model_type: cleanModel,
             location_id: locationId,
-            location_name: matchedLoc?.name || 'Cabang Kiosk',
+            location_name: matchedLoc?.name || 'Branch Kiosk',
             pin: cleanPin,
           }),
         });
@@ -172,7 +172,7 @@ function ChairListContent() {
             name: cleanName,
             model_type: cleanModel,
             location_id: locationId,
-            location_name: matchedLoc?.name || 'Cabang Kiosk',
+            location_name: matchedLoc?.name || 'Branch Kiosk',
             pin: cleanPin,
           }),
         });
@@ -184,7 +184,7 @@ function ChairListContent() {
         setShowModal(false);
         fetchChairs();
       } else {
-        setModalMsg(resData.error || 'Gagal menyimpan unit kursi.');
+        setModalMsg(resData.error || 'Failed to save chair unit.');
       }
     } catch (err: any) {
       setModalMsg(`Error: ${err?.message || 'Server unreachable'}`);
@@ -208,7 +208,7 @@ function ChairListContent() {
         setDeleteConfirmChair(null);
         fetchChairs();
       } else {
-        alert(`Gagal menghapus unit kursi: ${resData.error || 'Unknown error'}`);
+        alert(`Failed to delete chair unit: ${resData.error || 'Unknown error'}`);
       }
     } catch (e: any) {
       alert(`Network error: ${e?.message || 'Server unreachable'}`);
@@ -241,10 +241,10 @@ function ChairListContent() {
         <div>
           <h1 className="text-xl font-extrabold text-[#1B1C1C] tracking-tight flex items-center gap-2">
             <Armchair className="w-5 h-5 text-[#795465]" />
-            <span>Chair List</span>
+            <span>Chairs & Hardware Fleet</span>
           </h1>
           <p className="text-xs text-[#4F4448] font-bold mt-1">
-            Kelola pendaftaran seluruh unit kursi pijat, lokasi penempatan, dan PIN EDC.
+            Manage massage chairs, hardware fleet status, and kiosk terminals.
           </p>
         </div>
 
@@ -253,7 +253,7 @@ function ChairListContent() {
           className="px-4 py-3 bg-[#795465] hover:bg-[#684756] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#795465]/20 flex items-center gap-2 transition-all"
         >
           <Plus className="w-4 h-4" />
-          <span>+ TAMBAH UNIT KURSI</span>
+          <span>+ Add Chair</span>
         </button>
       </div>
 
@@ -266,7 +266,7 @@ function ChairListContent() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari Kode Unit, Nama Unit, atau Lokasi..."
+              placeholder="Search by chair code, name, model, or branch..."
               className="w-full px-4 py-2.5 pl-10 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] placeholder-[#817478] focus:bg-white focus:border-[#795465] outline-none"
             />
             <Search className="w-4 h-4 text-[#795465] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -280,7 +280,7 @@ function ChairListContent() {
               onChange={(e) => handleLocationFilterChange(e.target.value)}
               className="bg-transparent text-xs font-extrabold text-[#1B1C1C] outline-none cursor-pointer pr-4"
             >
-              <option value="ALL">Semua Lokasi Cabang</option>
+              <option value="ALL">All Locations</option>
               {locations.map((loc) => (
                 <option key={loc.id} value={loc.id}>
                   {loc.name} ({loc.location_code})
@@ -294,23 +294,23 @@ function ChairListContent() {
         <div className="overflow-x-auto">
           {isLoading ? (
             <div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">
-              Memuat daftar unit kursi...
+              Loading chairs...
             </div>
           ) : filteredChairs.length === 0 ? (
             <div className="py-12 text-center text-xs text-[#817478] font-bold">
-              Tidak ada unit kursi ditemukan. Klik "+ TAMBAH UNIT KURSI" untuk mendaftarkan unit baru.
+              No chairs found. Click "+ Add Chair" to register a new unit.
             </div>
           ) : (
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="bg-[#F5F3F3] text-[#1B1C1C] border-b border-[#EFEDED]">
-                  <th className="p-3.5 font-extrabold">Kode Unit / Username EDC</th>
-                  <th className="p-3.5 font-extrabold">Tipe / Model Hardware</th>
-                  <th className="p-3.5 font-extrabold">Nama Unit (Alias)</th>
-                  <th className="p-3.5 font-extrabold">Lokasi Cabang</th>
-                  <th className="p-3.5 font-extrabold">Status Device</th>
-                  <th className="p-3.5 font-extrabold">PIN EDC</th>
-                  <th className="p-3.5 font-extrabold text-center">Aksi</th>
+                  <th className="p-3.5 font-extrabold">Chair Code</th>
+                  <th className="p-3.5 font-extrabold">Hardware Model</th>
+                  <th className="p-3.5 font-extrabold">Unit Name</th>
+                  <th className="p-3.5 font-extrabold">Branch Location</th>
+                  <th className="p-3.5 font-extrabold">Device Status</th>
+                  <th className="p-3.5 font-extrabold">Terminal PIN</th>
+                  <th className="p-3.5 font-extrabold text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EFEDED]">
@@ -341,14 +341,14 @@ function ChairListContent() {
                         <button
                           onClick={() => openEditModal(chair)}
                           className="p-2 hover:bg-[#F5F3F3] text-[#795465] rounded-xl transition-colors"
-                          title="Edit Unit Kursi"
+                          title="Edit Chair"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setDeleteConfirmChair(chair)}
                           className="p-2 hover:bg-[#FFDAD6] text-[#BA1A1A] rounded-xl transition-colors"
-                          title="Hapus Unit Kursi"
+                          title="Delete Chair"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -369,7 +369,7 @@ function ChairListContent() {
             <div className="p-5 border-b border-[#EFEDED] flex items-center justify-between bg-[#FBF9F9]">
               <h2 className="text-sm font-extrabold text-[#1B1C1C] uppercase tracking-wider flex items-center gap-2">
                 <Armchair className="w-4 h-4 text-[#795465]" />
-                <span>{editingChair ? 'Edit Unit Kursi' : 'Registrasi Unit Kursi Pijat Baru'}</span>
+                <span>{editingChair ? 'Edit Chair' : 'Register New Chair'}</span>
               </h2>
               <button onClick={() => setShowModal(false)} className="p-1 hover:bg-[#EFEDED] rounded-lg">
                 <X className="w-4 h-4 text-[#1B1C1C]" />
@@ -386,7 +386,7 @@ function ChairListContent() {
 
               <div>
                 <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                  Tipe / Model Hardware:
+                  Hardware Model:
                 </label>
                 <input
                   type="text"
@@ -399,7 +399,7 @@ function ChairListContent() {
 
               <div>
                 <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                  Kode Unit / Username EDC (Unique):
+                  Chair Code (Unique):
                 </label>
                 <input
                   type="text"
@@ -414,7 +414,7 @@ function ChairListContent() {
 
               <div>
                 <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                  Nama Unit (Alias / Label):
+                  Unit Name (Alias):
                 </label>
                 <input
                   type="text"
@@ -428,7 +428,7 @@ function ChairListContent() {
 
               <div>
                 <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                  Pilih Lokasi Cabang Terdaftar:
+                  Branch Location:
                 </label>
                 <select
                   value={locationId}
@@ -446,7 +446,7 @@ function ChairListContent() {
 
               <div>
                 <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                  PIN EDC Login (Default: 123456):
+                  Terminal PIN (Default: 123456):
                 </label>
                 <input
                   type="text"
@@ -464,14 +464,14 @@ function ChairListContent() {
                   onClick={() => setShowModal(false)}
                   className="px-4 py-2.5 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#1B1C1C] font-extrabold text-xs rounded-xl"
                 >
-                  Batal
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
                   className="px-5 py-2.5 bg-[#795465] hover:bg-[#684756] text-white font-extrabold text-xs rounded-xl shadow-md disabled:opacity-50"
                 >
-                  {isSaving ? 'Menyimpan...' : editingChair ? 'Simpan Perubahan' : 'Daftarkan Unit'}
+                  {isSaving ? 'Saving...' : editingChair ? 'Save Changes' : 'Register Chair'}
                 </button>
               </div>
             </form>
@@ -487,9 +487,9 @@ function ChairListContent() {
               <Trash2 className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-[#1B1C1C]">Hapus Unit Kursi?</h3>
+              <h3 className="text-base font-extrabold text-[#1B1C1C]">Delete Chair Unit?</h3>
               <p className="text-xs text-[#4F4448] font-bold mt-1">
-                Apakah Anda yakin ingin menghapus unit <span className="text-[#795465] font-extrabold">"{deleteConfirmChair.chair_code || deleteConfirmChair.name}"</span>?
+                Are you sure you want to delete unit <span className="text-[#795465] font-extrabold">"{deleteConfirmChair.chair_code || deleteConfirmChair.name}"</span>? This action cannot be undone.
               </p>
             </div>
 
@@ -498,14 +498,14 @@ function ChairListContent() {
                 onClick={() => setDeleteConfirmChair(null)}
                 className="px-4 py-2.5 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#1B1C1C] font-extrabold text-xs rounded-xl"
               >
-                Batal
+                Cancel
               </button>
               <button
                 onClick={handleDeleteChairConfirm}
                 disabled={isDeleting}
                 className="px-5 py-2.5 bg-[#BA1A1A] hover:bg-[#93000A] text-white font-extrabold text-xs rounded-xl shadow-md disabled:opacity-50"
               >
-                {isDeleting ? 'Menghapus...' : 'Ya, Hapus Unit'}
+                {isDeleting ? 'Deleting...' : 'Delete Unit'}
               </button>
             </div>
           </div>
@@ -517,7 +517,7 @@ function ChairListContent() {
 
 export default function ChairListPage() {
   return (
-    <Suspense fallback={<div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">Memuat chair list...</div>}>
+    <Suspense fallback={<div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">Loading chairs...</div>}>
       <ChairListContent />
     </Suspense>
   );

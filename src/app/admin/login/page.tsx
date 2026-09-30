@@ -39,7 +39,7 @@ export default function AdminLoginPage() {
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
-      setErrorMsg('Silakan isi Admin Email dan Password.');
+      setErrorMsg('Please enter your admin email and password.');
       return;
     }
 
@@ -63,11 +63,11 @@ export default function AdminLoginPage() {
         }
         router.replace('/admin/dashboard');
       } else {
-        setErrorMsg(data.error || 'Login gagal. Periksa kembali kredensial Anda.');
+        setErrorMsg(data.error || 'Login failed. Please check your credentials.');
         setIsLoading(false);
       }
     } catch (err) {
-      setErrorMsg('Gagal terhubung ke server autentikasi.');
+      setErrorMsg('Unable to connect to the authentication server.');
       setIsLoading(false);
     }
   };
@@ -75,7 +75,7 @@ export default function AdminLoginPage() {
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetEmail.trim()) {
-      setForgotMsg('Silakan masukkan Email Admin Anda.');
+      setForgotMsg('Please enter your registered admin email.');
       return;
     }
 
@@ -98,7 +98,7 @@ export default function AdminLoginPage() {
           setForgotDevOtp(data.devOtp);
         }
       } else {
-        setForgotMsg(data.error || 'Gagal mengirim kode verifikasi.');
+        setForgotMsg(data.error || 'Failed to send verification code.');
       }
     } catch (err: any) {
       setForgotMsg(`Error: ${err?.message || 'Server error'}`);
@@ -110,12 +110,12 @@ export default function AdminLoginPage() {
   const handleResetPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otpCode.trim() || !newPassword.trim() || !confirmPassword.trim()) {
-      setForgotMsg('Kode OTP, Password Baru, dan Konfirmasi Password wajib diisi.');
+      setForgotMsg('Verification code, new password, and confirmation are required.');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setForgotMsg('Konfirmasi Password baru tidak cocok.');
+      setForgotMsg('Password confirmation does not match.');
       return;
     }
 
@@ -141,7 +141,7 @@ export default function AdminLoginPage() {
         setEmail(resetEmail.trim());
         setPassword(newPassword.trim());
       } else {
-        setForgotMsg(data.error || 'Gagal mereset password.');
+        setForgotMsg(data.error || 'Failed to reset password.');
       }
     } catch (err: any) {
       setForgotMsg(`Error: ${err?.message || 'Server error'}`);
@@ -259,7 +259,7 @@ export default function AdminLoginPage() {
             disabled={isLoading}
             className="w-full mt-3 bg-gradient-to-r from-[#F8C8DC] to-[#795465] hover:from-[#F8C8DC] hover:to-[#684756] text-white font-extrabold text-xs py-4 rounded-xl shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            <span>{isLoading ? 'Authenticating...' : 'Sign In to Backoffice'}</span>
+            <span>{isLoading ? 'Signing in...' : 'Sign In'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
@@ -291,7 +291,7 @@ export default function AdminLoginPage() {
                   <KeyRound className="w-4 h-4" />
                 </div>
                 <h3 className="text-sm font-extrabold text-[#1B1C1C]">
-                  {forgotStep === 1 ? 'Reset Password Admin' : 'Verifikasi Kode OTP'}
+                  {forgotStep === 1 ? 'Reset Admin Password' : 'Verify One-Time Code'}
                 </h3>
               </div>
               <button
@@ -319,7 +319,7 @@ export default function AdminLoginPage() {
               <form onSubmit={handleSendOtp} className="space-y-4">
                 <div>
                   <label className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider block mb-1">
-                    Email Admin Terdaftar:
+                    Registered Admin Email:
                   </label>
                   <input
                     type="email"
@@ -332,7 +332,7 @@ export default function AdminLoginPage() {
                 </div>
 
                 <p className="text-[11px] text-[#817478] font-bold">
-                  Kode verifikasi OTP 6-digit akan dikirimkan ke alamat email Gmail terdaftar di atas.
+                  A 6-digit verification code will be sent to your registered email address.
                 </p>
 
                 <div className="flex items-center justify-end gap-3 pt-2">
@@ -341,14 +341,14 @@ export default function AdminLoginPage() {
                     onClick={() => setShowForgotModal(false)}
                     className="px-4 py-2.5 bg-[#F5F3F3] text-[#1B1C1C] font-extrabold text-xs rounded-xl hover:bg-[#EFEDED]"
                   >
-                    Batal
+                    Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isResetting}
                     className="px-5 py-2.5 bg-[#795465] hover:bg-[#684756] text-white font-extrabold text-xs rounded-xl shadow-md disabled:opacity-50"
                   >
-                    {isResetting ? 'Mengirim...' : 'Kirim Kode Verifikasi'}
+                    {isResetting ? 'Sending...' : 'Send Verification Code'}
                   </button>
                 </div>
               </form>
@@ -357,7 +357,7 @@ export default function AdminLoginPage() {
               <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
                 <div>
                   <label className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider block mb-1">
-                    Kode Verifikasi OTP (6 Digit):
+                    Verification Code (6 Digits):
                   </label>
                   <input
                     type="text"
@@ -372,7 +372,7 @@ export default function AdminLoginPage() {
 
                 <div>
                   <label className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider block mb-1">
-                    Password Baru:
+                    New Password:
                   </label>
                   <input
                     type="password"
@@ -386,7 +386,7 @@ export default function AdminLoginPage() {
 
                 <div>
                   <label className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider block mb-1">
-                    Konfirmasi Password Baru:
+                    Confirm New Password:
                   </label>
                   <input
                     type="password"
@@ -404,7 +404,7 @@ export default function AdminLoginPage() {
                     onClick={() => setForgotStep(1)}
                     className="text-xs font-bold text-[#795465] hover:underline"
                   >
-                    ← Kembalikan Email
+                    ← Change Email
                   </button>
 
                   <div className="flex items-center gap-2">
@@ -413,14 +413,14 @@ export default function AdminLoginPage() {
                       onClick={() => setShowForgotModal(false)}
                       className="px-4 py-2.5 bg-[#F5F3F3] text-[#1B1C1C] font-extrabold text-xs rounded-xl hover:bg-[#EFEDED]"
                     >
-                      Batal
+                      Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isResetting}
                       className="px-5 py-2.5 bg-[#795465] hover:bg-[#684756] text-white font-extrabold text-xs rounded-xl shadow-md disabled:opacity-50"
                     >
-                      {isResetting ? 'Mereset...' : 'Reset & Confirm Password'}
+                      {isResetting ? 'Resetting...' : 'Reset Password'}
                     </button>
                   </div>
                 </div>

@@ -58,7 +58,7 @@ export default function LocationSelector() {
           onChange={handleLocationChange}
           className="bg-transparent text-xs font-extrabold text-[#1B1C1C] outline-none cursor-pointer pr-6 appearance-none"
         >
-          <option value="ALL">Semua Lokasi</option>
+          <option value="ALL">All Locations</option>
           {locations.map((loc) => (
             <option key={loc.id} value={loc.id}>
               {loc.name} ({loc.location_code})

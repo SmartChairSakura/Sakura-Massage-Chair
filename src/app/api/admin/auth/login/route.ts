@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
 
     if (!inputAccount || !inputPassword) {
       return NextResponse.json(
-        { success: false, error: 'Email/Username dan Password wajib diisi.' },
+        { success: false, error: 'Email or username and password are required.' },
         { status: 400 }
       );
     }
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
       if (!user.is_active) {
         return NextResponse.json(
-          { success: false, error: 'Akun Anda sedang dinonaktifkan. Silakan hubungi Super Admin.' },
+          { success: false, error: 'Account suspended. Please contact your system administrator.' },
           { status: 403 }
         );
       }
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       const isPassValid = await comparePassword(inputPassword, user.password_hash);
       if (!isPassValid) {
         return NextResponse.json(
-          { success: false, error: 'Email/Username atau Password salah.' },
+          { success: false, error: 'Invalid email or password.' },
           { status: 401 }
         );
       }
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
 
       if (!isValidUser || !isValidPass) {
         return NextResponse.json(
-          { success: false, error: 'Email/Username atau Password salah.' },
+          { success: false, error: 'Invalid email or password.' },
           { status: 401 }
         );
       }
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
 
     const response = NextResponse.json({
       success: true,
-      message: 'Login berhasil.',
+      message: 'Sign in successful.',
       user: sessionUser,
     });
 
@@ -108,14 +108,14 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('[API Admin Auth Login] Error:', err);
     return NextResponse.json(
-      { success: false, error: 'Terjadi kesalahan pada server.' },
+      { success: false, error: 'Internal server error.' },
       { status: 500 }
     );
   }
 }
 
 export async function DELETE(req: NextRequest) {
-  const response = NextResponse.json({ success: true, message: 'Logout berhasil.' });
+  const response = NextResponse.json({ success: true, message: 'Signed out successfully.' });
   response.cookies.delete(AUTH_COOKIE_NAME);
   return response;
 }

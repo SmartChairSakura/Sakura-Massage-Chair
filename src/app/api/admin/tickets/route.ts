@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 
+export const dynamic = 'force-dynamic';
+
 // GET: Paginated & Filterable Ticket Transactions
 export async function GET(req: NextRequest) {
   try {

@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getAdminSession(req);
     if (!session || session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ success: false, error: 'Akses ditolak. Hanya Super Admin yang dapat membuat user baru.' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'Unauthorized. Super Admin access required.' }, { status: 403 });
     }
 
     const body = await req.json();
@@ -71,11 +71,11 @@ export async function POST(req: NextRequest) {
     const locId = (location_id && String(location_id).trim() !== '') ? String(location_id).trim() : null;
 
     if (!cleanName || !cleanEmail || !cleanPass) {
-      return NextResponse.json({ success: false, error: 'Nama Lengkap, Email, dan Password wajib diisi.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Full name, email, and password are required.' }, { status: 400 });
     }
 
     if (cleanPass.length < 6) {
-      return NextResponse.json({ success: false, error: 'Password minimal 6 karakter.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Password must be at least 6 characters.' }, { status: 400 });
     }
 
     // Check if email or username already exists
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existingUser) {
-      return NextResponse.json({ success: false, error: 'Email atau Username sudah terdaftar.' }, { status: 409 });
+      return NextResponse.json({ success: false, error: 'Email or username is already registered.' }, { status: 409 });
     }
 
     // Hash password with bcrypt
@@ -110,17 +110,17 @@ export async function POST(req: NextRequest) {
 
     if (insertError) {
       console.error('[API Users POST] Insert Error:', insertError);
-      return NextResponse.json({ success: false, error: `Gagal membuat user baru: ${insertError.message}` }, { status: 500 });
+      return NextResponse.json({ success: false, error: `Failed to create user: ${insertError.message}` }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      message: `User ${cleanName} (${cleanRole}) berhasil dibuat.`,
+      message: `User ${cleanName} created successfully.`,
       user: newUser,
     });
   } catch (err: any) {
     console.error('[API Users POST] Server Error:', err);
-    return NextResponse.json({ success: false, error: `Terjadi kesalahan server: ${err?.message || err}` }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Internal server error.' }, { status: 500 });
   }
 }
 
@@ -128,14 +128,14 @@ export async function PATCH(req: NextRequest) {
   try {
     const session = await getAdminSession(req);
     if (!session || session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ success: false, error: 'Akses ditolak.' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'Unauthorized. Super Admin access required.' }, { status: 403 });
     }
 
     const body = await req.json();
     const { id, full_name, email, phone_number, role, location_id, is_active, new_password } = body;
 
     if (!id) {
-      return NextResponse.json({ success: false, error: 'ID User wajib diisi.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'User ID is required.' }, { status: 400 });
     }
 
     const updatePayload: Record<string, any> = {
@@ -152,7 +152,7 @@ export async function PATCH(req: NextRequest) {
     if (new_password) {
       const cleanPass = String(new_password).trim();
       if (cleanPass.length < 6) {
-        return NextResponse.json({ success: false, error: 'Password baru minimal 6 karakter.' }, { status: 400 });
+        return NextResponse.json({ success: false, error: 'New password must be at least 6 characters.' }, { status: 400 });
       }
       updatePayload.password_hash = await hashPassword(cleanPass);
     }
@@ -164,13 +164,13 @@ export async function PATCH(req: NextRequest) {
 
     if (updateError) {
       console.error('[API Users PATCH] DB Update Error:', updateError);
-      return NextResponse.json({ success: false, error: `Gagal memperbarui data user: ${updateError.message}` }, { status: 500 });
+      return NextResponse.json({ success: false, error: `Failed to update user: ${updateError.message}` }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: 'Data user berhasil diperbarui.' });
+    return NextResponse.json({ success: true, message: 'User updated successfully.' });
   } catch (err: any) {
     console.error('[API Users PATCH] Server Error:', err);
-    return NextResponse.json({ success: false, error: `Terjadi kesalahan server: ${err?.message || err}` }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Internal server error.' }, { status: 500 });
   }
 }
 
@@ -178,14 +178,14 @@ export async function DELETE(req: NextRequest) {
   try {
     const session = await getAdminSession(req);
     if (!session || session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ success: false, error: 'Akses ditolak.' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'Unauthorized. Super Admin access required.' }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('id');
 
     if (!userId) {
-      return NextResponse.json({ success: false, error: 'ID User wajib diisi.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'User ID is required.' }, { status: 400 });
     }
 
     // Toggle active status to false
@@ -196,12 +196,12 @@ export async function DELETE(req: NextRequest) {
 
     if (deleteError) {
       console.error('[API Users DELETE] DB Error:', deleteError);
-      return NextResponse.json({ success: false, error: `Gagal menonaktifkan user: ${deleteError.message}` }, { status: 500 });
+      return NextResponse.json({ success: false, error: `Failed to deactivate user: ${deleteError.message}` }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: 'User berhasil dinonaktifkan.' });
+    return NextResponse.json({ success: true, message: 'User deactivated successfully.' });
   } catch (err: any) {
     console.error('[API Users DELETE] Server Error:', err);
-    return NextResponse.json({ success: false, error: `Terjadi kesalahan server: ${err?.message || err}` }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Internal server error.' }, { status: 500 });
   }
 }

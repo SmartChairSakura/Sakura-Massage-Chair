@@ -9,7 +9,7 @@ export async function PATCH(
   try {
     const locationId = params.id;
     if (!locationId) {
-      return NextResponse.json({ success: false, error: 'ID Lokasi wajib diisi.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Location ID is required.' }, { status: 400 });
     }
 
     const body = await req.json();
@@ -32,7 +32,7 @@ export async function PATCH(
       const systemPct = Number(body.system_share_pct ?? 5.0);
       if (Math.abs(ownerPct + systemPct - 100) > 0.01) {
         return NextResponse.json(
-          { success: false, error: 'Total persentase Hak Owner + Bagi Hasil System harus 100%.' },
+          { success: false, error: 'Total revenue share must equal exactly 100%.' },
           { status: 400 }
         );
       }
@@ -54,7 +54,7 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      message: 'Lokasi berhasil diperbarui.',
+      message: 'Location updated successfully.',
       location: data,
     });
   } catch (err: any) {
@@ -71,7 +71,7 @@ export async function DELETE(
   try {
     const locationId = params.id;
     if (!locationId) {
-      return NextResponse.json({ success: false, error: 'ID Lokasi wajib diisi.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Location ID is required.' }, { status: 400 });
     }
 
     // 1. Check if location has active chairs linked
@@ -89,7 +89,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           success: false,
-          error: `Gagal menghapus lokasi. Masih terdapat ${chairs.length} unit kursi aktif yang terdaftar di lokasi ini. Hapus atau pindahkan unit kursi terlebih dahulu.`,
+          error: `Cannot delete location. There are still ${chairs.length} active chairs assigned to this location. Please remove or reassign them first.`,
           active_chairs_count: chairs.length,
         },
         { status: 400 }
@@ -112,7 +112,7 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: 'Lokasi berhasil dihapus (soft delete).',
+      message: 'Location deleted successfully.',
     });
   } catch (err: any) {
     console.error('[API Location DELETE] Exception:', err);

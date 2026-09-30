@@ -134,9 +134,9 @@ function UserManagementContent() {
       const data = await res.json();
 
       if (!data.success) {
-        setErrorMsg(data.error || 'Gagal membuat user.');
+        setErrorMsg(data.error || 'Failed to create user.');
       } else {
-        setSuccessMsg(data.message || 'User berhasil dibuat.');
+        setSuccessMsg(data.message || 'User created successfully.');
         setShowCreateModal(false);
         setFormData({
           full_name: '',
@@ -150,7 +150,7 @@ function UserManagementContent() {
         fetchUsers();
       }
     } catch (e) {
-      setErrorMsg('Terjadi kesalahan jaringan.');
+      setErrorMsg('Network error occurred.');
     } finally {
       setSubmitting(false);
     }
@@ -185,14 +185,14 @@ function UserManagementContent() {
       const data = await res.json();
 
       if (!data.success) {
-        setErrorMsg(data.error || 'Gagal memperbarui data user.');
+        setErrorMsg(data.error || 'Failed to update user.');
       } else {
-        setSuccessMsg('Data user berhasil diperbarui.');
+        setSuccessMsg('User updated successfully.');
         setShowEditModal(false);
         fetchUsers();
       }
     } catch (e) {
-      setErrorMsg('Terjadi kesalahan server.');
+      setErrorMsg('Server error occurred.');
     } finally {
       setSubmitting(false);
     }
@@ -217,15 +217,15 @@ function UserManagementContent() {
       const data = await res.json();
 
       if (!data.success) {
-        setErrorMsg(data.error || 'Gagal mereset password.');
+        setErrorMsg(data.error || 'Failed to reset password.');
       } else {
-        setSuccessMsg(`Password untuk ${selectedUser.full_name} berhasil diperbarui.`);
+        setSuccessMsg(`Password for ${selectedUser.full_name} updated successfully.`);
         setShowResetModal(false);
         setNewPassword('');
         setSelectedUser(null);
       }
     } catch (e) {
-      setErrorMsg('Terjadi kesalahan server.');
+      setErrorMsg('Server error occurred.');
     } finally {
       setSubmitting(false);
     }
@@ -289,7 +289,7 @@ function UserManagementContent() {
             <div>
               <h1 className="text-xl font-black text-[#1B1C1C] tracking-tight">User Management</h1>
               <p className="text-xs text-[#817478] font-medium">
-                Kelola akun administrator dan tim Management lokasi cabang.
+                Manage administrator accounts and branch management teams.
               </p>
             </div>
           </div>
@@ -307,7 +307,7 @@ function UserManagementContent() {
             className="flex items-center gap-2 px-5 py-3 bg-[#795465] hover:bg-[#634251] text-white rounded-2xl text-xs font-extrabold shadow-md shadow-[#795465]/20 transition-all"
           >
             <Plus className="w-4 h-4" />
-            <span>CREATE USER</span>
+            <span>+ Add User</span>
           </button>
         </div>
       </div>
@@ -318,7 +318,7 @@ function UserManagementContent() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#817478]" />
           <input
             type="text"
-            placeholder="Cari nama, email, atau no handphone..."
+            placeholder="Search by name, email, or phone..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-11 pr-4 py-3 bg-white border border-[#EFEDED] rounded-2xl text-xs font-bold text-[#1B1C1C] focus:outline-none focus:border-[#795465] transition-colors"
@@ -346,13 +346,13 @@ function UserManagementContent() {
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-[#817478]">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[#795465]" />
-                    <span>Memuat data pengguna...</span>
+                    <span>Loading users...</span>
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-[#817478]">
-                    Tidak ada data pengguna yang ditemukan.
+                    No users found.
                   </td>
                 </tr>
               ) : (
@@ -405,11 +405,11 @@ function UserManagementContent() {
                       </td>
                       <td className="py-4 px-6 text-[11px] text-[#817478] font-medium">
                         {user.last_login_at
-                          ? new Date(user.last_login_at).toLocaleString('id-ID', {
+                          ? new Date(user.last_login_at).toLocaleString('en-US', {
                               dateStyle: 'short',
                               timeStyle: 'short',
                             })
-                          : 'Belum Pernah'}
+                          : 'Never'}
                       </td>
                       <td className="py-4 px-6 text-right space-x-2">
                         <button
@@ -436,7 +436,7 @@ function UserManagementContent() {
                               ? 'bg-[#FFDAD6] text-[#BA1A1A] hover:bg-[#FFB4AB]'
                               : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                           }`}
-                          title={user.is_active ? 'Nonaktifkan Account' : 'Aktifkan Account'}
+                          title={user.is_active ? 'Deactivate Account' : 'Activate Account'}
                         >
                           {user.is_active ? <XCircle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                         </button>
@@ -450,7 +450,7 @@ function UserManagementContent() {
         </div>
       </div>
 
-      {/* Modal + CREATE USER */}
+      {/* Modal: Register New User */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-3xl border border-[#EFEDED] shadow-2xl p-6 sm:p-8 space-y-6">
@@ -460,8 +460,8 @@ function UserManagementContent() {
                   <Users className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-[#1B1C1C]">Tambah User Account Baru</h3>
-                  <p className="text-[11px] text-[#817478] font-medium">Buat kredensial login untuk Admin atau Management.</p>
+                  <h3 className="text-base font-black text-[#1B1C1C]">Register New User</h3>
+                  <p className="text-[11px] text-[#817478] font-medium">Create login credentials for Administrator or Branch Management.</p>
                 </div>
               </div>
               <button onClick={() => setShowCreateModal(false)} className="p-2 hover:bg-[#F5F3F3] rounded-xl text-[#817478]">
@@ -471,13 +471,13 @@ function UserManagementContent() {
 
             <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs font-bold text-[#1B1C1C]">
               <div>
-                <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Nama Lengkap</label>
+                <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Full Name</label>
                 <div className="relative">
                   <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#817478]" />
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: Hendro Wijaya"
+                    placeholder="e.g. Hendro Wijaya"
                     value={formData.full_name}
                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                     className="w-full pl-10 pr-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
@@ -487,13 +487,13 @@ function UserManagementContent() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Email</label>
+                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Email Address</label>
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#817478]" />
                     <input
                       type="email"
                       required
-                      placeholder="owner@sakurazen.id"
+                      placeholder="admin@sakurazen.id"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       className="w-full pl-10 pr-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
@@ -501,7 +501,7 @@ function UserManagementContent() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">No. Handphone</label>
+                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Phone Number</label>
                   <div className="relative">
                     <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#817478]" />
                     <input
@@ -516,14 +516,14 @@ function UserManagementContent() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Password Awal</label>
+                <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Initial Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#817478]" />
                   <input
                     type="password"
                     required
                     minLength={6}
-                    placeholder="Minimal 6 karakter"
+                    placeholder="Minimum 6 characters"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     className="w-full pl-10 pr-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
@@ -545,13 +545,13 @@ function UserManagementContent() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Cabang Lokasi</label>
+                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Assigned Branch</label>
                   <select
                     value={formData.location_id}
                     onChange={(e) => setFormData({ ...formData, location_id: e.target.value })}
                     className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
                   >
-                    <option value="">Semua Lokasi (All Locations)</option>
+                    <option value="">All Locations</option>
                     {locations.map((loc) => (
                       <option key={loc.id} value={loc.id}>
                         {loc.name}
@@ -567,14 +567,14 @@ function UserManagementContent() {
                   onClick={() => setShowCreateModal(false)}
                   className="px-5 py-2.5 border border-[#EFEDED] hover:bg-[#FBF9F9] rounded-xl text-xs font-extrabold text-[#817478]"
                 >
-                  Batal
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
                   className="px-5 py-2.5 bg-[#795465] hover:bg-[#634251] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#795465]/20 disabled:opacity-50"
                 >
-                  {submitting ? 'Menyimpan...' : 'Simpan & Buat User'}
+                  {submitting ? 'Saving...' : 'Create User'}
                 </button>
               </div>
             </form>
@@ -593,7 +593,7 @@ function UserManagementContent() {
                 </div>
                 <div>
                   <h3 className="text-base font-black text-[#1B1C1C]">Edit User Account</h3>
-                  <p className="text-[11px] text-[#817478] font-medium">Ubah rincian profil dan penetapan cabang lokasi.</p>
+                  <p className="text-[11px] text-[#817478] font-medium">Update user profile details and branch assignment.</p>
                 </div>
               </div>
               <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-[#F5F3F3] rounded-xl text-[#817478]">
@@ -603,7 +603,7 @@ function UserManagementContent() {
 
             <form onSubmit={handleEditSubmit} className="space-y-4 text-xs font-bold text-[#1B1C1C]">
               <div>
-                <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Nama Lengkap</label>
+                <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Full Name</label>
                 <div className="relative">
                   <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#817478]" />
                   <input
@@ -618,7 +618,7 @@ function UserManagementContent() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Email</label>
+                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Email Address</label>
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#817478]" />
                     <input
@@ -631,7 +631,7 @@ function UserManagementContent() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">No. Handphone</label>
+                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Phone Number</label>
                   <div className="relative">
                     <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#817478]" />
                     <input
@@ -658,13 +658,13 @@ function UserManagementContent() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Cabang Lokasi</label>
+                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Assigned Branch</label>
                   <select
                     value={editFormData.location_id}
                     onChange={(e) => setEditFormData({ ...editFormData, location_id: e.target.value })}
                     className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
                   >
-                    <option value="">Semua Lokasi (All Locations)</option>
+                    <option value="">All Locations</option>
                     {locations.map((loc) => (
                       <option key={loc.id} value={loc.id}>
                         {loc.name}
@@ -675,7 +675,7 @@ function UserManagementContent() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Status Account</label>
+                <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Account Status</label>
                 <select
                   value={editFormData.is_active ? 'active' : 'inactive'}
                   onChange={(e) => setEditFormData({ ...editFormData, is_active: e.target.value === 'active' })}
@@ -692,14 +692,14 @@ function UserManagementContent() {
                   onClick={() => setShowEditModal(false)}
                   className="px-5 py-2.5 border border-[#EFEDED] hover:bg-[#FBF9F9] rounded-xl text-xs font-extrabold text-[#817478]"
                 >
-                  Batal
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
                   className="px-5 py-2.5 bg-[#795465] hover:bg-[#634251] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#795465]/20 disabled:opacity-50"
                 >
-                  {submitting ? 'Memproses...' : 'Simpan Perubahan'}
+                  {submitting ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -717,7 +717,7 @@ function UserManagementContent() {
                   <Key className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-[#1B1C1C]">Reset Password User</h3>
+                  <h3 className="text-base font-black text-[#1B1C1C]">Reset User Password</h3>
                   <p className="text-[11px] text-[#817478] font-medium">{selectedUser.full_name} ({selectedUser.email})</p>
                 </div>
               </div>
@@ -728,14 +728,14 @@ function UserManagementContent() {
 
             <form onSubmit={handleResetPasswordSubmit} className="space-y-4 text-xs font-bold text-[#1B1C1C]">
               <div>
-                <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Password Baru</label>
+                <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">New Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#817478]" />
                   <input
                     type="password"
                     required
                     minLength={6}
-                    placeholder="Masukkan password baru"
+                    placeholder="Enter new password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
@@ -749,14 +749,14 @@ function UserManagementContent() {
                   onClick={() => setShowResetModal(false)}
                   className="px-5 py-2.5 border border-[#EFEDED] hover:bg-[#FBF9F9] rounded-xl text-xs font-extrabold text-[#817478]"
                 >
-                  Batal
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
                   className="px-5 py-2.5 bg-[#795465] hover:bg-[#634251] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#795465]/20 disabled:opacity-50"
                 >
-                  {submitting ? 'Memproses...' : 'Update Password'}
+                  {submitting ? 'Updating...' : 'Update Password'}
                 </button>
               </div>
             </form>
@@ -772,7 +772,7 @@ export default function UserManagementPage() {
     <Suspense fallback={
       <div className="p-12 text-center text-[#817478]">
         <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[#795465]" />
-        <span>Memuat Halaman User Management...</span>
+        <span>Loading user management...</span>
       </div>
     }>
       <UserManagementContent />

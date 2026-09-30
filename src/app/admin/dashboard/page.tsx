@@ -123,7 +123,7 @@ function DashboardContent() {
       return (
         <div className="h-44 flex flex-col items-center justify-center text-[#817478] bg-[#FBF9F9] rounded-2xl border border-dashed border-[#EFEDED]">
           <TrendingUp className="w-8 h-8 mb-2 text-[#D2C3C7]" />
-          <p className="text-xs font-bold">Belum ada data tren omset pada rentang tanggal terpilih.</p>
+          <p className="text-xs font-bold">No transaction data recorded for this period.</p>
         </div>
       );
     }
@@ -175,14 +175,14 @@ function DashboardContent() {
           <div className="p-3 bg-[#1B1C1C] text-white rounded-xl shadow-xl text-xs space-y-1 my-2">
             <div className="flex items-center justify-between gap-4 font-bold border-b border-zinc-700 pb-1">
               <span>{hoveredTrendPoint.dateLabel}</span>
-              <span className="text-[#F8C8DC]">{hoveredTrendPoint.ticketCount || hoveredTrendPoint.transactions} Sesi</span>
+              <span className="text-[#F8C8DC]">{hoveredTrendPoint.ticketCount || hoveredTrendPoint.transactions} Sessions</span>
             </div>
             <div className="flex items-center justify-between gap-4 font-mono">
               <span className="text-zinc-400">Gross Sales:</span>
               <span>{formatRupiah(hoveredTrendPoint.grossSales || hoveredTrendPoint.gross)}</span>
             </div>
             <div className="flex items-center justify-between gap-4 font-mono font-bold text-emerald-400">
-              <span>Owner Net:</span>
+              <span>Net Payout:</span>
               <span>{formatRupiah(hoveredTrendPoint.ownerNet)}</span>
             </div>
           </div>
@@ -197,7 +197,7 @@ function DashboardContent() {
       return (
         <div className="h-44 flex flex-col items-center justify-center text-[#817478] bg-[#FBF9F9] rounded-2xl border border-dashed border-[#EFEDED]">
           <Ticket className="w-8 h-8 mb-2 text-[#D2C3C7]" />
-          <p className="text-xs font-bold">Belum ada data tren tiket pada rentang tanggal terpilih.</p>
+          <p className="text-xs font-bold">No session volume recorded for this period.</p>
         </div>
       );
     }
@@ -250,10 +250,10 @@ function DashboardContent() {
           <div className="p-3 bg-[#1B1C1C] text-white rounded-xl shadow-xl text-xs space-y-1 my-2">
             <div className="flex items-center justify-between gap-4 font-bold border-b border-zinc-700 pb-1">
               <span>{hoveredTicketPoint.dateLabel}</span>
-              <span className="text-emerald-400 font-extrabold">{hoveredTicketPoint.ticketCount || hoveredTicketPoint.transactions} Tiket</span>
+              <span className="text-emerald-400 font-extrabold">{hoveredTicketPoint.ticketCount || hoveredTicketPoint.transactions} Sessions</span>
             </div>
             <div className="flex items-center justify-between gap-4 font-mono">
-              <span className="text-zinc-400">Total Omset:</span>
+              <span className="text-zinc-400">Gross Sales:</span>
               <span>{formatRupiah(hoveredTicketPoint.grossSales || hoveredTicketPoint.gross)}</span>
             </div>
           </div>
@@ -269,16 +269,16 @@ function DashboardContent() {
         <div>
           <h1 className="text-xl font-black text-[#1B1C1C] tracking-tight flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-[#795465]" />
-            <span>Sales Summary</span>
+            <span>Sales Overview</span>
           </h1>
           <p className="text-xs text-[#817478] font-medium mt-1">
-            Ringkasan omset penjualan QRIS, biaya MDR (0.7%), hak bersih owner, dan bagi hasil sistem.
+            Real-time QRIS revenue, payment processing fees, and partner payouts.
           </p>
         </div>
 
         {/* Filter Controls (Presets + Settlement Toggle + Custom Date) */}
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-          {/* Toggle: Date Mode (Created At vs Settled At) */}
+          {/* Toggle: Date Mode (Transaction Date vs Settlement Date) */}
           <div className="flex items-center bg-[#F5F3F3] p-1 rounded-2xl border border-[#EFEDED]">
             <button
               onClick={() => setDateType('created_at')}
@@ -288,7 +288,7 @@ function DashboardContent() {
                   : 'text-[#4F4448] hover:text-[#1B1C1C]'
               }`}
             >
-              Created At
+              Transaction Date
             </button>
             <button
               onClick={() => setDateType('settled_at')}
@@ -298,17 +298,17 @@ function DashboardContent() {
                   : 'text-[#4F4448] hover:text-[#1B1C1C]'
               }`}
             >
-              Settled At
+              Settlement Date
             </button>
           </div>
 
           {/* Preset Date Range Buttons */}
           <div className="flex items-center bg-[#F5F3F3] p-1 rounded-2xl border border-[#EFEDED]">
             {[
-              { id: 'today', label: 'Hari Ini' },
-              { id: '7d', label: '7 Hari' },
-              { id: 'month', label: 'Bulan Ini' },
-              { id: 'all', label: 'Semua' },
+              { id: 'today', label: 'Today' },
+              { id: '7d', label: '7 Days' },
+              { id: 'month', label: 'This Month' },
+              { id: 'all', label: 'All Time' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -337,7 +337,7 @@ function DashboardContent() {
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>{dateFrom || dateTo ? 'Custom Date' : 'Custom'}</span>
+            <span>{dateFrom || dateTo ? 'Custom Range' : 'Custom'}</span>
             <ChevronDown className="w-3 h-3" />
           </button>
         </div>
@@ -372,7 +372,7 @@ function DashboardContent() {
 
       {/* Hero Financial Summary: Waterfall Flow Architecture */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Highlight Card: Owner Net */}
+        {/* Main Highlight Card: Net Payout */}
         <div className="lg:col-span-2 bg-[#FBF9F9] border-2 border-[#4E635A]/30 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col justify-between space-y-6 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -381,9 +381,9 @@ function DashboardContent() {
               </div>
               <div>
                 <span className="text-xs font-black text-emerald-800 uppercase tracking-wider block">
-                  Owner Net ({summary.owner_share_pct}%)
+                  Net Payout ({summary.owner_share_pct}%)
                 </span>
-                <p className="text-[11px] text-[#817478] font-bold">Pendapatan Bersih Pemilik Lahan</p>
+                <p className="text-[11px] text-[#817478] font-bold">Partner Net Earnings</p>
               </div>
             </div>
 
@@ -398,7 +398,7 @@ function DashboardContent() {
               {formatRupiah(summary.owner_net)}
             </div>
             <p className="text-xs font-bold text-[#817478] mt-2">
-              Bersih setelah pemotongan MDR ({summary.mdr_fee > 0 ? formatRupiah(summary.mdr_fee) : '0.7%'}) dan Bagi Hasil System ({summary.system_share_pct}%).
+              Net revenue after 0.7% MDR and {summary.system_share_pct}% platform fee.
             </p>
           </div>
 
@@ -410,17 +410,17 @@ function DashboardContent() {
             </div>
 
             <div className="p-3 bg-white rounded-2xl border border-[#EFEDED]">
-              <span className="text-[10px] font-extrabold text-[#BA1A1A] uppercase block">[-] MDR (0.7%)</span>
+              <span className="text-[10px] font-extrabold text-[#BA1A1A] uppercase block">MDR Fee (0.7%)</span>
               <span className="font-extrabold text-[#BA1A1A] text-sm block mt-0.5">{formatRupiah(summary.mdr_fee)}</span>
             </div>
 
             <div className="p-3 bg-white rounded-2xl border border-[#EFEDED]">
-              <span className="text-[10px] font-extrabold text-[#4E635A] uppercase block">[=] Net Sales</span>
+              <span className="text-[10px] font-extrabold text-[#4E635A] uppercase block">Net Sales</span>
               <span className="font-extrabold text-[#4E635A] text-sm block mt-0.5">{formatRupiah(summary.net_sales)}</span>
             </div>
 
             <div className="p-3 bg-white rounded-2xl border border-[#EFEDED]">
-              <span className="text-[10px] font-extrabold text-[#795465] uppercase block">System Share ({summary.system_share_pct}%)</span>
+              <span className="text-[10px] font-extrabold text-[#795465] uppercase block">Platform Fee ({summary.system_share_pct}%)</span>
               <span className="font-extrabold text-[#795465] text-sm block mt-0.5">{formatRupiah(summary.system_share)}</span>
             </div>
           </div>
@@ -428,28 +428,28 @@ function DashboardContent() {
 
         {/* Business Capacity Summary Cards */}
         <div className="lg:col-span-1 space-y-4 flex flex-col justify-between">
-          {/* Online Fleet Card */}
+          {/* Active Fleet Card */}
           <div className="bg-white rounded-3xl border border-[#EFEDED] p-6 shadow-sm flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[10px] font-extrabold text-[#817478] uppercase tracking-wider block">Online Fleet</span>
+              <span className="text-[10px] font-extrabold text-[#817478] uppercase tracking-wider block">Active Fleet</span>
               <div className="text-2xl font-black text-emerald-700">
-                {summary.online_fleet} / {summary.total_fleet} <span className="text-xs text-[#817478] font-bold">Unit</span>
+                {summary.online_fleet} / {summary.total_fleet} <span className="text-xs text-[#817478] font-bold">Chairs</span>
               </div>
-              <p className="text-[11px] text-[#817478] font-bold">Unit Kursi Siap Operasional</p>
+              <p className="text-[11px] text-[#817478] font-bold">Chairs ready for service</p>
             </div>
             <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold">
               <Activity className="w-5 h-5" />
             </div>
           </div>
 
-          {/* Total Transactions Card */}
+          {/* Paid Sessions Card */}
           <div className="bg-white rounded-3xl border border-[#EFEDED] p-6 shadow-sm flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[10px] font-extrabold text-[#817478] uppercase tracking-wider block">Total Transactions</span>
+              <span className="text-[10px] font-extrabold text-[#817478] uppercase tracking-wider block">Paid Sessions</span>
               <div className="text-2xl font-black text-[#795465]">
-                {summary.total_tickets} <span className="text-xs text-[#817478] font-bold">Tiket</span>
+                {summary.total_tickets} <span className="text-xs text-[#817478] font-bold">Sessions</span>
               </div>
-              <p className="text-[11px] text-[#817478] font-bold">Sesi Pijat QRIS Sukses</p>
+              <p className="text-[11px] text-[#817478] font-bold">Completed massage sessions</p>
             </div>
             <div className="w-10 h-10 rounded-2xl bg-[#F8C8DC] text-[#795465] flex items-center justify-center font-bold">
               <Layers className="w-5 h-5" />
@@ -460,16 +460,16 @@ function DashboardContent() {
 
       {/* Two Trend Charts Side-by-Side Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart 1: Daily Revenue Trend (QRIS Gross Sales & Owner Net) */}
+        {/* Chart 1: Daily Revenue Trend */}
         <div className="bg-white rounded-3xl border border-[#EFEDED] p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-black text-[#1B1C1C] flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-[#795465]" />
-                <span>Grafik Tren Omset Harian (Gross Sales)</span>
+                <span>Daily Revenue Trend</span>
               </h2>
               <p className="text-xs text-[#817478] font-medium mt-0.5">
-                Fluktuasi nilai rupiah omset penjualan per hari.
+                Daily gross revenue and net payout performance.
               </p>
             </div>
             <span className="px-3 py-1 bg-[#F5F3F3] text-[#795465] text-[10px] font-extrabold rounded-full border border-[#EFEDED]">
@@ -480,20 +480,20 @@ function DashboardContent() {
           {renderRevenueChart()}
         </div>
 
-        {/* Chart 2: Daily Ticket Volume Trend (Total Qty Tiket Per Hari) */}
+        {/* Chart 2: Daily Session Volume */}
         <div className="bg-white rounded-3xl border border-[#EFEDED] p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-black text-[#1B1C1C] flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-[#4E635A]" />
-                <span>Grafik Tren Total Qty Tiket Harian</span>
+                <span>Daily Session Volume</span>
               </h2>
               <p className="text-xs text-[#817478] font-medium mt-0.5">
-                Fluktuasi jumlah volume sesi transaksi tiket per hari.
+                Number of completed sessions per day.
               </p>
             </div>
             <span className="px-3 py-1 bg-emerald-50 text-emerald-800 text-[10px] font-extrabold rounded-full border border-emerald-200">
-              Ticket Volume
+              Session Volume
             </span>
           </div>
 
@@ -506,7 +506,7 @@ function DashboardContent() {
 
 export default function SalesSummaryDashboardPage() {
   return (
-    <Suspense fallback={<div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">Memuat Sales Summary...</div>}>
+    <Suspense fallback={<div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">Loading Sales Overview...</div>}>
       <DashboardContent />
     </Suspense>
   );

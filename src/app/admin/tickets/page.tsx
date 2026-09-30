@@ -82,18 +82,18 @@ function TicketContent() {
 
   const handleExportCSV = () => {
     if (tickets.length === 0) {
-      alert('Belum ada transaksi tiket untuk diexport.');
+      alert('No transactions found to export.');
       return;
     }
 
     const headers = [
-      'Ticket Number',
-      'Tanggal & Jam',
-      'Pelanggan',
-      'Unit ID Kursi',
-      'Nominal (Rp)',
-      'Durasi (Mnt)',
-      'Metode Bayar',
+      'Slip Number',
+      'Date & Time',
+      'Customer',
+      'Chair Code',
+      'Amount (IDR)',
+      'Duration (Min)',
+      'Payment Method',
       'Status',
     ];
     const csvRows = [headers.join(',')];
@@ -101,7 +101,7 @@ function TicketContent() {
     tickets.forEach((tx: any) => {
       const row = [
         `"${tx.chair_slip_number || tx.id}"`,
-        `"${new Date(tx.created_at).toLocaleString('id-ID')}"`,
+        `"${new Date(tx.created_at).toLocaleString('en-US')}"`,
         `"${tx.customer_phone || 'GUEST'}"`,
         `"${tx.chair_code || tx.chair_id}"`,
         tx.amount,
@@ -116,7 +116,7 @@ function TicketContent() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `rekap_tiket_sakura_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `sakura_tickets_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -163,10 +163,10 @@ function TicketContent() {
         <div>
           <h1 className="text-xl font-extrabold text-[#1B1C1C] tracking-tight flex items-center gap-2">
             <Ticket className="w-5 h-5 text-[#795465]" />
-            <span>Ticket Transactions</span>
+            <span>Transaction History</span>
           </h1>
           <p className="text-xs text-[#4F4448] font-bold mt-1">
-            Daftar transaksi sesi kursi pijat pelanggan berbasis pembayaran QRIS.
+            Audit customer massage sessions and QRIS payment transaction logs.
           </p>
         </div>
 
@@ -175,7 +175,7 @@ function TicketContent() {
           className="px-4 py-3 bg-[#795465] hover:bg-[#684756] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#795465]/20 flex items-center gap-2 transition-all"
         >
           <Download className="w-4 h-4" />
-          <span>EXPORT CSV</span>
+          <span>Export to CSV</span>
         </button>
       </div>
 
@@ -188,7 +188,7 @@ function TicketContent() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari Nomor Tiket / Phone / Kode Unit..."
+              placeholder="Search by slip number, customer phone, or chair code..."
               className="w-full px-4 py-2.5 pl-10 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] placeholder-[#817478] focus:bg-white focus:border-[#795465] outline-none"
             />
             <Search className="w-4 h-4 text-[#795465] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -202,7 +202,7 @@ function TicketContent() {
               value={dateFrom}
               onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
               className="bg-transparent text-xs font-bold text-[#1B1C1C] outline-none cursor-pointer"
-              title="Dari Tanggal"
+              title="Start Date"
             />
             <span className="text-xs text-[#817478] font-extrabold">-</span>
             <input
@@ -210,15 +210,15 @@ function TicketContent() {
               value={dateTo}
               onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
               className="bg-transparent text-xs font-bold text-[#1B1C1C] outline-none cursor-pointer"
-              title="Sampai Tanggal"
+              title="End Date"
             />
           </div>
 
           {/* Status Filter Tabs */}
           <div className="flex items-center bg-[#F5F3F3] p-1 rounded-xl border border-[#EFEDED]">
             {[
-              { id: 'ALL', label: 'Semua Status' },
-              { id: 'completed', label: 'Done / Paid' },
+              { id: 'ALL', label: 'All' },
+              { id: 'completed', label: 'Completed' },
               { id: 'pending', label: 'Pending' },
               { id: 'failed', label: 'Failed' },
             ].map((tab) => (
@@ -244,7 +244,7 @@ function TicketContent() {
             type="submit"
             className="px-4 py-2.5 bg-[#795465] text-white rounded-xl text-xs font-extrabold shadow-sm hover:bg-[#684756]"
           >
-            Cari
+            Search
           </button>
 
           {(searchQuery || statusFilter !== 'ALL' || dateFrom || dateTo) && (
@@ -252,7 +252,7 @@ function TicketContent() {
               type="button"
               onClick={handleResetFilters}
               className="px-3 py-2.5 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#795465] rounded-xl text-xs font-extrabold flex items-center gap-1"
-              title="Reset Semua Filter"
+              title="Reset all filters"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Reset</span>
@@ -264,22 +264,22 @@ function TicketContent() {
         <div className="overflow-x-auto">
           {isLoading ? (
             <div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">
-              Memuat data transaksi tiket...
+              Loading transactions...
             </div>
           ) : tickets.length === 0 ? (
             <div className="py-12 text-center text-xs text-[#817478] font-bold">
-              Tidak ada data transaksi tiket ditemukan.
+              No transaction records found.
             </div>
           ) : (
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="bg-[#F5F3F3] text-[#1B1C1C] border-b border-[#EFEDED]">
-                  <th className="p-3.5 font-extrabold">Ticket Number / Slip</th>
-                  <th className="p-3.5 font-extrabold">Waktu Transaksi</th>
-                  <th className="p-3.5 font-extrabold">Pelanggan</th>
-                  <th className="p-3.5 font-extrabold">Kode Unit Kursi</th>
-                  <th className="p-3.5 font-extrabold">Nominal & Durasi</th>
-                  <th className="p-3.5 font-extrabold">Metode Bayar</th>
+                  <th className="p-3.5 font-extrabold">Slip Number</th>
+                  <th className="p-3.5 font-extrabold">Date & Time</th>
+                  <th className="p-3.5 font-extrabold">Customer</th>
+                  <th className="p-3.5 font-extrabold">Chair Code</th>
+                  <th className="p-3.5 font-extrabold">Amount & Duration</th>
+                  <th className="p-3.5 font-extrabold">Payment Method</th>
                   <th className="p-3.5 font-extrabold">Status</th>
                 </tr>
               </thead>
@@ -290,7 +290,7 @@ function TicketContent() {
                       {tx.chair_slip_number || tx.id}
                     </td>
                     <td className="p-3.5 font-bold text-[#4F4448]">
-                      {new Date(tx.created_at).toLocaleString('id-ID')}
+                      {new Date(tx.created_at).toLocaleString('en-US')}
                     </td>
                     <td className="p-3.5 font-bold text-[#1B1C1C]">
                       {tx.customer_phone || 'GUEST'}
@@ -301,7 +301,7 @@ function TicketContent() {
                     <td className="p-3.5 font-extrabold text-[#1B1C1C]">
                       <div>{formatRupiah(tx.amount || 0)}</div>
                       <div className="text-[10px] text-[#817478] font-normal">
-                        Durasi: {tx.duration_in_minutes || 4} Menit ({tx.pulse_count || 5} Pulsa)
+                        Duration: {tx.duration_in_minutes || 4} mins ({tx.pulse_count || 5} pulses)
                       </div>
                     </td>
                     <td className="p-3.5 font-bold text-[#1B1C1C] flex items-center gap-1.5">
@@ -319,7 +319,7 @@ function TicketContent() {
         {/* Pagination Footer */}
         <div className="flex items-center justify-between pt-4 border-t border-[#EFEDED] text-xs">
           <span className="text-[#817478] font-bold">
-            Total {totalCount} Transaksi (Halaman {page} dari {totalPages})
+            Showing {totalCount} transactions (Page {page} of {totalPages})
           </span>
 
           <div className="flex items-center gap-2">
@@ -347,7 +347,7 @@ function TicketContent() {
 
 export default function TicketListPage() {
   return (
-    <Suspense fallback={<div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">Memuat transaksi tiket...</div>}>
+    <Suspense fallback={<div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">Loading transactions...</div>}>
       <TicketContent />
     </Suspense>
   );

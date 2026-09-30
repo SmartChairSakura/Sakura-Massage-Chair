@@ -20,7 +20,7 @@ export async function middleware(req: NextRequest) {
   if (!isAuthenticated && !isPublicAuthRoute) {
     if (pathname.startsWith('/api/admin')) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized. Akses ditolak, silakan login terlebih dahulu.' },
+        { success: false, error: 'Unauthorized. Please sign in to continue.' },
         { status: 401 }
       );
     }

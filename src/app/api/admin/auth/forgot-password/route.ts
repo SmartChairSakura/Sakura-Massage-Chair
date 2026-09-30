@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     const cleanEmail = String(email || '').trim().toLowerCase();
 
     if (!cleanEmail) {
-      return NextResponse.json({ success: false, error: 'Email admin wajib diisi.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Email address is required.' }, { status: 400 });
     }
 
     // Generate 6-digit OTP code
@@ -32,16 +32,16 @@ export async function POST(req: NextRequest) {
         await transporter.sendMail({
           from: `"Sakura Zen Backoffice" <${smtpUser}>`,
           to: cleanEmail,
-          subject: '[Sakura Zen] Kode Verifikasi Reset Password Admin',
+          subject: '[Sakura Zen] Admin Password Reset Verification Code',
           html: `
             <div style="font-family: sans-serif; padding: 20px; background: #fbf9f9; color: #1b1c1c;">
               <h2 style="color: #795465;">Sakura Zen Backoffice</h2>
-              <p>Halo Admin,</p>
-              <p>Gunakan Kode Verifikasi OTP berikut untuk mereset password akun <strong>${cleanEmail}</strong>:</p>
+              <p>Hello Admin,</p>
+              <p>Use the following 6-digit verification code to reset the password for <strong>${cleanEmail}</strong>:</p>
               <div style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #795465; padding: 15px; background: #f8c8dc; display: inline-block; border-radius: 12px; margin: 15px 0;">
                 ${otpCode}
               </div>
-              <p style="font-size: 12px; color: #817478;">Kode ini berlaku selama 10 menit. Jangan bagikan kode ini kepada siapapun.</p>
+              <p style="font-size: 12px; color: #817478;">This code expires in 10 minutes. Do not share this code with anyone.</p>
             </div>
           `,
         });
@@ -55,12 +55,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Kode verifikasi OTP 6-digit telah dikirim ke ${cleanEmail}.`,
+      message: `A 6-digit verification code has been sent to ${cleanEmail}.`,
       // Return OTP in dev mode if SMTP not configured so user can test seamlessly
       devOtp: !(smtpUser && smtpPass) ? otpCode : undefined,
     });
   } catch (err: any) {
     console.error('[API Forgot Password] Error:', err);
-    return NextResponse.json({ success: false, error: 'Terjadi kesalahan server.' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Internal server error.' }, { status: 500 });
   }
 }
