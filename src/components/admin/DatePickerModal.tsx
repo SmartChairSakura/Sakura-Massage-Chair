@@ -130,21 +130,30 @@ export default function DatePickerModal({
 
       {/* Popover Modal (Parkee CMS Dual Panel Style) */}
       {isOpen && (
-        <div className="absolute right-0 sm:left-0 sm:right-auto mt-2 w-[92vw] sm:w-[540px] bg-white rounded-3xl border border-[#EFEDED] shadow-2xl z-50 p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-          <div className="flex items-center justify-between pb-3 border-b border-[#EFEDED]">
-            <div className="flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4 text-[#795465]" />
-              <h3 className="text-xs font-black text-[#1B1C1C] uppercase tracking-wider">
-                Filter Date & Time Range
-              </h3>
+        <>
+          {/* Mobile overlay backdrop */}
+          <div
+            className="fixed inset-0 bg-black/25 z-40 sm:hidden backdrop-blur-xs"
+            onClick={() => setIsOpen(false)}
+          />
+
+          {/* Modal Content */}
+          <div className="fixed inset-x-3 top-20 sm:absolute sm:inset-auto sm:top-full sm:right-0 sm:mt-2 w-auto sm:w-[540px] max-w-[calc(100vw-24px)] bg-white rounded-3xl border border-[#EFEDED] shadow-2xl z-50 p-4 sm:p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[88vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#EFEDED]">
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4 text-[#795465]" />
+                <h3 className="text-xs font-black text-[#1B1C1C] uppercase tracking-wider">
+                  Filter Date & Time Range
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="p-1 text-[#817478] hover:text-[#1B1C1C] rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="p-1 text-[#817478] hover:text-[#1B1C1C] rounded-lg transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Left/Middle: Date & Time Inputs */}
@@ -262,7 +271,8 @@ export default function DatePickerModal({
             </button>
           </div>
         </div>
-      )}
+      </>
+    )}
     </div>
   );
 }
