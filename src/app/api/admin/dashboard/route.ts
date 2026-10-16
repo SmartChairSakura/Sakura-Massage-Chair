@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { getAdminSession } from '@/lib/auth-server';
+import { getWibDateRange, getWibDateKey } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
+
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  Pragma: 'no-cache',
+  Expires: '0',
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,7 +17,7 @@ export async function GET(req: NextRequest) {
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized. Please sign in to continue.' },
-        { status: 401 }
+        { status: 401, headers: NO_CACHE_HEADERS }
       );
     }
 
@@ -57,44 +64,35 @@ export async function GET(req: NextRequest) {
       status: c.status || 'ONLINE',
     }));
 
-    // 3. Filter transactions
+    // 3. Filter transactions with WIB (UTC+7) timezone precision
     const dateFrom = searchParams.get('date_from');
     const dateTo = searchParams.get('date_to');
 
-    const now = new Date();
-    let timeStartFilter: string | null = null;
-
-    if (dateFrom) {
-      timeStartFilter = new Date(dateFrom).toISOString();
-    } else if (filterRange === 'today') {
-      timeStartFilter = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-    } else if (filterRange === '7d') {
-      timeStartFilter = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    } else if (filterRange === 'month') {
-      timeStartFilter = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    }
+    const { startIso, endIso } = getWibDateRange(filterRange, dateFrom, dateTo);
 
     let slipQuery = supabaseServer
       .from('chair_slips')
       .select('*')
       .order('created_at', { ascending: false });
 
+    // Robust location scoping (matching location_id OR known chair codes for location)
     if (filterLocationId && filterLocationId !== 'ALL') {
-      if (selectedLocation) {
-        slipQuery = slipQuery.or(`location_id.eq.${filterLocationId},note.ilike.%${selectedLocation.name}%`);
+      const chairCodes = safeChairs.map((c: any) => c.chair_code).filter(Boolean);
+      if (chairCodes.length > 0) {
+        slipQuery = slipQuery.or(
+          `location_id.eq.${filterLocationId},chair_code.in.(${chairCodes.join(',')}),chair_id.in.(${chairCodes.join(',')})`
+        );
       } else {
         slipQuery = slipQuery.eq('location_id', filterLocationId);
       }
     }
 
-    if (timeStartFilter) {
-      slipQuery = slipQuery.gte(dateColumn, timeStartFilter);
+    if (startIso) {
+      slipQuery = slipQuery.gte(dateColumn, startIso);
     }
 
-    if (dateTo) {
-      const endOfDay = new Date(dateTo);
-      endOfDay.setHours(23, 59, 59, 999);
-      slipQuery = slipQuery.lte(dateColumn, endOfDay.toISOString());
+    if (endIso) {
+      slipQuery = slipQuery.lte(dateColumn, endIso);
     }
 
     const { data: slips } = await slipQuery;
@@ -112,9 +110,9 @@ export async function GET(req: NextRequest) {
         grossRevenue += amt;
         totalTransactions += 1;
 
-        // Group by day for daily trend chart
+        // Group by day for daily trend chart in WIB timezone
         const txDate = tx[dateColumn] ? new Date(tx[dateColumn]) : new Date(tx.created_at);
-        const dayKey = txDate.toISOString().slice(0, 10);
+        const dayKey = getWibDateKey(txDate) || txDate.toISOString().slice(0, 10);
         if (!dailyMap[dayKey]) {
           dailyMap[dayKey] = { gross: 0, transactions: 0 };
         }
@@ -135,7 +133,7 @@ export async function GET(req: NextRequest) {
       const dayMdr = Math.round(dayGross * 0.007);
       const dayNet = dayGross - dayMdr;
       const dayOwnerNet = Math.round(dayNet * (ownerPct / 100));
-      const dateObj = new Date(dayKey);
+      const dateObj = new Date(`${dayKey}T00:00:00+07:00`);
       const dateLabel = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 
       return {
@@ -151,43 +149,49 @@ export async function GET(req: NextRequest) {
 
     const onlineCount = safeChairs.filter((c) => (c.status || 'ONLINE') === 'ONLINE').length;
 
-    return NextResponse.json({
-      success: true,
-      summary: {
-        // Intuitive snake_case keys matching business terms
-        gross_sales: grossRevenue,
-        mdr_fee: mdrFee,
-        net_sales: netGross,
-        owner_net: ownerNet,
-        system_share: systemNet,
-        total_tickets: totalTransactions,
-        online_fleet: onlineCount,
-        total_fleet: safeChairs.length,
-        owner_share_pct: ownerPct,
-        system_share_pct: systemPct,
-        period_change_pct: 0,
+    return NextResponse.json(
+      {
+        success: true,
+        summary: {
+          // Intuitive snake_case keys matching business terms
+          gross_sales: grossRevenue,
+          mdr_fee: mdrFee,
+          net_sales: netGross,
+          owner_net: ownerNet,
+          system_share: systemNet,
+          total_tickets: totalTransactions,
+          online_fleet: onlineCount,
+          total_fleet: safeChairs.length,
+          owner_share_pct: ownerPct,
+          system_share_pct: systemPct,
+          period_change_pct: 0,
 
-        // Legacy camelCase keys for 100% backward compatibility
-        grossRevenue,
-        mdrFee,
-        netGross,
-        ownerNet,
-        systemNet,
-        devShare: systemNet,
-        totalTransactions,
-        onlineCount,
-        totalChairs: safeChairs.length,
-        ownerSharePct: ownerPct,
-        systemSharePct: systemPct,
-        periodChangePct: 0,
+          // Legacy camelCase keys for 100% backward compatibility
+          grossRevenue,
+          mdrFee,
+          netGross,
+          ownerNet,
+          systemNet,
+          devShare: systemNet,
+          totalTransactions,
+          onlineCount,
+          totalChairs: safeChairs.length,
+          ownerSharePct: ownerPct,
+          systemSharePct: systemPct,
+          periodChangePct: 0,
+        },
+        dailyTrend,
+        locations: locationList,
+        chairs: safeChairs,
+        transactions: chairSlipsData,
       },
-      dailyTrend,
-      locations: locationList,
-      chairs: safeChairs,
-      transactions: chairSlipsData,
-    });
+      { headers: NO_CACHE_HEADERS }
+    );
   } catch (err: any) {
     console.error('[API Dashboard GET] Error:', err);
-    return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Internal Server Error' },
+      { status: 500, headers: NO_CACHE_HEADERS }
+    );
   }
 }

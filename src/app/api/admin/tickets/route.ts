@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { getAdminSession } from '@/lib/auth-server';
+import { getWibDateRange, mapStatusFilter } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 
-// GET: Paginated & Filterable Ticket Transactions
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  Pragma: 'no-cache',
+  Expires: '0',
+};
+
+// GET: Paginated & Filterable Ticket Transactions with WIB Precision
 export async function GET(req: NextRequest) {
   try {
     const session = await getAdminSession(req);
     if (!session) {
-      return NextResponse.json({ success: false, error: 'Unauthorized', tickets: [] }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized', tickets: [] },
+        { status: 401, headers: NO_CACHE_HEADERS }
+      );
     }
 
     const { searchParams } = new URL(req.url);
@@ -27,59 +37,91 @@ export async function GET(req: NextRequest) {
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false });
 
-    // Apply location filter if provided and not ALL
+    // 1. Apply robust location filter (matching location_id OR known chair codes for location)
     if (locationId && locationId !== 'ALL') {
-      query = query.eq('location_id', locationId);
+      const { data: locObj } = await supabaseServer
+        .from('locations')
+        .select('id, name')
+        .eq('id', locationId)
+        .maybeSingle();
+
+      const { data: locChairs } = await supabaseServer
+        .from('chairs')
+        .select('chair_code, id')
+        .or(`location_id.eq.${locationId}${locObj?.name ? `,location_name.eq.${locObj.name}` : ''}`);
+
+      const chairCodes = (locChairs || []).map((c: any) => c.chair_code).filter(Boolean);
+      if (chairCodes.length > 0) {
+        query = query.or(
+          `location_id.eq.${locationId},chair_code.in.(${chairCodes.join(',')}),chair_id.in.(${chairCodes.join(',')})`
+        );
+      } else {
+        query = query.eq('location_id', locationId);
+      }
     }
 
-    // Apply status filter
-    if (status && status !== 'ALL') {
-      query = query.eq('status', status.toLowerCase());
+    // 2. Apply status filter with multi-status alias mapping (done, completed, paid, etc.)
+    const statusList = mapStatusFilter(status);
+    if (statusList && statusList.length > 0) {
+      query = query.in('status', statusList);
     }
 
-    // Apply date range filters
-    if (dateFrom) {
-      query = query.gte('created_at', new Date(dateFrom).toISOString());
+    // 3. Apply date range filters with WIB timezone (+07:00) boundaries
+    const { startIso, endIso } = getWibDateRange(null, dateFrom, dateTo);
+    if (startIso) {
+      query = query.gte('created_at', startIso);
     }
-    if (dateTo) {
-      const endOfDay = new Date(dateTo);
-      endOfDay.setHours(23, 59, 59, 999);
-      query = query.lte('created_at', endOfDay.toISOString());
+    if (endIso) {
+      query = query.lte('created_at', endIso);
     }
 
-    // Apply search filter (chair_slip_number, customer_phone, chair_code)
+    // 4. Apply search filter across slip number, customer phone, chair code, chair id
     if (search) {
       const cleanSearch = search.trim();
       query = query.or(
-        `chair_slip_number.ilike.%${cleanSearch}%,customer_phone.ilike.%${cleanSearch}%,chair_code.ilike.%${cleanSearch}%`
+        `chair_slip_number.ilike.%${cleanSearch}%,customer_phone.ilike.%${cleanSearch}%,chair_code.ilike.%${cleanSearch}%,chair_id.ilike.%${cleanSearch}%`
       );
     }
 
-    // Apply pagination range
+    // 5. Apply pagination range
     query = query.range(offset, offset + limit - 1);
 
     const { data: tickets, count, error } = await query;
 
     if (error) {
       console.error('[API Tickets GET] DB Error:', error.message);
-      return NextResponse.json({ success: false, error: error.message, tickets: [], pagination: { total: 0, page, limit, totalPages: 0 } }, { status: 500 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+          tickets: [],
+          pagination: { total: 0, page, limit, totalPages: 0 },
+        },
+        { status: 500, headers: NO_CACHE_HEADERS }
+      );
     }
 
     const totalCount = count || 0;
     const totalPages = Math.ceil(totalCount / limit);
 
-    return NextResponse.json({
-      success: true,
-      tickets: tickets || [],
-      pagination: {
-        total: totalCount,
-        page,
-        limit,
-        totalPages,
+    return NextResponse.json(
+      {
+        success: true,
+        tickets: tickets || [],
+        pagination: {
+          total: totalCount,
+          page,
+          limit,
+          totalPages,
+        },
       },
-    });
+      { headers: NO_CACHE_HEADERS }
+    );
   } catch (err: any) {
     console.error('[API Tickets GET] Exception:', err);
-    return NextResponse.json({ success: false, error: err.message, tickets: [] }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: err.message, tickets: [] },
+      { status: 500, headers: NO_CACHE_HEADERS }
+    );
   }
 }

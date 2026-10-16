@@ -44,8 +44,15 @@ function TicketContent() {
       if (dateTo) query.set('date_to', dateTo);
       query.set('page', page.toString());
       query.set('limit', '15');
+      query.set('_t', Date.now().toString());
 
-      const res = await fetch(`/api/admin/tickets?${query.toString()}`);
+      const res = await fetch(`/api/admin/tickets?${query.toString()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
+      });
       const data = await res.json();
 
       if (data.success) {
@@ -170,13 +177,25 @@ function TicketContent() {
           </p>
         </div>
 
-        <button
-          onClick={handleExportCSV}
-          className="px-4 py-3 bg-[#795465] hover:bg-[#684756] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#795465]/20 flex items-center gap-2 transition-all"
-        >
-          <Download className="w-4 h-4" />
-          <span>Export to CSV</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fetchTickets()}
+            disabled={isLoading}
+            className="px-3.5 py-3 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#1B1C1C] rounded-xl text-xs font-extrabold border border-[#EFEDED] flex items-center gap-1.5 transition-all disabled:opacity-50"
+            title="Refresh transaction list"
+          >
+            <RefreshCw className={`w-4 h-4 text-[#795465] ${isLoading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="px-4 py-3 bg-[#795465] hover:bg-[#684756] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#795465]/20 flex items-center gap-2 transition-all"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export to CSV</span>
+          </button>
+        </div>
       </div>
 
       {/* Search & Comprehensive Filters Bar */}

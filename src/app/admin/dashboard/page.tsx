@@ -68,7 +68,15 @@ function DashboardContent() {
       if (dateTo) query.set('date_to', dateTo);
       if (!dateFrom && !dateTo && rangeFilter !== 'all') query.set('range', rangeFilter);
 
-      const res = await fetch(`/api/admin/dashboard?${query.toString()}`);
+      query.set('_t', Date.now().toString());
+
+      const res = await fetch(`/api/admin/dashboard?${query.toString()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
+      });
       const data = await res.json();
 
       if (data.success) {
@@ -339,6 +347,17 @@ function DashboardContent() {
             <Calendar className="w-3.5 h-3.5" />
             <span>{dateFrom || dateTo ? 'Custom Range' : 'Custom'}</span>
             <ChevronDown className="w-3 h-3" />
+          </button>
+
+          {/* Refresh Button */}
+          <button
+            onClick={() => fetchDashboardData()}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border border-[#EFEDED] text-xs font-extrabold bg-[#F5F3F3] text-[#1B1C1C] hover:bg-[#EFEDED] transition-colors disabled:opacity-50"
+            title="Refresh dashboard metrics"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-[#795465] ${isLoading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
       </div>

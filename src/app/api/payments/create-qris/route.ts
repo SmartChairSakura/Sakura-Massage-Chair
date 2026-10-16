@@ -24,8 +24,21 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     const chairCode = chairData ? chairData.chair_code : cleanChairId;
-    const locationId = chairData ? chairData.location_id : null;
-    const locationName = chairData ? chairData.location_name : '';
+    let locationId = chairData ? chairData.location_id : null;
+    let locationName = chairData ? chairData.location_name : '';
+
+    // If chair has location_name but missing location_id, resolve from locations table
+    if (!locationId && locationName) {
+      const { data: locData } = await supabaseServer
+        .from('locations')
+        .select('id')
+        .eq('name', locationName)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (locData) {
+        locationId = locData.id;
+      }
+    }
 
     const idempotencyKey = `TRX-${chairCode}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
