@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     let qrString = '';
 
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    let midtransDebug: any = null;
     if (serverKey) {
       const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
       const midtransResult = await createMidtransQrisCharge(
@@ -51,9 +52,21 @@ export async function POST(req: NextRequest) {
         qrString = midtransResult.qrString || '';
         console.log(`[API create-qris] Dynamic QRIS successfully created via Midtrans (${isProduction ? 'PROD' : 'SANDBOX'}):`, idempotencyKey);
       } else {
+        midtransDebug = {
+          success: false,
+          error: midtransResult.error,
+          serverKeyPrefix: serverKey.substring(0, 10),
+          isProduction,
+        };
         console.warn('[API create-qris] Midtrans charge failed, falling back to mock:', midtransResult.error);
       }
+    } else {
+      midtransDebug = {
+        serverKeyFound: false,
+        envKeys: Object.keys(process.env).filter(k => k.includes('MIDTRANS')),
+      };
     }
+
 
 
     // 1. Insert into master table: chair_slips
@@ -134,7 +147,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       transaction: resultTransaction,
+      midtrans_debug: midtransDebug,
     });
+
 
   } catch (error: any) {
     console.error('[API create-qris] Error:', error);
