@@ -15,6 +15,7 @@ export default function PaymentQrisPage() {
   const [timeLeft, setTimeLeft] = useState(180);
   const [copied, setCopied] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
     const data = sessionStorage.getItem('current_transaction');
@@ -70,7 +71,6 @@ export default function PaymentQrisPage() {
     };
   }, [orderId, transaction?.idempotency_key, router]);
 
-
   useEffect(() => {
     const orderKey = transaction?.idempotency_key || orderId;
     const storageKey = `payment_qris_end_time_${orderKey}`;
@@ -81,8 +81,16 @@ export default function PaymentQrisPage() {
     }
 
     const calculateRemaining = () => {
-      const diff = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+      const remainingMs = endTime - Date.now();
+      const diff = Math.max(0, Math.floor(remainingMs / 1000));
       setTimeLeft(diff);
+
+      if (diff <= 0) {
+        setIsExpired(true);
+        sessionStorage.removeItem(storageKey);
+        sessionStorage.removeItem('current_transaction');
+        return 0;
+      }
       return diff;
     };
 
@@ -108,11 +116,22 @@ export default function PaymentQrisPage() {
     };
   }, [transaction?.idempotency_key, orderId]);
 
+  // Auto-redirect to duration page when payment window expires
+  useEffect(() => {
+    if (isExpired) {
+      const timer = setTimeout(() => {
+        router.replace('/duration');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isExpired, router]);
+
   const formatTimer = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
+
 
   const handleCopyOrderId = () => {
     if (transaction?.idempotency_key) {
@@ -250,7 +269,7 @@ export default function PaymentQrisPage() {
         <div className="w-full flex flex-col gap-2">
           <button
             onClick={handleCheckAlreadyPaid}
-            disabled={isVerifying}
+            disabled={isVerifying || isExpired}
             className="w-full py-3 rounded-xl bg-gradient-to-r from-[#795465] via-[#94677E] to-[#795465] text-white font-extrabold text-xs shadow-md shadow-[#795465]/20 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-[18px]">check_circle</span>
@@ -258,7 +277,12 @@ export default function PaymentQrisPage() {
           </button>
 
           <button
-            onClick={() => router.push('/duration')}
+            onClick={() => {
+              const orderKey = transaction?.idempotency_key || orderId;
+              sessionStorage.removeItem(`payment_qris_end_time_${orderKey}`);
+              sessionStorage.removeItem('current_transaction');
+              router.replace('/duration');
+            }}
             className="w-full py-2 rounded-xl bg-transparent text-[#6F5A4F] font-bold text-[11px] hover:bg-[#F5F3F3] transition-colors flex items-center justify-center gap-1 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[16px]">arrow_back</span>
@@ -267,9 +291,36 @@ export default function PaymentQrisPage() {
         </div>
       </div>
 
+      {/* Expired Modal */}
+      {isExpired && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl border border-[#EFEDED] flex flex-col items-center">
+            <div className="w-14 h-14 rounded-full bg-[#BA1A1A]/10 text-[#BA1A1A] flex items-center justify-center mb-3">
+              <span className="material-symbols-outlined text-[30px]">timer_off</span>
+            </div>
+            <h3 className="text-base font-black text-[#1B1C1C] mb-1">Waktu Pembayaran Habis</h3>
+            <p className="text-xs text-[#4F4448] mb-4">
+              Sesi transaksi QRIS telah kedaluwarsa. Mengalihkan kembali ke halaman pemilihan durasi...
+            </p>
+            <button
+              onClick={() => {
+                const orderKey = transaction?.idempotency_key || orderId;
+                sessionStorage.removeItem(`payment_qris_end_time_${orderKey}`);
+                sessionStorage.removeItem('current_transaction');
+                router.replace('/duration');
+              }}
+              className="w-full py-2.5 rounded-xl bg-[#795465] text-white font-bold text-xs hover:bg-[#684756] transition-all cursor-pointer shadow-md"
+            >
+              Pilih Durasi Kembali
+            </button>
+          </div>
+        </div>
+      )}
+
       <footer className="w-full text-center text-[10px] text-[#4F4448] py-1">
         © 2026 Sakura Zen Wellness • Payment Gateway
       </footer>
     </main>
   );
 }
+
