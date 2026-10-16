@@ -107,7 +107,23 @@ export async function POST(req: NextRequest) {
         console.error('[Payment Webhook] Atomic DB update error:', updateErr.message);
       }
 
+      if (!isLegacyTable) {
+        try {
+          await supabaseServer
+            .from('transactions')
+            .update({
+              status: 'PAID',
+              session_start_at: now,
+              updated_at: now,
+            })
+            .eq('idempotency_key', orderId);
+        } catch (e) {
+          console.warn('[Payment Webhook] transactions sync note:', e);
+        }
+      }
+
       const finalSlip = updatedSlip || existingSlip;
+
 
       // STEP 5: Insert Payment Detail & Revenue Split Record into chair_slip_payments
       const mdrFee = Math.round(grossAmount * 0.007); // 0.7% QRIS MDR

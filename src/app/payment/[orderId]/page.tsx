@@ -23,12 +23,28 @@ export default function PaymentQrisPage() {
     }
   }, []);
 
+  const [copiedQrString, setCopiedQrString] = useState(false);
+
   // Supabase Realtime Subscription for Payment Status Update
   useEffect(() => {
     if (!orderId && !transaction?.idempotency_key) return;
 
+    const onStatusPaid = (updatedRecord: any) => {
+      const statusUpper = String(updatedRecord.status || '').toUpperCase();
+      const isTarget =
+        updatedRecord.id === orderId ||
+        updatedRecord.chair_slip_number === transaction?.idempotency_key ||
+        updatedRecord.idempotency_key === transaction?.idempotency_key;
+
+      if (isTarget && (statusUpper === 'PAID' || statusUpper === 'DONE')) {
+        console.log('[Supabase Realtime] Received PAID event:', updatedRecord);
+        sessionStorage.setItem('current_transaction', JSON.stringify(updatedRecord));
+        router.push('/payment/success');
+      }
+    };
+
     const channel = supabase
-      .channel('public:transactions')
+      .channel(`public:payment_${orderId || transaction?.idempotency_key}`)
       .on(
         'postgres_changes',
         {
@@ -36,17 +52,16 @@ export default function PaymentQrisPage() {
           schema: 'public',
           table: 'transactions',
         },
-        (payload: any) => {
-          const updatedTx = payload.new;
-          if (
-            (updatedTx.id === orderId || updatedTx.idempotency_key === transaction?.idempotency_key) &&
-            updatedTx.status === 'PAID'
-          ) {
-            console.log('[Supabase Realtime] Received PAID event for transaction:', updatedTx.id);
-            sessionStorage.setItem('current_transaction', JSON.stringify(updatedTx));
-            router.push('/payment/success');
-          }
-        }
+        (payload: any) => onStatusPaid(payload.new)
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chair_slips',
+        },
+        (payload: any) => onStatusPaid(payload.new)
       )
       .subscribe();
 
@@ -54,6 +69,7 @@ export default function PaymentQrisPage() {
       supabase.removeChannel(channel);
     };
   }, [orderId, transaction?.idempotency_key, router]);
+
 
   useEffect(() => {
     const orderKey = transaction?.idempotency_key || orderId;
@@ -176,12 +192,33 @@ export default function PaymentQrisPage() {
           <button
             onClick={handleCopyOrderId}
             className="w-8 h-8 rounded-full bg-[#795465]/10 flex items-center justify-center text-[#795465] hover:bg-[#795465]/20 transition-all cursor-pointer"
+            title="Salin ID Transaksi"
           >
             <span className="material-symbols-outlined text-[16px]">
               {copied ? 'check' : 'content_copy'}
             </span>
           </button>
         </div>
+
+        {transaction?.qr_string && (
+          <div className="w-full mb-3 flex items-center justify-between bg-[#FAF0F4] border border-[#F8C8DC] px-3 py-1.5 rounded-xl">
+            <span className="text-[10px] font-bold text-[#795465]">Midtrans Simulator QR:</span>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(transaction.qr_string);
+                setCopiedQrString(true);
+                setTimeout(() => setCopiedQrString(false), 2000);
+              }}
+              className="text-[10px] font-extrabold text-[#795465] bg-white px-2.5 py-1 rounded-lg border border-[#F8C8DC] shadow-2xs hover:bg-[#F8C8DC]/30 flex items-center gap-1 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[12px]">
+                {copiedQrString ? 'check' : 'content_copy'}
+              </span>
+              <span>{copiedQrString ? 'Tersalin!' : 'Salin String QR'}</span>
+            </button>
+          </div>
+        )}
+
 
         {/* QR Code Container */}
         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#EFEDED] mb-3 flex flex-col items-center relative group w-full max-w-[220px]">

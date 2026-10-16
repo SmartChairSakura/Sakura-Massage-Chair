@@ -56,7 +56,7 @@ export async function checkMidtransTransactionStatus(
   serverKey: string
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
-    const isProduction = process.env.NODE_ENV === 'production';
+    const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
     const baseUrl = isProduction
       ? 'https://api.midtrans.com'
       : 'https://api.sandbox.midtrans.com';
@@ -82,3 +82,97 @@ export async function checkMidtransTransactionStatus(
     return { success: false, error: err?.message || 'Midtrans network error' };
   }
 }
+
+export interface CreateQrisParams {
+  orderId: string;
+  grossAmount: number;
+}
+
+export interface CreateQrisResult {
+  success: boolean;
+  qrUrl?: string;
+  qrString?: string;
+  transactionId?: string;
+  raw?: any;
+  error?: string;
+}
+
+/**
+ * Creates a Dynamic QRIS charge via Midtrans Core API (/v2/charge)
+ */
+export async function createMidtransQrisCharge(
+  params: CreateQrisParams,
+  serverKey: string,
+  isProduction: boolean = false
+): Promise<CreateQrisResult> {
+  try {
+    const baseUrl = isProduction
+      ? 'https://api.midtrans.com'
+      : 'https://api.sandbox.midtrans.com';
+
+    const authString = Buffer.from(`${serverKey}:`).toString('base64');
+
+    const res = await fetch(`${baseUrl}/v2/charge`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${authString}`,
+      },
+      body: JSON.stringify({
+        payment_type: 'qris',
+        transaction_details: {
+          order_id: params.orderId,
+          gross_amount: Math.round(params.grossAmount),
+        },
+        qris: {
+          acquirer: 'gopay',
+        },
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || (data.status_code && !String(data.status_code).startsWith('20'))) {
+      console.error('[Midtrans Charge Error]:', data);
+      return {
+        success: false,
+        error: data.status_message || `HTTP ${res.status}`,
+        raw: data,
+      };
+    }
+
+    // Extract QR code image URL from actions array
+    let qrUrl = '';
+    if (Array.isArray(data.actions)) {
+      const qrAction =
+        data.actions.find((a: any) => a.name === 'generate-qr-code') ||
+        data.actions[0];
+      if (qrAction?.url) {
+        qrUrl = qrAction.url;
+      }
+    }
+
+    // Fallback to QR server if qr_string exists but no action URL
+    if (!qrUrl && data.qr_string) {
+      qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
+        data.qr_string
+      )}`;
+    }
+
+    return {
+      success: true,
+      qrUrl,
+      qrString: data.qr_string,
+      transactionId: data.transaction_id,
+      raw: data,
+    };
+  } catch (err: any) {
+    console.error('[Midtrans Charge Exception]:', err);
+    return {
+      success: false,
+      error: err?.message || 'Network exception calling Midtrans',
+    };
+  }
+}
+

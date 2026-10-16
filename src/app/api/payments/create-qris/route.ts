@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
+import { createMidtransQrisCharge } from '@/lib/midtrans';
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,8 +29,32 @@ export async function POST(req: NextRequest) {
 
     const idempotencyKey = `TRX-${chairCode}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    // Generate Mock QRIS URL / Payment Gateway Integration placeholder
+    // Generate QRIS URL (Midtrans API or fallback to Mock)
     const mockQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=00020101021226670016ID.CO.MIDTRANS.WWW0118936009143000000000021550000000000000050303360540${amount}5802ID5910SMART_CHAIR6007JAKARTA63048F3A`;
+    let activeQrUrl = mockQrUrl;
+    let qrString = '';
+
+    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    if (serverKey) {
+      const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+      const midtransResult = await createMidtransQrisCharge(
+        {
+          orderId: idempotencyKey,
+          grossAmount: Number(amount),
+        },
+        serverKey,
+        isProduction
+      );
+
+      if (midtransResult.success && midtransResult.qrUrl) {
+        activeQrUrl = midtransResult.qrUrl;
+        qrString = midtransResult.qrString || '';
+        console.log(`[API create-qris] Dynamic QRIS successfully created via Midtrans (${isProduction ? 'PROD' : 'SANDBOX'}):`, idempotencyKey);
+      } else {
+        console.warn('[API create-qris] Midtrans charge failed, falling back to mock:', midtransResult.error);
+      }
+    }
+
 
     // 1. Insert into master table: chair_slips
     const slipPayload = {
@@ -44,7 +69,7 @@ export async function POST(req: NextRequest) {
       pulse_count: Number(pulseCount),
       payment_method: 'QRIS',
       status: 'pending',
-      qr_url: mockQrUrl,
+      qr_url: activeQrUrl,
       note: locationName,
       created_from: 'EDC_KIOSK',
       created_at: new Date().toISOString(),
@@ -73,7 +98,7 @@ export async function POST(req: NextRequest) {
       payment_method: 'QRIS',
       status: 'PENDING',
       payment_gateway_ref: `REF-${Date.now()}`,
-      qr_url: mockQrUrl,
+      qr_url: activeQrUrl,
     };
 
     const { data: createdTransaction } = await supabaseServer
@@ -94,11 +119,13 @@ export async function POST(req: NextRequest) {
           payment_method: createdSlip.payment_method,
           status: createdSlip.status,
           qr_url: createdSlip.qr_url,
+          qr_string: qrString,
           created_at: createdSlip.created_at,
         }
       : createdTransaction || {
           id: crypto.randomUUID(),
           ...transactionPayload,
+          qr_string: qrString,
           created_at: new Date().toISOString(),
         };
 
@@ -108,6 +135,7 @@ export async function POST(req: NextRequest) {
       success: true,
       transaction: resultTransaction,
     });
+
   } catch (error: any) {
     console.error('[API create-qris] Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
