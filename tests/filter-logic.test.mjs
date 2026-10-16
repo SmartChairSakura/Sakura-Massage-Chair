@@ -74,17 +74,20 @@ const STATUS_CATEGORIES = {
 };
 
 function mapStatusFilter(status) {
-  if (!status || status === 'ALL' || status.toUpperCase() === 'ALL') {
+  if (!status || status === 'ALL' || status === 'ALL STATUS' || status.toUpperCase() === 'ALL STATUS' || status.toUpperCase() === 'ALL') {
     return null;
   }
   const clean = status.toLowerCase().trim();
   if (['completed', 'done', 'paid'].includes(clean)) {
     return [...STATUS_CATEGORIES.COMPLETED];
   }
-  if (['pending'].includes(clean)) {
+  if (['inprocess', 'ongoing'].includes(clean)) {
+    return ['ongoing', 'session_inprocess'];
+  }
+  if (['pending', 'waiting'].includes(clean)) {
     return [...STATUS_CATEGORIES.PENDING];
   }
-  if (['failed', 'expired', 'cancelled'].includes(clean)) {
+  if (['failed', 'expired', 'cancelled', 'unpaid'].includes(clean)) {
     return [...STATUS_CATEGORIES.FAILED];
   }
   return [clean];
@@ -114,11 +117,27 @@ describe('Filter Logic & Timezone Precision (WIB UTC+7)', () => {
     assert.strictEqual(statuses.includes('cancelled'), true, 'Must include cancelled');
   });
 
-  it('mapStatusFilter should return null for "ALL" or empty', () => {
+  it('mapStatusFilter should return null for "ALL", "ALL STATUS", or empty', () => {
     assert.strictEqual(mapStatusFilter('ALL'), null);
+    assert.strictEqual(mapStatusFilter('ALL STATUS'), null);
+    assert.strictEqual(mapStatusFilter('all status'), null);
     assert.strictEqual(mapStatusFilter('all'), null);
     assert.strictEqual(mapStatusFilter(''), null);
     assert.strictEqual(mapStatusFilter(null), null);
+  });
+
+  it('mapStatusFilter should handle Parkee CMS status presets (DONE, INPROCESS, WAITING, UNPAID)', () => {
+    const doneList = mapStatusFilter('DONE');
+    assert.ok(doneList.includes('done'), 'DONE must include done');
+
+    const inprocessList = mapStatusFilter('INPROCESS');
+    assert.ok(inprocessList.length > 0, 'INPROCESS must map to ongoing sessions');
+
+    const waitingList = mapStatusFilter('WAITING');
+    assert.ok(waitingList.includes('pending'), 'WAITING must include pending');
+
+    const unpaidList = mapStatusFilter('UNPAID');
+    assert.ok(unpaidList.includes('expired'), 'UNPAID must include expired');
   });
 
   it('getWibDateRange should compute accurate start & end for "today"', () => {

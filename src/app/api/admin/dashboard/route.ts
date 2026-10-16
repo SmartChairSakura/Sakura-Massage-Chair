@@ -4,6 +4,8 @@ import { getAdminSession } from '@/lib/auth-server';
 import { getWibDateRange, getWibDateKey } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
 const NO_CACHE_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -67,8 +69,10 @@ export async function GET(req: NextRequest) {
     // 3. Filter transactions with WIB (UTC+7) timezone precision
     const dateFrom = searchParams.get('date_from');
     const dateTo = searchParams.get('date_to');
+    const timeFrom = searchParams.get('time_from') || '00:00';
+    const timeTo = searchParams.get('time_to') || '23:59';
 
-    const { startIso, endIso } = getWibDateRange(filterRange, dateFrom, dateTo);
+    const { startIso, endIso } = getWibDateRange(filterRange, dateFrom, dateTo, timeFrom, timeTo);
 
     let slipQuery = supabaseServer
       .from('chair_slips')
@@ -153,7 +157,6 @@ export async function GET(req: NextRequest) {
       {
         success: true,
         summary: {
-          // Intuitive snake_case keys matching business terms
           gross_sales: grossRevenue,
           mdr_fee: mdrFee,
           net_sales: netGross,

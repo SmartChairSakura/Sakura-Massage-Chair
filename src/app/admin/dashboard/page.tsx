@@ -1,20 +1,21 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   TrendingUp,
   DollarSign,
   Activity,
-  Calendar,
   Layers,
   RefreshCw,
-  ChevronDown,
   ArrowUpRight,
   Ticket,
   BarChart3,
+  Calendar,
 } from 'lucide-react';
 import { Location, Transaction } from '@/types';
+import DatePickerModal, { DateRangeState } from '@/components/admin/DatePickerModal';
+import { getWibNow } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,14 +35,17 @@ function DashboardContent() {
 
   const [rangeFilter, setRangeFilter] = useState<string>('all');
   const [dateType, setDateType] = useState<'created_at' | 'settled_at'>('created_at');
-  const [showCustomDate, setShowCustomDate] = useState<boolean>(false);
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
+  const [timeFrom, setTimeFrom] = useState<string>('00:00');
+  const [timeTo, setTimeTo] = useState<string>('23:59');
+
   const [locations, setLocations] = useState<Location[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [dailyTrend, setDailyTrend] = useState<DailyTrendItem[]>([]);
   const [hoveredTrendPoint, setHoveredTrendPoint] = useState<DailyTrendItem | null>(null);
   const [hoveredTicketPoint, setHoveredTicketPoint] = useState<DailyTrendItem | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<string>('');
 
   const [summary, setSummary] = useState({
     gross_sales: 0,
@@ -58,15 +62,21 @@ function DashboardContent() {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     setIsLoading(true);
     try {
       const query = new URLSearchParams();
       if (locationIdParam !== 'ALL') query.set('location_id', locationIdParam);
       query.set('date_type', dateType);
+
       if (dateFrom) query.set('date_from', dateFrom);
       if (dateTo) query.set('date_to', dateTo);
-      if (!dateFrom && !dateTo && rangeFilter !== 'all') query.set('range', rangeFilter);
+      if (timeFrom) query.set('time_from', timeFrom);
+      if (timeTo) query.set('time_to', timeTo);
+
+      if (rangeFilter) {
+        query.set('range', rangeFilter);
+      }
 
       query.set('_t', Date.now().toString());
 
@@ -99,22 +109,25 @@ function DashboardContent() {
           period_change_pct: s.period_change_pct ?? s.periodChangePct ?? 0,
         });
       }
+      const nowWib = getWibNow();
+      setLastRefreshed(nowWib.toLocaleTimeString('en-US', { hour12: false }));
     } catch (err) {
       console.warn('Dashboard fetch error:', err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [locationIdParam, rangeFilter, dateType, dateFrom, dateTo, timeFrom, timeTo]);
 
   useEffect(() => {
     fetchDashboardData();
-  }, [locationIdParam, rangeFilter, dateType, dateFrom, dateTo]);
+  }, [fetchDashboardData]);
 
-  const handleResetDateFilters = () => {
-    setDateFrom('');
-    setDateTo('');
-    setRangeFilter('all');
-    setShowCustomDate(false);
+  const handleDateModalApply = (newRange: DateRangeState) => {
+    setRangeFilter(newRange.rangePreset);
+    setDateFrom(newRange.dateFrom);
+    setDateTo(newRange.dateTo);
+    setTimeFrom(newRange.timeFrom);
+    setTimeTo(newRange.timeTo);
   };
 
   const formatRupiah = (val: number) => {
@@ -272,8 +285,8 @@ function DashboardContent() {
 
   return (
     <div className="space-y-6">
-      {/* Top Streamlined Filter Bar */}
-      <div className="bg-white rounded-3xl border border-[#EFEDED] p-6 shadow-sm flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
+      {/* Top Streamlined Filter Bar (Parkee CMS Sales Summary Screenshot_70) */}
+      <div className="bg-white rounded-3xl border border-[#EFEDED] p-5 shadow-sm flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-black text-[#1B1C1C] tracking-tight flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-[#795465]" />
@@ -284,13 +297,13 @@ function DashboardContent() {
           </p>
         </div>
 
-        {/* Filter Controls (Presets + Settlement Toggle + Custom Date) */}
-        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+        {/* Filter Controls (Presets + Parkee DatePickerModal + Settlement Toggle) */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full xl:w-auto">
           {/* Toggle: Date Mode (Transaction Date vs Settlement Date) */}
-          <div className="flex items-center bg-[#F5F3F3] p-1 rounded-2xl border border-[#EFEDED]">
+          <div className="flex items-center bg-[#F5F3F3] p-1 rounded-xl border border-[#EFEDED]">
             <button
               onClick={() => setDateType('created_at')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
                 dateType === 'created_at'
                   ? 'bg-[#795465] text-white shadow-sm'
                   : 'text-[#4F4448] hover:text-[#1B1C1C]'
@@ -300,7 +313,7 @@ function DashboardContent() {
             </button>
             <button
               onClick={() => setDateType('settled_at')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
                 dateType === 'settled_at'
                   ? 'bg-[#795465] text-white shadow-sm'
                   : 'text-[#4F4448] hover:text-[#1B1C1C]'
@@ -310,8 +323,8 @@ function DashboardContent() {
             </button>
           </div>
 
-          {/* Preset Date Range Buttons */}
-          <div className="flex items-center bg-[#F5F3F3] p-1 rounded-2xl border border-[#EFEDED]">
+          {/* Quick Preset Buttons (Today, 7 Days, This Month, All Time) */}
+          <div className="flex items-center bg-[#F5F3F3] p-1 rounded-xl border border-[#EFEDED]">
             {[
               { id: 'today', label: 'Today' },
               { id: '7d', label: '7 Days' },
@@ -324,9 +337,8 @@ function DashboardContent() {
                   setDateFrom('');
                   setDateTo('');
                   setRangeFilter(tab.id);
-                  setShowCustomDate(false);
                 }}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
                   !dateFrom && !dateTo && rangeFilter === tab.id
                     ? 'bg-[#795465] text-white shadow-sm'
                     : 'text-[#4F4448] hover:text-[#1B1C1C]'
@@ -337,57 +349,36 @@ function DashboardContent() {
             ))}
           </div>
 
-          {/* Collapsible Custom Date Filter */}
-          <button
-            onClick={() => setShowCustomDate(!showCustomDate)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border border-[#EFEDED] text-xs font-extrabold transition-colors ${
-              dateFrom || dateTo ? 'bg-[#795465] text-white' : 'bg-[#F5F3F3] text-[#1B1C1C] hover:bg-[#EFEDED]'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>{dateFrom || dateTo ? 'Custom Range' : 'Custom'}</span>
-            <ChevronDown className="w-3 h-3" />
-          </button>
+          {/* Parkee CMS DatePickerModal Popover (Dual calendar + presets) */}
+          <DatePickerModal
+            labelPrefix="Date"
+            initialRange={rangeFilter}
+            initialDateFrom={dateFrom}
+            initialDateTo={dateTo}
+            initialTimeFrom={timeFrom}
+            initialTimeTo={timeTo}
+            onApply={handleDateModalApply}
+          />
 
-          {/* Refresh Button */}
-          <button
-            onClick={() => fetchDashboardData()}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border border-[#EFEDED] text-xs font-extrabold bg-[#F5F3F3] text-[#1B1C1C] hover:bg-[#EFEDED] transition-colors disabled:opacity-50"
-            title="Refresh dashboard metrics"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#795465] ${isLoading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
+          {/* Refresh Button with Timestamp */}
+          <div className="flex items-center gap-2">
+            {lastRefreshed && (
+              <span className="text-[11px] font-bold text-[#817478] hidden lg:inline">
+                {lastRefreshed} WIB
+              </span>
+            )}
+            <button
+              onClick={() => fetchDashboardData()}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#EFEDED] text-xs font-extrabold bg-[#F5F3F3] text-[#1B1C1C] hover:bg-[#EFEDED] transition-colors disabled:opacity-50"
+              title="Refresh dashboard metrics"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-[#795465] ${isLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+          </div>
         </div>
       </div>
-
-      {/* Expanded Custom Date Picker Bar */}
-      {showCustomDate && (
-        <div className="p-4 bg-white rounded-2xl border border-[#EFEDED] shadow-sm flex items-center gap-3 animate-in fade-in zoom-in-95 duration-150">
-          <span className="text-xs font-extrabold text-[#795465] uppercase">Custom Date Range:</span>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="px-3 py-1.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] outline-none"
-          />
-          <span className="text-xs font-bold text-[#817478]">-</span>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="px-3 py-1.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] outline-none"
-          />
-          <button
-            onClick={handleResetDateFilters}
-            className="p-1.5 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#795465] rounded-xl transition-colors"
-            title="Reset Date"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
 
       {/* Hero Financial Summary: Waterfall Flow Architecture */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
