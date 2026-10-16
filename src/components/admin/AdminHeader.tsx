@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { RefreshCw, User, LogOut, ChevronRight, Home } from 'lucide-react';
+import { User, LogOut, ChevronRight, Home } from 'lucide-react';
 import LocationSelector from './LocationSelector';
 
 interface UserSession {
@@ -70,10 +70,6 @@ export default function AdminHeader() {
 
   const breadcrumbs = getBreadcrumbs();
 
-  const handleRefresh = () => {
-    router.refresh();
-  };
-
   const handleLogout = async () => {
     try {
       await fetch('/api/admin/auth/login', { method: 'DELETE' });
@@ -110,16 +106,6 @@ export default function AdminHeader() {
       <div className="flex items-center gap-4">
         {/* Global Location Selector */}
         <LocationSelector />
-
-        {/* Global Refresh Button */}
-        <button
-          onClick={handleRefresh}
-          className="flex items-center gap-1.5 px-3 py-2 bg-[#F5F3F3] hover:bg-[#EFEDED] border border-[#EFEDED] rounded-xl text-xs font-extrabold text-[#1B1C1C] transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw className="w-3.5 h-3.5 text-[#795465]" />
-          <span className="hidden sm:inline">Refresh</span>
-        </button>
 
         {/* Admin Profile & Logout */}
         <div className="flex items-center gap-3 pl-3 border-l border-[#EFEDED]">

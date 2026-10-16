@@ -33,12 +33,12 @@ test('TDD Copywriting Suite: Sales Summary Dashboard (/admin/dashboard)', async 
   });
 
   await t.test('Date range presets should be in English', () => {
-    assert.match(content, /label:\s*'Today'/);
-    assert.match(content, /label:\s*'7 Days'/);
-    assert.match(content, /label:\s*'This Month'/);
-    assert.match(content, /label:\s*'All Time'/);
-    assert.doesNotMatch(content, /label:\s*'Hari Ini'/);
-    assert.doesNotMatch(content, /label:\s*'Bulan Ini'/);
+    const modalContent = readFile('src/components/admin/DatePickerModal.tsx');
+    assert.match(modalContent, /label:\s*'TODAY'/);
+    assert.match(modalContent, /label:\s*'THIS MONTH'/);
+    assert.match(modalContent, /label:\s*'ALL TIME'/);
+    assert.doesNotMatch(modalContent, /label:\s*'HARI INI'/);
+    assert.doesNotMatch(modalContent, /label:\s*'BULAN INI'/);
   });
 
   await t.test('Date type toggles should use clear business terminology', () => {

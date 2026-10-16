@@ -7,7 +7,6 @@ import {
   DollarSign,
   Activity,
   Layers,
-  RefreshCw,
   ArrowUpRight,
   Ticket,
   BarChart3,
@@ -45,7 +44,6 @@ function DashboardContent() {
   const [dailyTrend, setDailyTrend] = useState<DailyTrendItem[]>([]);
   const [hoveredTrendPoint, setHoveredTrendPoint] = useState<DailyTrendItem | null>(null);
   const [hoveredTicketPoint, setHoveredTicketPoint] = useState<DailyTrendItem | null>(null);
-  const [lastRefreshed, setLastRefreshed] = useState<string>('');
 
   const [summary, setSummary] = useState({
     gross_sales: 0,
@@ -109,8 +107,6 @@ function DashboardContent() {
           period_change_pct: s.period_change_pct ?? s.periodChangePct ?? 0,
         });
       }
-      const nowWib = getWibNow();
-      setLastRefreshed(nowWib.toLocaleTimeString('en-US', { hour12: false }));
     } catch (err) {
       console.warn('Dashboard fetch error:', err);
     } finally {
@@ -323,32 +319,6 @@ function DashboardContent() {
             </button>
           </div>
 
-          {/* Quick Preset Buttons (Today, 7 Days, This Month, All Time) */}
-          <div className="flex items-center bg-[#F5F3F3] p-1 rounded-xl border border-[#EFEDED]">
-            {[
-              { id: 'today', label: 'Today' },
-              { id: '7d', label: '7 Days' },
-              { id: 'month', label: 'This Month' },
-              { id: 'all', label: 'All Time' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setDateFrom('');
-                  setDateTo('');
-                  setRangeFilter(tab.id);
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
-                  !dateFrom && !dateTo && rangeFilter === tab.id
-                    ? 'bg-[#795465] text-white shadow-sm'
-                    : 'text-[#4F4448] hover:text-[#1B1C1C]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
           {/* Parkee CMS DatePickerModal Popover (Dual calendar + presets) */}
           <DatePickerModal
             labelPrefix="Date"
@@ -359,24 +329,6 @@ function DashboardContent() {
             initialTimeTo={timeTo}
             onApply={handleDateModalApply}
           />
-
-          {/* Refresh Button with Timestamp */}
-          <div className="flex items-center gap-2">
-            {lastRefreshed && (
-              <span className="text-[11px] font-bold text-[#817478] hidden lg:inline">
-                {lastRefreshed} WIB
-              </span>
-            )}
-            <button
-              onClick={() => fetchDashboardData()}
-              disabled={isLoading}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#EFEDED] text-xs font-extrabold bg-[#F5F3F3] text-[#1B1C1C] hover:bg-[#EFEDED] transition-colors disabled:opacity-50"
-              title="Refresh dashboard metrics"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 text-[#795465] ${isLoading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </button>
-          </div>
         </div>
       </div>
 

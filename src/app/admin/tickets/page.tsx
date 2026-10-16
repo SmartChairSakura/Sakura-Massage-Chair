@@ -12,13 +12,11 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
-  RefreshCw,
   TrendingUp,
   DollarSign,
   ShieldCheck,
   Filter,
   ChevronDown,
-  RotateCcw,
 } from 'lucide-react';
 import { ChairSlip } from '@/types';
 import DatePickerModal, { DateRangeState } from '@/components/admin/DatePickerModal';
@@ -74,7 +72,6 @@ function TicketContent() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [lastRefreshed, setLastRefreshed] = useState<string>('');
 
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -130,8 +127,6 @@ function TicketContent() {
           setSummary(data.summary);
         }
       }
-      const nowWib = getWibNow();
-      setLastRefreshed(nowWib.toLocaleTimeString('en-US', { hour12: false }));
     } catch (err) {
       console.warn('Fetch tickets error:', err);
     } finally {
@@ -267,22 +262,6 @@ function TicketContent() {
         </div>
 
         <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-          {lastRefreshed && (
-            <span className="text-[11px] font-bold text-[#817478] hidden md:inline">
-              Last Refreshed {lastRefreshed} WIB
-            </span>
-          )}
-
-          <button
-            onClick={() => fetchTickets()}
-            disabled={isLoading}
-            className="px-3.5 py-2.5 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#1B1C1C] rounded-xl text-xs font-extrabold border border-[#EFEDED] flex items-center gap-1.5 transition-all disabled:opacity-50"
-            title="Refresh transaction list"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#795465] ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
-
           <button
             onClick={handleExportCSV}
             className="px-4 py-2.5 bg-[#795465] hover:bg-[#684756] text-white rounded-xl text-xs font-extrabold shadow-sm shadow-[#795465]/20 flex items-center gap-1.5 transition-all"
@@ -406,16 +385,6 @@ function TicketContent() {
             className="px-4 py-2 bg-[#795465] text-white rounded-xl text-xs font-extrabold shadow-sm hover:bg-[#684756] transition-all"
           >
             Search
-          </button>
-
-          {/* Reset Button */}
-          <button
-            type="button"
-            onClick={handleResetFilters}
-            className="p-2 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#795465] rounded-xl text-xs font-extrabold flex items-center justify-center transition-all"
-            title="Reset filters to Today & All Status"
-          >
-            <RotateCcw className="w-4 h-4" />
           </button>
         </form>
 
