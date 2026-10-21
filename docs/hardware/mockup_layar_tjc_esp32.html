@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup Layar TJC 4.3" & Simulator ESP32 - Smart Kursi Pijat Tokuyo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700;800&family=Orbitron:wght@600;800;900&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg-workspace: #0b0f19;
+      --card-bg: #111827;
+      --panel-border: #1f2937;
+      --tjc-bezel: #18191c;
+      --tjc-inner-bezel: #0d0e11;
+
+      /* Sakura Theme Colors */
+      --sakura-pink: #f43f5e;
+      --sakura-light: #fda4af;
+      --sakura-dark: #881337;
+      --navy-deep: #0b3a6f;
+      --navy-light: #38bdf8;
+      --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.4);
+      --amber: #f59e0b;
+
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-workspace);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 40px;
+      overflow-x: hidden;
+    }
+
+    /* Top Global Header */
+    .header-bar {
+      width: 100%;
+      max-width: 1240px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 24px;
+      background: rgba(17, 24, 39, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      margin-bottom: 28px;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, var(--sakura-pink), var(--sakura-dark));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 4px 12px rgba(244, 63, 94, 0.35);
+    }
+
+    .brand-text h1 {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    .brand-text p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .system-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald-glow);
+      animation: blink 1.8s infinite;
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.4;
+        transform: scale(0.85);
+      }
+    }
+
+    /* Main Grid Layout */
+    .workspace-grid {
+      width: 100%;
+      max-width: 1240px;
+      display: grid;
+      grid-template-columns: 530px 1fr;
+      gap: 32px;
+      align-items: start;
+    }
+
+    @media (max-width: 1080px) {
+      .workspace-grid {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+    }
+
+    /* =========================================
+       PHYSICAL TJC 4.3" DISPLAY HARDWARE CASING
+       ========================================= */
+    .tjc-screen-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .tjc-casing {
+      width: 520px;
+      background: linear-gradient(145deg, #23252a, #151619);
+      padding: 20px;
+      border-radius: 24px;
+      box-shadow:
+        0 25px 60px -15px rgba(0, 0, 0, 0.8),
+        inset 0 1px 2px rgba(255, 255, 255, 0.15),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.6);
+      border: 1px solid #374151;
+      position: relative;
+    }
+
+    /* Screw holes simulation */
+    .tjc-screw {
+      width: 10px;
+      height: 10px;
+      background: radial-gradient(circle, #64748b 30%, #334155 70%, #0f172a 100%);
+      border-radius: 50%;
+      position: absolute;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+
+    .screw-tl {
+      top: 10px;
+      left: 10px;
+    }
+
+    .screw-tr {
+      top: 10px;
+      right: 10px;
+    }
+
+    .screw-bl {
+      bottom: 10px;
+      left: 10px;
+    }
+
+    .screw-br {
+      bottom: 10px;
+      right: 10px;
+    }
+
+    .casing-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 6px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .tjc-display-frame {
+      width: 480px;
+      height: 800px;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      border: 2px solid #000;
+      box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.95);
+      user-select: none;
+    }
+
+    /* Screen Glass Subtle Reflection */
+    .tjc-display-frame::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -60%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(115deg,
+          rgba(255, 255, 255, 0.06) 0%,
+          rgba(255, 255, 255, 0.01) 40%,
+          transparent 60%);
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* =========================================
+       TJC SCREEN INTERNAL PAGES (480x800)
+       ========================================= */
+    .tjc-page {
+      width: 100%;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+      position: absolute;
+      top: 0;
+      left: 0;
+      background: #0f172a;
+      transition: opacity 0.25s ease;
+    }
+
+    .tjc-page.active {
+      display: flex;
+    }
+
+    /* Screen Top Status Bar */
+    .tjc-status-bar {
+      height: 38px;
+      background: #0b1120;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 16px;
+      font-size: 11.5px;
+      font-weight: 700;
+      border-bottom: 1px solid #1e293b;
+      color: #94a3b8;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .tjc-status-bar .live-clock {
+      color: #f1f5f9;
+      font-size: 12px;
+    }
+
+    /* Page 0: Standby & Menu Pemilihan Paket */
+    .page0-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 18px 16px;
+      background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0b1120 70%);
+    }
+
+    .brand-hero {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .brand-hero .chair-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: rgba(244, 63, 94, 0.15);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #fecdd3;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .brand-hero h2 {
+      font-size: 26px;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+
+    .brand-hero h2 span {
+      color: var(--sakura-pink);
+    }
+
+    .brand-hero p {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+
+    /* 4 Package Buttons Grid */
+    .package-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .pkg-btn {
+      background: #1e293b;
+      border: 1.5px solid #334155;
+      border-radius: 16px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+
+    .pkg-btn:hover {
+      transform: translateY(-2px);
+      border-color: #64748b;
+      background: #243046;
+    }
+
+    .pkg-btn:active {
+      transform: scale(0.98);
+      background: #1e293b;
+    }
+
+    /* Best Value Highlight */
+    .pkg-btn.highlight {
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.18), rgba(15, 23, 42, 0.9));
+      border: 2px solid var(--sakura-pink);
+      box-shadow: 0 6px 20px rgba(244, 63, 94, 0.25);
+    }
+
+    .pkg-btn.highlight:hover {
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.26), rgba(30, 41, 59, 0.95));
+      border-color: #fb7185;
+    }
+
+    .pkg-badge-star {
+      position: absolute;
+      top: 0;
+      right: 0;
+      background: var(--sakura-pink);
+      color: #fff;
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 2px 10px;
+      border-bottom-left-radius: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .pkg-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .pkg-icon-box {
+      width: 48px;
+      height: 48px;
+      background: #0f172a;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      border: 1px solid #334155;
+    }
+
+    .pkg-btn.highlight .pkg-icon-box {
+      background: #881337;
+      border-color: #f43f5e;
+    }
+
+    .pkg-duration {
+      font-size: 20px;
+      font-weight: 900;
+      color: #fff;
+      line-height: 1.1;
+    }
+
+    .pkg-pulses {
+      font-size: 11px;
+      color: #94a3b8;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .pkg-right {
+      text-align: right;
+    }
+
+    .pkg-price {
+      font-size: 22px;
+      font-weight: 900;
+      color: #38bdf8;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    .pkg-btn.highlight .pkg-price {
+      color: #fecdd3;
+    }
+
+    .pkg-select-tag {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #10b981;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+    }
+
+    /* Dual Payment Banner at bottom */
+    .dual-payment-notice {
+      margin-top: 14px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px dashed #334155;
+      border-radius: 14px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .cash-icon {
+      font-size: 22px;
+    }
+
+    .notice-text h4 {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+
+    .notice-text p {
+      font-size: 10.5px;
+      color: #94a3b8;
+      line-height: 1.3;
+    }
+
+    /* Page 1: Layar QRIS Dinamis */
+    .page1-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 20px 18px;
+      background: radial-gradient(circle at 50% 15%, #1e293b 0%, #0b1120 75%);
+    }
+
+    .qris-header {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .qris-header h3 {
+      font-size: 19px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .qris-header p {
+      font-size: 11.5px;
+      color: #94a3b8;
+    }
+
+    .selected-summary-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: #1e293b;
+      padding: 6px 16px;
+      border-radius: 20px;
+      border: 1px solid #334155;
+      margin-bottom: 16px;
+    }
+
+    .summary-dur {
+      font-weight: 800;
+      font-size: 13px;
+      color: #fff;
+    }
+
+    .summary-cost {
+      font-weight: 900;
+      font-size: 15px;
+      color: #38bdf8;
+    }
+
+    /* QR Code Display Canvas */
+    .qris-card {
+      background: #ffffff;
+      padding: 16px 16px 12px;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 280px;
+      margin-bottom: 14px;
+    }
+
+    .qris-top-tag {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      margin-bottom: 8px;
+      padding: 0 4px;
+    }
+
+    .qris-label {
+      font-size: 11px;
+      font-weight: 900;
+      color: #000;
+      letter-spacing: 0.05em;
+    }
+
+    .qris-sublabel {
+      font-size: 9px;
+      font-weight: 700;
+      color: #dc2626;
+      border: 1px solid #dc2626;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    .qr-canvas-box {
+      width: 230px;
+      height: 230px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .qr-canvas-box svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .qris-footer-bank {
+      margin-top: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #475569;
+      text-align: center;
+    }
+
+    /* Timer Countdown Box */
+    .timer-badge-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      padding: 6px 16px;
+      border-radius: 20px;
+      margin-bottom: 12px;
+    }
+
+    .timer-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 800;
+      color: #f87171;
+    }
+
+    .supported-banks-row {
+      display: flex;
+      gap: 8px;
+      font-size: 10px;
+      color: #94a3b8;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    /* QRIS Cancel Button */
+    .qris-cancel-btn {
+      width: 100%;
+      padding: 12px;
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-radius: 12px;
+      color: #e2e8f0;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+
+    .qris-cancel-btn:hover {
+      background: #334155;
+    }
+
+    /* Page 2: Sesi Pijat Aktif (Countdown & Kursi Berjalan) */
+    .page2-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 30px 20px 24px;
+      background: radial-gradient(circle at 50% 30%, #1e293b 0%, #064e3b 100%);
+      text-align: center;
+    }
+
+    .active-header h2 {
+      font-size: 24px;
+      font-weight: 900;
+      color: #34d399;
+      margin-bottom: 4px;
+    }
+
+    .active-header p {
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+
+    /* Giant Countdown Clock */
+    .timer-giant-circle {
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      background: #0b1120;
+      border: 6px solid #10b981;
+      box-shadow:
+        0 0 40px rgba(16, 185, 129, 0.4),
+        inset 0 0 30px rgba(16, 185, 129, 0.2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 20px 0;
+      position: relative;
+    }
+
+    .timer-digits {
+      font-family: 'Orbitron', monospace;
+      font-size: 52px;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: 2px;
+      text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+    }
+
+    .timer-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #34d399;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* Pulse wave effect on chair */
+    .chair-vibes {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 8px 16px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #a7f3d0;
+      animation: pulseVibe 1s infinite alternate;
+    }
+
+    @keyframes pulseVibe {
+      from {
+        transform: scale(0.98);
+      }
+
+      to {
+        transform: scale(1.02);
+      }
+    }
+
+    /* Emergency Stop Button */
+    .emergency-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+      border: 2px solid #ef4444;
+      border-radius: 14px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 15px rgba(185, 28, 28, 0.4);
+      transition: all 0.15s;
+    }
+
+    .emergency-btn:hover {
+      background: #dc2626;
+      box-shadow: 0 6px 20px rgba(220, 38, 38, 0.6);
+    }
+
+    /* =========================================
+       ESP32 & RELAY CONTROLLER SANDBOX PANEL
+       ========================================= */
+    .sandbox-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .control-card {
+      background: var(--card-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--panel-border);
+    }
+
+    .card-title .tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: #1e293b;
+      color: #38bdf8;
+    }
+
+    /* Interactive Simulation Buttons Grid */
+    .sim-buttons-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 640px) {
+      .sim-buttons-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .sim-btn {
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+      text-align: left;
+    }
+
+    .btn-pay-success {
+      background: #064e3b;
+      color: #a7f3d0;
+      border-color: #10b981;
+    }
+
+    .btn-pay-success:hover {
+      background: #047857;
+      color: #fff;
+    }
+
+    .btn-cash-insert {
+      background: #78350f;
+      color: #fde68a;
+      border-color: #f59e0b;
+    }
+
+    .btn-cash-insert:hover {
+      background: #b45309;
+      color: #fff;
+    }
+
+    .btn-offline-toggle {
+      background: #1f2937;
+      color: #e5e7eb;
+      border-color: #4b5563;
+    }
+
+    .btn-offline-toggle:hover {
+      background: #374151;
+    }
+
+    .btn-reboot {
+      background: #312e81;
+      color: #c7d2fe;
+      border-color: #6366f1;
+    }
+
+    .btn-reboot:hover {
+      background: #4338ca;
+      color: #fff;
+    }
+
+    /* Live Hardware Pins Status Widgets */
+    .pin-status-table {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .pin-box {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .pin-name {
+      font-size: 10.5px;
+      color: #94a3b8;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 4px;
+    }
+
+    .pin-val {
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .pin-val.active {
+      color: #34d399;
+      text-shadow: 0 0 8px rgba(52, 211, 153, 0.5);
+    }
+
+    .relay-clicker-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #64748b;
+      margin-right: 4px;
+      vertical-align: middle;
+      transition: background 0.1s;
+    }
+
+    .relay-clicker-indicator.click-on {
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+    }
+
+    /* Live Serial Communication Log (UART TX2/RX2) */
+    .uart-terminal {
+      background: #030712;
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      height: 250px;
+      overflow-y: auto;
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      line-height: 1.5;
+    }
+
+    .uart-line {
+      margin-bottom: 4px;
+      word-break: break-all;
+    }
+
+    .uart-time {
+      color: #64748b;
+    }
+
+    .uart-tjc-in {
+      color: #38bdf8;
+    }
+
+    .uart-esp-out {
+      color: #34d399;
+    }
+
+    .uart-relay {
+      color: #fbbf24;
+    }
+
+    .uart-alert {
+      color: #f87171;
+    }
+
+    /* Tokuyo PCB Display Simulation Box */
+    .tokuyo-7seg-box {
+      background: #052e16;
+      border: 2px solid #10b981;
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+    }
+
+    .seg7-label {
+      font-size: 12px;
+      font-weight: 800;
+      color: #a7f3d0;
+    }
+
+    .seg7-display {
+      font-family: 'Orbitron', monospace;
+      font-size: 26px;
+      font-weight: 900;
+      color: #22c55e;
+      background: #022c22;
+      padding: 4px 14px;
+      border-radius: 8px;
+      border: 1px solid #059669;
+      letter-spacing: 2px;
+      text-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Top Global Header -->
+  <header class="header-bar">
+    <div class="brand-title">
+      <div class="brand-logo">🌸</div>
+      <div class="brand-text">
+        <h1>Simulator Layar TJC 4.3" &amp; Controller ESP32</h1>
+        <p>Smart Kursi Pijat Tokuyo QRIS · FreeRTOS State Machine Mockup</p>
+      </div>
+    </div>
+    <div class="system-pill">
+      <span class="pulse-dot" id="systemPulse"></span>
+      <span id="systemStateText">STATE: STANDBY (ONLINE)</span>
+    </div>
+  </header>
+
+  <!-- Main Workspace Grid -->
+  <main class="workspace-grid">
+
+    <!-- =========================================
+         KIRI: FISIK LAYAR TJC 4.3" HMI (480x800)
+         ========================================= -->
+    <div class="tjc-screen-wrapper">
+      <div class="tjc-casing">
+        <div class="tjc-screw screw-tl"></div>
+        <div class="tjc-screw screw-tr"></div>
+        <div class="tjc-screw screw-bl"></div>
+        <div class="tjc-screw screw-br"></div>
+
+        <div class="casing-header">
+          <span>HMI CAPACITIVE TOUCH 4.3"</span>
+          <span>TJC4880X243 · 480×800</span>
+        </div>
+
+        <!-- The 480x800 Active Display -->
+        <div class="tjc-display-frame" id="tjcDisplay">
+
+          <!-- Global Status Bar -->
+          <div class="tjc-status-bar">
+            <span>🌸 SAKURA-GI-01</span>
+            <span class="live-clock" id="tjcClock">14:52</span>
+            <span id="tjcWifiBadge">WiFi: 100% 🟢</span>
+          </div>
+
+          <!-- ================= PAGE 0: MENU STANDBY & PILIH PAKET ================= -->
+          <div class="tjc-page active" id="page0">
+            <div class="page0-container">
+              <div class="brand-hero">
+                <div class="chair-badge">TOKUYO MASSAGE CHAIR</div>
+                <h2>RELAKSASI <span>SEKETIKA</span></h2>
+                <p>Sentuh salah satu paket untuk bayar via QRIS</p>
+              </div>
+
+              <!-- 4 Package Options -->
+              <div class="package-grid">
+                <!-- P1 -->
+                <button class="pkg-btn" id="btnPkg1" onclick="selectPackage('P1', 4, 5000, 5)">
+                  <div class="pkg-left">
+                    <div class="pkg-icon-box">⚡</div>
+                    <div>
+                      <div class="pkg-duration">4 Menit</div>
+                      <div class="pkg-pulses">5 Pulsa Relay · Cepat</div>
+                    </div>
+                  </div>
+                  <div class="pkg-right">
+                    <div class="pkg-price">Rp 5.000</div>
+                    <div class="pkg-select-tag">PILIH ➔</div>
+                  </div>
+                </button>
+
+                <!-- P2 -->
+                <button class="pkg-btn" id="btnPkg2" onclick="selectPackage('P2', 8, 10000, 10)">
+                  <div class="pkg-left">
+                    <div class="pkg-icon-box">💆</div>
+                    <div>
+                      <div class="pkg-duration">8 Menit</div>
+                      <div class="pkg-pulses">10 Pulsa Relay · Standar</div>
+                    </div>
+                  </div>
+                  <div class="pkg-right">
+                    <div class="pkg-price">Rp 10.000</div>
+                    <div class="pkg-select-tag">PILIH ➔</div>
+                  </div>
+                </button>
+
+                <!-- P3 (Favorit Highlight) -->
+                <button class="pkg-btn highlight" id="btnPkg3" onclick="selectPackage('P3', 16, 20000, 20)">
+                  <div class="pkg-badge-star">⭐ BEST VALUE</div>
+                  <div class="pkg-left">
+                    <div class="pkg-icon-box">👑</div>
+                    <div>
+                      <div class="pkg-duration">16 Menit</div>
+                      <div class="pkg-pulses">20 Pulsa Relay · Favorit</div>
+                    </div>
+                  </div>
+                  <div class="pkg-right">
+                    <div class="pkg-price">Rp 20.000</div>
+                    <div class="pkg-select-tag">PILIH ➔</div>
+                  </div>
+                </button>
+
+                <!-- P4 -->
+                <button class="pkg-btn" id="btnPkg4" onclick="selectPackage('P4', 40, 50000, 50)">
+                  <div class="pkg-left">
+                    <div class="pkg-icon-box">🧘</div>
+                    <div>
+                      <div class="pkg-duration">40 Menit</div>
+                      <div class="pkg-pulses">50 Pulsa Relay · Total</div>
+                    </div>
+                  </div>
+                  <div class="pkg-right">
+                    <div class="pkg-price">Rp 50.000</div>
+                    <div class="pkg-select-tag">PILIH ➔</div>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Dual Payment Notice -->
+              <div class="dual-payment-notice">
+                <div class="cash-icon">💵</div>
+                <div class="notice-text">
+                  <h4>Dual Payment Aktif</h4>
+                  <p>Bisa juga memasukkan langsung uang kertas Rp 5rb/10rb ke lubang uang tanpa menyentuh layar.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ================= PAGE 1: PEMBAYARAN QRIS DINAMIS ================= -->
+          <div class="tjc-page" id="page1">
+            <div class="page1-container">
+              <div class="qris-header">
+                <h3>SCAN QRIS DINAMIS</h3>
+                <p>Mendukung seluruh M-Banking &amp; E-Wallet</p>
+              </div>
+
+              <div class="selected-summary-pill">
+                <span class="summary-dur" id="qrisDurLabel">16 Menit Pijat</span>
+                <span>•</span>
+                <span class="summary-cost" id="qrisCostLabel">Rp 20.000</span>
+              </div>
+
+              <!-- QRIS Display Card -->
+              <div class="qris-card">
+                <div class="qris-top-tag">
+                  <span class="qris-label">QRIS STANDAR BI</span>
+                  <span class="qris-sublabel">NPSN: SAKURA-01</span>
+                </div>
+                <div class="qr-canvas-box" id="qrCanvasBox">
+                  <!-- Synthetic Realistic QR Code SVG -->
+                  <svg viewBox="0 0 100 100">
+                    <rect width="100" height="100" fill="#ffffff" />
+                    <!-- Corner Markers -->
+                    <rect x="5" y="5" width="26" height="26" fill="#000" />
+                    <rect x="8" y="8" width="20" height="20" fill="#fff" />
+                    <rect x="12" y="12" width="12" height="12" fill="#000" />
+
+                    <rect x="69" y="5" width="26" height="26" fill="#000" />
+                    <rect x="72" y="8" width="20" height="20" fill="#fff" />
+                    <rect x="76" y="12" width="12" height="12" fill="#000" />
+
+                    <rect x="5" y="69" width="26" height="26" fill="#000" />
+                    <rect x="8" y="72" width="20" height="20" fill="#fff" />
+                    <rect x="12" y="76" width="12" height="12" fill="#000" />
+
+                    <!-- Mini Patterns -->
+                    <rect x="36" y="8" width="6" height="6" fill="#000" />
+                    <rect x="48" y="12" width="10" height="6" fill="#000" />
+                    <rect x="36" y="24" width="8" height="6" fill="#000" />
+                    <rect x="50" y="24" width="12" height="6" fill="#000" />
+
+                    <rect x="8" y="38" width="6" height="8" fill="#000" />
+                    <rect x="20" y="42" width="8" height="6" fill="#000" />
+                    <rect x="34" y="36" width="6" height="10" fill="#000" />
+
+                    <!-- Center QRIS Badge -->
+                    <rect x="38" y="38" width="24" height="24" rx="4" fill="#881337" />
+                    <text x="50" y="54" fill="#ffffff" font-size="10" font-weight="900" text-anchor="middle">🌸</text>
+
+                    <!-- Bottom patterns -->
+                    <rect x="38" y="68" width="8" height="12" fill="#000" />
+                    <rect x="52" y="72" width="10" height="8" fill="#000" />
+                    <rect x="68" y="42" width="14" height="6" fill="#000" />
+                    <rect x="84" y="52" width="8" height="12" fill="#000" />
+                    <rect x="70" y="70" width="12" height="12" fill="#000" />
+                    <rect x="86" y="70" width="8" height="8" fill="#000" />
+                  </svg>
+                </div>
+                <div class="qris-footer-bank">Midtrans Core API · Verifikasi Instan</div>
+              </div>
+
+              <!-- Countdown Box -->
+              <div class="timer-badge-box">
+                <span>⏱️ Sisa Waktu Bayar:</span>
+                <span class="timer-text" id="qrisCountdown">02:59</span>
+              </div>
+
+              <div class="supported-banks-row">
+                <span>BCA</span> • <span>Mandiri</span> • <span>BRI</span> • <span>GoPay</span> • <span>OVO</span> •
+                <span>Dana</span>
+              </div>
+
+              <!-- Cancel Button -->
+              <button class="qris-cancel-btn" id="btnCancelQris" onclick="cancelQrisPayment()">
+                <span>✕</span> Batalkan Transaksi
+              </button>
+            </div>
+          </div>
+
+          <!-- ================= PAGE 2: SESI PIJAT BERJALAN ================= -->
+          <div class="tjc-page" id="page2">
+            <div class="page2-container">
+              <div class="active-header">
+                <h2>PEMBAYARAN SUKSES! 🌸</h2>
+                <p>Silakan duduk rileks, kursi Tokuyo mulai memijat</p>
+              </div>
+
+              <!-- Giant Animated Timer -->
+              <div class="timer-giant-circle">
+                <div class="timer-digits" id="massageTimerDigits">15:59</div>
+                <div class="timer-label">Sisa Waktu Sesi</div>
+              </div>
+
+              <div class="chair-vibes">
+                <span>⚡</span> Motor Penggetar &amp; Sandaran Rebah Aktif
+              </div>
+
+              <!-- Emergency Stop Button -->
+              <button class="emergency-btn" id="btnEmergency" onclick="triggerEmergencyStop()">
+                <span>🛑</span> HENTIKAN DARURAT (EMERGENCY)
+              </button>
+            </div>
+          </div>
+
+        </div> <!-- /tjc-display-frame -->
+      </div> <!-- /tjc-casing -->
+    </div>
+
+    <!-- =========================================
+         KANAN: SANDBOX CONTROLLER ESP32 & TELEMETRY
+         ========================================= -->
+    <div class="sandbox-panel">
+
+      <!-- Test Control Actions -->
+      <div class="control-card">
+        <div class="card-title">
+          <span>SIMULASI SKENARIO LAPANGAN</span>
+          <span class="tag">TEST HARNESS</span>
+        </div>
+
+        <div class="sim-buttons-grid">
+          <!-- Button 1: Simulate Payment PAID -->
+          <button class="sim-btn btn-pay-success" id="simPayPaid" onclick="simulatePaymentPaid()">
+            <span style="font-size: 20px;">💳</span>
+            <div>
+              <div>Midtrans Webhook: PAID</div>
+              <small style="opacity: 0.8;">Simulasikan QRIS Terbayar</small>
+            </div>
+          </button>
+
+          <!-- Button 2: Simulate Cash Insert -->
+          <button class="sim-btn btn-cash-insert" id="simCashInsert" onclick="simulateCashInsert()">
+            <span style="font-size: 20px;">💵</span>
+            <div>
+              <div>Bill Acceptor: Rp 10.000</div>
+              <small style="opacity: 0.8;">Uang Tunai Fisik Masuk</small>
+            </div>
+          </button>
+
+          <!-- Button 3: Toggle WiFi Offline -->
+          <button class="sim-btn btn-offline-toggle" id="simToggleWifi" onclick="toggleWifiNetwork()">
+            <span style="font-size: 20px;" id="wifiIconSim">🌐</span>
+            <div>
+              <div id="wifiStatusSimText">Jaringan: Online (WiFi)</div>
+              <small style="opacity: 0.8;">Simulasi Offline / Fallback</small>
+            </div>
+          </button>
+
+          <!-- Button 4: Cold Reboot ESP32 -->
+          <button class="sim-btn btn-reboot" id="simReboot" onclick="rebootEsp32()">
+            <span style="font-size: 20px;">🔄</span>
+            <div>
+              <div>Reboot ESP32 &lt; 1 Detik</div>
+              <small style="opacity: 0.8;">Reset WDT &amp; State</small>
+            </div>
+          </button>
+        </div>
+
+        <!-- Hardware Status Pins -->
+        <div class="pin-status-table">
+          <div class="pin-box">
+            <div class="pin-name">GPIO 23 (RELAY)</div>
+            <div class="pin-val" id="pinRelayVal">
+              <span class="relay-clicker-indicator" id="relayIndicator"></span>
+              <span id="relayText">LOW (0V)</span>
+            </div>
+          </div>
+          <div class="pin-box">
+            <div class="pin-name">SERIAL UART (9600)</div>
+            <div class="pin-val active">TX2 / RX2 READY</div>
+          </div>
+          <div class="pin-box">
+            <div class="pin-name">FREE HEAP ESP32</div>
+            <div class="pin-val active" id="freeHeapVal">268,416 B</div>
+          </div>
+        </div>
+
+        <!-- Tokuyo PCB 7-Segment Simulation -->
+        <div class="tokuyo-7seg-box">
+          <div>
+            <div class="seg7-label">TOKUYO PCB CONTROLLER (SOCKET J3)</div>
+            <div style="font-size: 11px; color: #86efac; margin-top: 2px;">
+              Tampilan LED 7-Segment Asli Bawaan Kursi:
+            </div>
+          </div>
+          <div class="seg7-display" id="tokuyoSeg7">00:00</div>
+        </div>
+      </div>
+
+      <!-- Live Serial UART Terminal Log -->
+      <div class="control-card" style="flex: 1;">
+        <div class="card-title">
+          <span>SERIAL UART MONITOR (TX2: GPIO 17 ➔ RX2: GPIO 16)</span>
+          <button onclick="clearUartLog()"
+            style="background:none; border:none; color:#38bdf8; font-size:11px; font-weight:700; cursor:pointer;">BERSIHKAN
+            LOG</button>
+        </div>
+
+        <div class="uart-terminal" id="uartLog">
+          <!-- Live logged messages will appear here -->
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    // ==========================================
+    // AUDIO SYNTHESIZER (Web Audio API)
+    // Tactile Relay Clicks & Touch Beeps
+    // ==========================================
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playBeep(freq = 1200, duration = 0.04) {
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function playRelayClick(isClosing = true) {
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      // Mechanical transient burst
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = isClosing ? 'square' : 'triangle';
+      osc.frequency.setValueAtTime(isClosing ? 180 : 120, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.035);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.035);
+    }
+
+    // ==========================================
+    // STATE & LOGIC SIMULATOR
+    // ==========================================
+    let currentState = 'STANDBY';
+    let selectedPackage = null;
+    let qrisTimerInterval = null;
+    let massageTimerInterval = null;
+    let isWifiOnline = true;
+    let remainingQrisSeconds = 179;
+    let remainingMassageSeconds = 0;
+
+    // Helper: Format MM:SS
+    function fmtTime(sec) {
+      const m = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    // Live Clock on TJC Header
+    function updateClock() {
+      const now = new Date();
+      const hh = now.getHours().toString().padStart(2, '0');
+      const mm = now.getMinutes().toString().padStart(2, '0');
+      document.getElementById('tjcClock').innerText = `${hh}:${mm}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // UART Logger
+    function logUart(source, msg, type = 'info') {
+      const log = document.getElementById('uartLog');
+      const now = new Date();
+      const ts = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds().toString().padStart(3, '0')}`;
+
+      let colorClass = 'uart-line';
+      if (source.includes('TJC')) colorClass += ' uart-tjc-in';
+      else if (source.includes('ESP32')) colorClass += ' uart-esp-out';
+      else if (source.includes('RELAY')) colorClass += ' uart-relay';
+      else if (source.includes('WARN') || source.includes('ERR')) colorClass += ' uart-alert';
+
+      const line = document.createElement('div');
+      line.className = colorClass;
+      line.innerHTML = `<span class="uart-time">[${ts}]</span> <strong>[${source}]</strong> ${msg}`;
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function clearUartLog() {
+      document.getElementById('uartLog').innerHTML = '';
+      logUart('SYSTEM', 'Serial UART Monitor Log telah dibersihkan.');
+    }
+
+    // Switch TJC Pages
+    function showPage(pageId) {
+      document.querySelectorAll('.tjc-page').forEach(p => p.classList.remove('active'));
+      const target = document.getElementById(pageId);
+      if (target) target.classList.add('active');
+    }
+
+    // Boot Log
+    logUart('SYSTEM', 'ESP32 IoT Hub Initialized. Baud: 9600. FreeRTOS Boot < 1s.');
+    logUart('ESP32 ➔ TJC', 'page 0\\xFF\\xFF\\xFF (Standby Menu TJC)');
+
+    // ==========================================
+    // STEP 1: USER SELECTS PACKAGE ON TJC (P1..P4)
+    // ==========================================
+    function selectPackage(pkgCode, minutes, price, pulses) {
+      if (currentState !== 'STANDBY') return;
+      playBeep(1400);
+
+      if (!isWifiOnline) {
+        alert('Maaf, jaringan internet offline. Silakan gunakan pembayaran Uang Kertas tunai.');
+        logUart('ESP32', 'ERR: WiFi offline! Tidak dapat generate QRIS Midtrans.', 'alert');
+        return;
+      }
+
+      selectedPackage = { pkgCode, minutes, price, pulses };
+      currentState = 'QRIS_DISPLAY';
+      document.getElementById('systemStateText').innerText = `STATE: QRIS WAITING (${pkgCode})`;
+
+      // Log UART sent from TJC to ESP32
+      logUart('TJC ➔ ESP32', `Sent Button Press Code: '${pkgCode}'`);
+
+      // ESP32 requests QRIS to Midtrans and switches TJC page
+      logUart('ESP32 ➔ CLOUD', `POST /api/payments/create-qris | Amount: Rp ${price.toLocaleString('id-ID')} | Chair: SAKURA-GI-01`);
+
+      setTimeout(() => {
+        logUart('CLOUD ➔ ESP32', `Midtrans QRIS Generated: 00020101021226... (TRX-SAKURA-GI-01-${Date.now().toString().slice(-6)})`);
+        logUart('ESP32 ➔ TJC', `qr0.txt="00020101021226..."\\xFF\\xFF\\xFF`);
+        logUart('ESP32 ➔ TJC', `page 1\\xFF\\xFF\\xFF (Switch to QRIS Page)`);
+
+        document.getElementById('qrisDurLabel').innerText = `${minutes} Menit Pijat`;
+        document.getElementById('qrisCostLabel').innerText = `Rp ${price.toLocaleString('id-ID')}`;
+
+        remainingQrisSeconds = 179;
+        document.getElementById('qrisCountdown').innerText = fmtTime(remainingQrisSeconds);
+
+        showPage('page1');
+
+        // Start 3-minute QRIS expiration countdown
+        clearInterval(qrisTimerInterval);
+        qrisTimerInterval = setInterval(() => {
+          remainingQrisSeconds--;
+          document.getElementById('qrisCountdown').innerText = fmtTime(remainingQrisSeconds);
+          if (remainingQrisSeconds <= 0) {
+            cancelQrisPayment('TIMEOUT');
+          }
+        }, 1000);
+      }, 350);
+    }
+
+    // Cancel QRIS
+    function cancelQrisPayment(reason = 'USER_CANCEL') {
+      playBeep(600);
+      clearInterval(qrisTimerInterval);
+      currentState = 'STANDBY';
+      document.getElementById('systemStateText').innerText = 'STATE: STANDBY (ONLINE)';
+
+      logUart('TJC ➔ ESP32', `Sent Event: 'CANCEL' (${reason})`);
+      logUart('ESP32 ➔ CLOUD', 'POST /api/transactions/cancel (Released lock)');
+      logUart('ESP32 ➔ TJC', 'page 0\\xFF\\xFF\\xFF (Back to Menu Standby)');
+
+      showPage('page0');
+    }
+
+    // ==========================================
+    // STEP 2: PAYMENT SUCCESS & PULSE INJECTION
+    // ==========================================
+    function simulatePaymentPaid() {
+      if (currentState !== 'QRIS_DISPLAY') {
+        alert('Harap pilih salah satu paket durasi terlebih dahulu di layar TJC untuk memunculkan QRIS!');
+        return;
+      }
+      playBeep(1800, 0.08);
+      clearInterval(qrisTimerInterval);
+
+      currentState = 'PULSING';
+      document.getElementById('systemStateText').innerText = 'STATE: INJECTING PULSES';
+
+      logUart('MIDTRANS ➔ CLOUD', 'Webhook: transaction_status="settlement", gross_amount=' + selectedPackage.price);
+      logUart('CLOUD ➔ ESP32', `Push Notification: PAYMENT CONFIRMED! Pulses to send: ${selectedPackage.pulses}`);
+      logUart('ESP32 ➔ TJC', 'page 2\\xFF\\xFF\\xFF (Pembayaran Sukses - Kursi Aktif)');
+
+      showPage('page2');
+
+      // Inject pulses to Tokuyo Socket J3 via GPIO 23 Relay
+      injectPulsesToTokuyo(selectedPackage.pulses, selectedPackage.minutes);
+    }
+
+    // Simulate Cash Bill Acceptor Insert
+    function simulateCashInsert() {
+      if (currentState === 'PULSING') return;
+      playRelayClick(true);
+
+      const cashMinutes = 8;
+      const cashPulses = 10;
+      logUart('BILL ACCEPTOR', 'Uang Kertas Rp 10.000 Masuk & Tervalidasi Optical Sensor!');
+
+      if (currentState === 'STANDBY' || currentState === 'QRIS_DISPLAY') {
+        clearInterval(qrisTimerInterval);
+        currentState = 'PULSING';
+        document.getElementById('systemStateText').innerText = 'STATE: CASH INJECTED';
+        logUart('TOKUYO J3', 'Bill Acceptor memicu pulsa manual ke MS1 Socket J3 (10 Pulsa)');
+        logUart('ESP32 ➔ TJC', 'page 2\\xFF\\xFF\\xFF (Aktif via Cash)');
+        showPage('page2');
+        injectPulsesToTokuyo(cashPulses, cashMinutes, true);
+      }
+    }
+
+    // Pulse generator simulation: 200ms ON / 150ms OFF
+    function injectPulsesToTokuyo(totalPulses, totalMinutes, fromCash = false) {
+      let pulseCount = 0;
+      const relayPinText = document.getElementById('relayText');
+      const relayInd = document.getElementById('relayIndicator');
+      const tokuyoDisplay = document.getElementById('tokuyoSeg7');
+
+      logUart('RELAY CONTROLLER', `Mulai injeksi ${totalPulses} pulsa (200ms ON / 150ms OFF) ke Pin MS1-GND.`);
+
+      const pulseInterval = setInterval(() => {
+        pulseCount++;
+
+        // Relay ON (200ms)
+        playRelayClick(true);
+        relayPinText.innerText = 'HIGH (3.3V)';
+        relayPinText.classList.add('active');
+        relayInd.classList.add('click-on');
+
+        const currentMins = pulseCount * 0.8;
+        tokuyoDisplay.innerText = fmtTime(Math.round(currentMins * 60));
+
+        logUart('RELAY GPIO23', `Pulsa #${pulseCount}/${totalPulses} ➔ RELAY ON (Shorting MS1 to GND 200ms)`);
+
+        setTimeout(() => {
+          // Relay OFF (150ms)
+          playRelayClick(false);
+          relayPinText.innerText = 'LOW (0V)';
+          relayPinText.classList.remove('active');
+          relayInd.classList.remove('click-on');
+        }, 180);
+
+        if (pulseCount >= totalPulses) {
+          clearInterval(pulseInterval);
+          logUart('RELAY CONTROLLER', `✓ Selesai injeksi ${totalPulses} pulsa. Kursi Tokuyo aktif.`);
+          startMassageSession(totalMinutes);
+        }
+      }, 350);
+    }
+
+    // ==========================================
+    // STEP 3: MASSAGE SESSION COUNTDOWN RUNNING
+    // ==========================================
+    function startMassageSession(minutes) {
+      currentState = 'MASSAGE_RUNNING';
+      document.getElementById('systemStateText').innerText = 'STATE: MASSAGE IN PROGRESS';
+      remainingMassageSeconds = minutes * 60;
+
+      document.getElementById('massageTimerDigits').innerText = fmtTime(remainingMassageSeconds);
+      document.getElementById('tokuyoSeg7').innerText = fmtTime(remainingMassageSeconds);
+
+      clearInterval(massageTimerInterval);
+      massageTimerInterval = setInterval(() => {
+        remainingMassageSeconds--;
+        document.getElementById('massageTimerDigits').innerText = fmtTime(remainingMassageSeconds);
+        document.getElementById('tokuyoSeg7').innerText = fmtTime(remainingMassageSeconds);
+
+        if (remainingMassageSeconds % 60 === 0 && remainingMassageSeconds > 0) {
+          logUart('ESP32 ➔ CLOUD', `Heartbeat In-Use: Sisa waktu ${remainingMassageSeconds / 60} menit`);
+        }
+
+        if (remainingMassageSeconds <= 0) {
+          clearInterval(massageTimerInterval);
+          finishMassageSession();
+        }
+      }, 1000);
+    }
+
+    // Massage Finish
+    function finishMassageSession() {
+      playBeep(900, 0.2);
+      currentState = 'STANDBY';
+      document.getElementById('systemStateText').innerText = 'STATE: STANDBY (ONLINE)';
+      document.getElementById('tokuyoSeg7').innerText = '00:00';
+
+      logUart('TOKUYO CHAIR', 'Timer sesi selesai. Sandaran kursi kembali ke posisi tegak.');
+      logUart('ESP32 ➔ CLOUD', 'POST /api/sessions/finish | Status: COMPLETED');
+      logUart('ESP32 ➔ TJC', 'page 0\\xFF\\xFF\\xFF (Kembali ke menu standby)');
+
+      showPage('page0');
+    }
+
+    // Emergency Stop
+    function triggerEmergencyStop() {
+      playBeep(400, 0.3);
+      clearInterval(massageTimerInterval);
+      currentState = 'STANDBY';
+      document.getElementById('systemStateText').innerText = 'STATE: EMERGENCY STOPPED';
+      document.getElementById('tokuyoSeg7').innerText = '00:00';
+
+      logUart('TJC ➔ ESP32', 'EVENT: EMERGENCY_STOP DITEKAN!', 'alert');
+      logUart('ESP32 ➔ RELAY', 'GPIO 23 dipaksa LOW (0V). Pemijatan dihentikan seketika.', 'alert');
+      logUart('ESP32 ➔ CLOUD', 'POST /api/sessions/emergency-stop (Event Logged)');
+      logUart('ESP32 ➔ TJC', 'page 0\\xFF\\xFF\\xFF');
+
+      alert('Layanan dihentikan darurat. Sandaran kursi dikembalikan ke posisi awal.');
+      showPage('page0');
+    }
+
+    // Toggle Network Offline
+    function toggleWifiNetwork() {
+      isWifiOnline = !isWifiOnline;
+      const badge = document.getElementById('tjcWifiBadge');
+      const simText = document.getElementById('wifiStatusSimText');
+      const simIcon = document.getElementById('wifiIconSim');
+
+      if (isWifiOnline) {
+        badge.innerText = 'WiFi: 100% 🟢';
+        simText.innerText = 'Jaringan: Online (WiFi)';
+        simIcon.innerText = '🌐';
+        logUart('ESP32', 'WiFi Reconnected! IP: 192.168.1.142 (RSSI: -54dBm)');
+      } else {
+        badge.innerText = 'WiFi: OFFLINE 🔴';
+        simText.innerText = 'Jaringan: OFFLINE (Cash Only)';
+        simIcon.innerText = '❌';
+        logUart('ESP32', 'WiFi Disconnected! Fallback otomatis ke mode Uang Kertas tunai.', 'alert');
+      }
+    }
+
+    // Reboot ESP32 Simulator
+    function rebootEsp32() {
+      playBeep(800, 0.05);
+      clearInterval(qrisTimerInterval);
+      clearInterval(massageTimerInterval);
+
+      currentState = 'BOOTING';
+      document.getElementById('systemStateText').innerText = 'STATE: REBOOTING...';
+      document.getElementById('tokuyoSeg7').innerText = '88:88';
+
+      // Flash display black briefly
+      const display = document.getElementById('tjcDisplay');
+      display.style.opacity = '0.2';
+
+      logUart('SYSTEM', '--- ESP32 HARDWARE WATCHDOG RESET / REBOOT ---', 'alert');
+      logUart('BOOT', 'rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)');
+      logUart('BOOT', 'CPU0: Xtensa Dual-Core 240MHz. FreeRTOS Kernel v10.4.3');
+
+      setTimeout(() => {
+        display.style.opacity = '1';
+        currentState = 'STANDBY';
+        document.getElementById('systemStateText').innerText = 'STATE: STANDBY (ONLINE)';
+        document.getElementById('tokuyoSeg7').innerText = '00:00';
+        document.getElementById('freeHeapVal').innerText = (260000 + Math.floor(Math.random() * 10000)).toLocaleString() + ' B';
+
+        logUart('ESP32', 'WiFi connected. IP: 192.168.1.142. Ready in 0.82 seconds.');
+        logUart('ESP32 ➔ TJC', 'page 0\\xFF\\xFF\\xFF');
+        showPage('page0');
+      }, 850);
+    }
+  </script>
+</body>
+
+</html>
