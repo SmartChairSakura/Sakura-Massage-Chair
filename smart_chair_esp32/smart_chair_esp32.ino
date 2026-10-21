@@ -11,17 +11,20 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <HTTPUpdate.h>
 #include <ArduinoJson.h>
 
 // =====================================================================================
 // 1. KONFIGURASI WIFI & SERVER
 // =====================================================================================
-const char* WIFI_SSID         = "PARKEE-ENGINEER";
-const char* WIFI_PASSWORD     = "PARKEE1234";
-const char* CHAIR_ID          = "SAKURA-GI-01";
-const char* BASE_API_URL      = "https://sakura-massage-chair.vercel.app";
-const char* SUPABASE_REST_URL = "https://ndhlvkqswysexrdurlrk.supabase.co/rest/v1/chair_slips";
-const char* SUPABASE_KEY      = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kaGx2a3Fzd3lzZXhyZHVybHJrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NTM5NzY0OCwiZXhwIjoyMTAwOTczNjQ4fQ.x57j7Ev9ETNmuTxxwGTMvjZX0hF4rQbxj2dpEpu4X8I";
+const char* WIFI_SSID             = "PARKEE-ENGINEER";
+const char* WIFI_PASSWORD         = "PARKEE1234";
+const char* CHAIR_ID              = "SAKURA-GI-01";
+const char* FIRMWARE_VERSION      = "2.2.0-ota";
+const char* BASE_API_URL          = "https://sakura-massage-chair.vercel.app";
+const char* SUPABASE_REST_URL     = "https://ndhlvkqswysexrdurlrk.supabase.co/rest/v1/chair_slips";
+const char* SUPABASE_CHAIRS_URL   = "https://ndhlvkqswysexrdurlrk.supabase.co/rest/v1/chairs";
+const char* SUPABASE_KEY          = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kaGx2a3Fzd3lzZXhyZHVybHJrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NTM5NzY0OCwiZXhwIjoyMTAwOTczNjQ4fQ.x57j7Ev9ETNmuTxxwGTMvjZX0hF4rQbxj2dpEpu4X8I";
 
 // =====================================================================================
 // 2. DEFINISI PIN & TIMING HARDWARE
@@ -226,7 +229,39 @@ void netBuatOrderQRIS(uint32_t reqSeq, int durasiMenit, int nominal, int pulsa, 
   }
 }
 
-// B. Kirim ACK dengan Auto-Retry hingga 3x agar status server selalu sinkron
+// B. Kirim ACK dengan Dual-Engine (Vercel Endpoint + Direct Supabase Cloud Fallback)
+void netKirimAckSupabaseDirect(const char* orderId, const char* eventStatus) {
+  WiFiClientSecure client;
+  client.setInsecure();
+  client.setTimeout(4);
+  HTTPClient http;
+  http.setTimeout(4000);
+
+  String queryUrl = String(SUPABASE_REST_URL) + "?chair_slip_number=eq." + orderId;
+  if (http.begin(client, queryUrl)) {
+    http.addHeader("apikey", SUPABASE_KEY);
+    http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("Prefer", "return=minimal");
+
+    StaticJsonDocument<128> doc;
+    doc["status"] = eventStatus;
+    String reqBody;
+    serializeJson(doc, reqBody);
+
+    int patchCode = http.sendRequest("PATCH", reqBody);
+    http.end();
+    client.stop();
+
+    if (patchCode >= 200 && patchCode < 300) {
+      Serial.printf("[ACK DIRECT SUPABASE] Berhasil update status '%s' ke Database Supabase (HTTP %d).\n", eventStatus, patchCode);
+      return;
+    }
+  } else {
+    client.stop();
+  }
+}
+
 void netKirimAck(const char* orderId, const char* eventStatus, int pulsaTerkirim) {
   if (WiFi.status() != WL_CONNECTED || strlen(orderId) == 0) return;
 
@@ -256,6 +291,14 @@ void netKirimAck(const char* orderId, const char* eventStatus, int pulsaTerkirim
         Serial.printf("[ACK] Status '%s' berhasil dikirim (Order: %s).\n", eventStatus, orderId);
         return;
       }
+
+      // Jika Vercel mengembalikan 401 (terkunci middleware admin), langsung fallback ke Direct Supabase Cloud
+      if (code == 401) {
+        Serial.println("[ACK] Vercel 401 (Middleware Admin). Mengalihkan ACK langsung ke Direct Supabase Cloud...");
+        netKirimAckSupabaseDirect(orderId, eventStatus);
+        return;
+      }
+
       Serial.printf("[ACK WARN] Percobaan %d gagal (HTTP %d), mencoba ulang...\n", attempt, code);
     } else {
       client.stop();
@@ -279,7 +322,7 @@ void netSendHeartbeat() {
 
     StaticJsonDocument<128> doc;
     doc["chairId"] = CHAIR_ID;
-    doc["firmwareVersion"] = "2.1.0-fast";
+    doc["firmwareVersion"] = FIRMWARE_VERSION;
     doc["status"] = (currentState == STATE_MASSAGE_RUNNING) ? "BUSY" : "ONLINE";
 
     String reqBody;
@@ -288,6 +331,81 @@ void netSendHeartbeat() {
     http.end();
   }
   client.stop();
+}
+
+// D. Lapor Status OTA ke Supabase Cloud
+void laporOtaStatus(const char* statusStr, const char* versionStr = "") {
+  WiFiClientSecure client;
+  client.setInsecure();
+  client.setTimeout(4);
+  HTTPClient http;
+  http.setTimeout(4000);
+
+  String queryUrl = String(SUPABASE_CHAIRS_URL) + "?id=eq." + CHAIR_ID;
+  if (http.begin(client, queryUrl)) {
+    http.addHeader("apikey", SUPABASE_KEY);
+    http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("Prefer", "return=minimal");
+
+    StaticJsonDocument<256> doc;
+    doc["ota_status"] = statusStr;
+    if (String(statusStr) == "SUCCESS" && strlen(versionStr) > 0) {
+      doc["firmware_version"] = versionStr;
+    }
+    String reqBody;
+    serializeJson(doc, reqBody);
+
+    http.sendRequest("PATCH", reqBody);
+    http.end();
+  }
+  client.stop();
+}
+
+// E. Eksekutor Cloud HTTPS OTA Update
+void jalankanCloudOTA(const String& firmwareUrl, const String& targetVersion) {
+  if (currentState == STATE_MASSAGE_RUNNING) {
+    Serial.println("[OTA] Kursi sedang memijat. Menunda download OTA hingga sesi selesai.");
+    return;
+  }
+
+  Serial.println("\n=======================================================");
+  Serial.printf("[OTA] MEMULAI UPDATE FIRMWARE KE VERSI: %s\n", targetVersion.c_str());
+  Serial.printf("[OTA URL] %s\n", firmwareUrl.c_str());
+  Serial.println("=======================================================");
+
+  laporOtaStatus("DOWNLOADING", "");
+  sendToTJC("page 2");
+  sendToTJC("page page2");
+  sendToTJC("t_timer.txt=\"UPDATING FW\"");
+  delay(100);
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  httpUpdate.rebootOnUpdate(false); // Reboot manual agar status sempat terkirim ke Supabase
+
+  t_httpUpdate_return ret = httpUpdate.update(client, firmwareUrl);
+
+  switch (ret) {
+    case HTTP_UPDATE_FAILED:
+      Serial.printf("[OTA ERROR] Update Gagal (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+      laporOtaStatus("FAILED", "");
+      kembaliKeMenuUtama();
+      break;
+
+    case HTTP_UPDATE_NO_UPDATES:
+      Serial.println("[OTA] Server menyatakan tidak ada binary baru.");
+      break;
+
+    case HTTP_UPDATE_OK:
+      Serial.println("\n[OTA SUCCESS] Flashing binary selesai 100%! Melapor ke Cloud dan Rebooting...");
+      laporOtaStatus("SUCCESS", targetVersion.c_str());
+      sendToTJC("t_timer.txt=\"REBOOTING...\"");
+      delay(1500);
+      ESP.restart();
+      break;
+  }
 }
 
 // D. Worker Task di Core 0 (Menangani semua koneksi HTTPS + Persistent Polling Supabase)
@@ -339,19 +457,17 @@ void networkTask(void* pvParameters) {
       netKirimAck(ack.orderId, ack.eventStatus, ack.pulses);
     }
 
-    // 3. Polling Cepat Status Pembayaran ke Supabase (Setiap 1.2 Detik dengan Persistent TLS)
-    if (currentState == STATE_QRIS_DISPLAY && !paymentVerifiedFlag) {
-      String ordIdCopy = "";
-      uint32_t seqCopy = 0;
-      portENTER_CRITICAL(&stateMux);
-      ordIdCopy = currentOrderId;
-      seqCopy = orderSessionSeq;
-      portEXIT_CRITICAL(&stateMux);
+    // 3. Polling Cepat Status Pembayaran ke Supabase (Chair-Centric: Tangkap Semua Pembayaran untuk Kursi Ini)
+    // Berjalan saat QRIS aktif (setiap 1.2s) MAUPUN saat Standby / setelah Cancel (setiap 2.5s)
+    bool shouldPoll = (currentState == STATE_QRIS_DISPLAY || currentState == STATE_STANDBY) && !paymentVerifiedFlag;
+    unsigned long pollInterval = (currentState == STATE_QRIS_DISPLAY) ? 1200 : 2500;
 
-      if (ordIdCopy.length() > 0 && (millis() - lastPollMs >= 1200)) {
+    if (shouldPoll) {
+      if (millis() - lastPollMs >= pollInterval) {
         lastPollMs = millis();
         if (WiFi.status() == WL_CONNECTED) {
-          String queryUrl = String(SUPABASE_REST_URL) + "?chair_slip_number=eq." + ordIdCopy + "&select=status";
+          // Query mencari tiket yang statusnya 'paid' untuk CHAIR_ID ini
+          String queryUrl = String(SUPABASE_REST_URL) + "?chair_id=eq." + CHAIR_ID + "&status=eq.paid&order=created_at.desc&limit=1&select=chair_slip_number,pulse_count,duration_in_minutes";
           if (!pollSessionActive) {
             pollClient.setInsecure();
             pollClient.setTimeout(3);
@@ -369,11 +485,18 @@ void networkTask(void* pvParameters) {
               DeserializationError err = deserializeJson(resDoc, resp);
 
               if (!err && resDoc.is<JsonArray>() && resDoc.size() > 0) {
-                String st = resDoc[0]["status"] | "";
-                if (st == "paid" || st == "PAID" || st == "session_inprocess" || st == "done" || st == "COMPLETED") {
-                  if (seqCopy == orderSessionSeq && currentState == STATE_QRIS_DISPLAY) {
-                    paymentVerifiedFlag = true;
-                  }
+                String paidOrder = resDoc[0]["chair_slip_number"] | "";
+                int pCount = resDoc[0]["pulse_count"] | 5;
+                int dMins = resDoc[0]["duration_in_minutes"] | 4;
+
+                if (paidOrder.length() > 0 && currentState != STATE_MASSAGE_RUNNING) {
+                  portENTER_CRITICAL(&stateMux);
+                  currentOrderId = paidOrder;
+                  totalPulsesToSend = pCount;
+                  sessionDurationSeconds = dMins * 60;
+                  paymentVerifiedFlag = true;
+                  portEXIT_CRITICAL(&stateMux);
+                  Serial.printf("\n[PAYMENT DETECTED] Pembayaran lunas terdeteksi: %s (Paket: %d Menit / %d Pulsa)\n", paidOrder.c_str(), dMins, pCount);
                 }
               }
             } else if (httpCode < 0) {
@@ -386,7 +509,7 @@ void networkTask(void* pvParameters) {
         }
       }
     } else {
-      // Bebaskan RAM SSL (~36KB) segera setelah keluar dari halaman QRIS
+      // Bebaskan RAM SSL (~36KB) segera setelah keluar dari mode menunggu pembayaran
       if (pollSessionActive) {
         pollHttp.end();
         pollClient.stop();
@@ -394,10 +517,51 @@ void networkTask(void* pvParameters) {
       }
     }
 
-    // 4. Heartbeat setiap 30 detik (Hanya saat tidak sedang polling QRIS agar tidak tabrakan socket)
-    if (currentState != STATE_QRIS_DISPLAY && (millis() - lastHbMs >= 30000)) {
+    // 4. Heartbeat setiap 30 detik (Hanya saat tidak sedang memijat agar koneksi stabil)
+    if (currentState != STATE_MASSAGE_RUNNING && (millis() - lastHbMs >= 30000)) {
       lastHbMs = millis();
       netSendHeartbeat();
+    }
+
+    // 5. Cek Jadwal Update Firmware Cloud OTA (Hanya saat Kursi Standby / Bebas)
+    static unsigned long lastOtaCheckMs = 0;
+    if (currentState == STATE_STANDBY && (millis() - lastOtaCheckMs >= 30000)) {
+      lastOtaCheckMs = millis();
+      if (WiFi.status() == WL_CONNECTED) {
+        WiFiClientSecure otaCheckClient;
+        otaCheckClient.setInsecure();
+        otaCheckClient.setTimeout(4);
+        HTTPClient otaHttp;
+        otaHttp.setTimeout(4000);
+
+        String otaUrl = String(SUPABASE_CHAIRS_URL) + "?id=eq." + CHAIR_ID + "&select=target_firmware_version,firmware_url,ota_status";
+        if (otaHttp.begin(otaCheckClient, otaUrl)) {
+          otaHttp.addHeader("apikey", SUPABASE_KEY);
+          otaHttp.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+          int code = otaHttp.GET();
+
+          if (code == 200) {
+            String resp = otaHttp.getString();
+            StaticJsonDocument<512> doc;
+            DeserializationError err = deserializeJson(doc, resp);
+
+            if (!err && doc.is<JsonArray>() && doc.size() > 0) {
+              String targetVer = doc[0]["target_firmware_version"] | "";
+              String fwUrl = doc[0]["firmware_url"] | "";
+              String otaSt = doc[0]["ota_status"] | "";
+
+              if (targetVer.length() > 0 && fwUrl.length() > 0 && targetVer != FIRMWARE_VERSION && otaSt == "PENDING") {
+                Serial.printf("\n[OTA TRIGGER] Perintah Update Firmware Terdeteksi: %s -> %s\n", FIRMWARE_VERSION, targetVer.c_str());
+                otaHttp.end();
+                otaCheckClient.stop();
+                jalankanCloudOTA(fwUrl, targetVer);
+              }
+            }
+          }
+          otaHttp.end();
+        }
+        otaCheckClient.stop();
+      }
     }
 
     vTaskDelay(pdMS_TO_TICKS(20));
@@ -612,7 +776,12 @@ void loop() {
     }
   }
 
-  // C. HANDLER STATUS DARI WORKER JARINGAN (CORE 0 -> CORE 1)
+  // C. HANDLER STATUS PEMBAYARAN LUNAS (Aktif baik saat di halaman QRIS maupun saat Standby / setelah Cancel)
+  if (currentState != STATE_MASSAGE_RUNNING && paymentVerifiedFlag) {
+    eksekusiPembayaranSukses();
+  }
+
+  // D. HANDLER KHUSUS HALAMAN QRIS (RENDER, RETRY & TIMEOUT)
   if (currentState == STATE_QRIS_DISPLAY) {
     // 1. Jika string QRIS baru saja selesai diambil oleh Core 0, render ke TJC
     if (qrisReadyToRender) {
@@ -633,12 +802,7 @@ void loop() {
       kembaliKeMenuUtama();
     }
 
-    // 3. Jika pembayaran terverifikasi lunas oleh Core 0
-    if (paymentVerifiedFlag) {
-      eksekusiPembayaranSukses();
-    }
-
-    // 4. Cek batas waktu tampilan QRIS (180 detik)
+    // 3. Cek batas waktu tampilan QRIS (180 detik)
     if (currentState == STATE_QRIS_DISPLAY && (millis() - qrisDisplayStartTime >= (QRIS_TIMEOUT_SECONDS * 1000UL))) {
       Serial.println("\n[QRIS TIMEOUT] Waktu pembayaran habis (3 menit tanpa scan).");
       kembaliKeMenuUtama();

@@ -47,6 +47,9 @@ export interface Chair {
   rssi?: number;
   last_heartbeat?: string;
   firmware_version?: string;
+  target_firmware_version?: string;
+  firmware_url?: string;
+  ota_status?: 'IDLE' | 'PENDING' | 'DOWNLOADING' | 'SUCCESS' | 'FAILED' | string;
   is_active: boolean;
   created_at?: string;
   updated_at?: string;

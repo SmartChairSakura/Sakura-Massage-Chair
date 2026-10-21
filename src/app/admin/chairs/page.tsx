@@ -13,6 +13,8 @@ import {
   MapPin,
   Search,
   Filter,
+  CloudUpload,
+  Cpu,
 } from 'lucide-react';
 import { Chair, Location } from '@/types';
 
@@ -41,6 +43,15 @@ function ChairListContent() {
   const [pin, setPin] = useState('123456');
   const [modalMsg, setModalMsg] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Firmware OTA Modal State
+  const [showOtaModal, setShowOtaModal] = useState(false);
+  const [otaFile, setOtaFile] = useState<File | null>(null);
+  const [otaVersion, setOtaVersion] = useState('2.2.0');
+  const [otaTargetChairId, setOtaTargetChairId] = useState('ALL');
+  const [otaNotes, setOtaNotes] = useState('');
+  const [otaMsg, setOtaMsg] = useState('');
+  const [isDeployingOta, setIsDeployingOta] = useState(false);
 
   // Delete Chair Modal
   const [deleteConfirmChair, setDeleteConfirmChair] = useState<Chair | null>(null);
@@ -217,6 +228,51 @@ function ChairListContent() {
     }
   };
 
+  const handleDeployOta = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otaFile) {
+      setOtaMsg('Please select a compiled ESP32 firmware (.bin) file.');
+      return;
+    }
+    if (!otaVersion.trim()) {
+      setOtaMsg('Firmware version string is required.');
+      return;
+    }
+
+    setIsDeployingOta(true);
+    setOtaMsg('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', otaFile);
+      formData.append('version', otaVersion.trim());
+      formData.append('chair_id', otaTargetChairId);
+      formData.append('notes', otaNotes.trim());
+
+      const res = await fetch('/api/admin/chairs/firmware/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setOtaMsg(`Success: ${data.message || 'Firmware deployed!'}`);
+        setTimeout(() => {
+          setShowOtaModal(false);
+          setOtaFile(null);
+          setOtaMsg('');
+          fetchChairs();
+        }, 1500);
+      } else {
+        setOtaMsg(data.error || 'Failed to deploy firmware.');
+      }
+    } catch (err: any) {
+      setOtaMsg(`Network error: ${err?.message || 'Server unreachable'}`);
+    } finally {
+      setIsDeployingOta(false);
+    }
+  };
+
   // Filter chairs by search & synced location
   const filteredChairs = chairs.filter((c) => {
     const matchesLoc =
@@ -248,13 +304,25 @@ function ChairListContent() {
           </p>
         </div>
 
-        <button
-          onClick={openAddModal}
-          className="px-4 py-3 bg-[#795465] hover:bg-[#684756] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#795465]/20 flex items-center gap-2 transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span>+ Add Chair</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setOtaMsg('');
+              setShowOtaModal(true);
+            }}
+            className="px-4 py-3 bg-[#1B1C1C] hover:bg-[#333333] text-white rounded-xl text-xs font-extrabold shadow-md flex items-center gap-2 transition-all cursor-pointer"
+          >
+            <CloudUpload className="w-4 h-4 text-[#D3B1C2]" />
+            <span>Deploy Firmware (OTA)</span>
+          </button>
+          <button
+            onClick={openAddModal}
+            className="px-4 py-3 bg-[#795465] hover:bg-[#684756] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#795465]/20 flex items-center gap-2 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ Add Chair</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar & Table */}
@@ -309,6 +377,7 @@ function ChairListContent() {
                   <th className="p-3.5 font-extrabold">Unit Name</th>
                   <th className="p-3.5 font-extrabold">Branch Location</th>
                   <th className="p-3.5 font-extrabold">Device Status</th>
+                  <th className="p-3.5 font-extrabold">Firmware / OTA</th>
                   <th className="p-3.5 font-extrabold">Terminal PIN</th>
                   <th className="p-3.5 font-extrabold text-center">Actions</th>
                 </tr>
@@ -334,6 +403,33 @@ function ChairListContent() {
                         <CheckCircle2 className="w-3 h-3" />
                         {chair.status || 'ONLINE'}
                       </span>
+                    </td>
+                    <td className="p-3.5">
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className="font-mono font-bold text-[11px] text-[#1B1C1C]">
+                          {chair.firmware_version || '2.1.0'}
+                        </span>
+                        {chair.ota_status === 'PENDING' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-[#FFF0D4] text-[#8C5E00] animate-pulse">
+                            OTA Pending
+                          </span>
+                        )}
+                        {chair.ota_status === 'DOWNLOADING' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-[#D7E3FF] text-[#004A98] animate-pulse">
+                            Flashing...
+                          </span>
+                        )}
+                        {chair.ota_status === 'SUCCESS' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-[#CEE5DA] text-[#4E635A]">
+                            Updated
+                          </span>
+                        )}
+                        {chair.ota_status === 'FAILED' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-[#FFDAD6] text-[#BA1A1A]">
+                            Failed
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3.5 font-mono font-bold text-[#1B1C1C]">{chair.pin || '123456'}</td>
                     <td className="p-3.5 text-center">
@@ -508,6 +604,137 @@ function ChairListContent() {
                 {isDeleting ? 'Deleting...' : 'Delete Unit'}
               </button>
             </div>
+      {/* Firmware OTA Deployment Modal */}
+      {showOtaModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2rem] border border-[#EFEDED] shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-[#EFEDED] flex items-center justify-between bg-[#FBF9F9]">
+              <h2 className="text-sm font-extrabold text-[#1B1C1C] uppercase tracking-wider flex items-center gap-2">
+                <CloudUpload className="w-4 h-4 text-[#795465]" />
+                <span>Deploy Firmware OTA (Cloud Update)</span>
+              </h2>
+              <button
+                onClick={() => setShowOtaModal(false)}
+                className="p-1.5 hover:bg-[#EFEDED] text-[#4F4448] rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleDeployOta} className="p-6 space-y-4">
+              {otaMsg && (
+                <div
+                  className={`p-3.5 rounded-xl text-xs font-bold flex items-center gap-2.5 ${
+                    otaMsg.startsWith('Success')
+                      ? 'bg-[#CEE5DA] text-[#4E635A]'
+                      : 'bg-[#FFDAD6] text-[#BA1A1A]'
+                  }`}
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{otaMsg}</span>
+                </div>
+              )}
+
+              {/* Target Chair Selection */}
+              <div>
+                <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                  Target Chair Deployment:
+                </label>
+                <select
+                  value={otaTargetChairId}
+                  onChange={(e) => setOtaTargetChairId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none cursor-pointer"
+                >
+                  <option value="ALL">🌐 All Active Chairs (Fleet-wide Broadcast)</option>
+                  {chairs.map((c) => (
+                    <option key={String(c.chair_code || c.id)} value={String(c.id)}>
+                      {c.chair_code || c.id} — {c.name} ({c.location_name})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-[#817478] font-bold mt-1">
+                  Update will be executed automatically when chair(s) are in STANDBY (idle).
+                </p>
+              </div>
+
+              {/* Version Input */}
+              <div>
+                <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                  New Firmware Version:
+                </label>
+                <input
+                  type="text"
+                  value={otaVersion}
+                  onChange={(e) => setOtaVersion(e.target.value)}
+                  placeholder="2.2.0"
+                  required
+                  className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-mono font-extrabold text-[#795465] focus:bg-white focus:border-[#795465] outline-none"
+                />
+              </div>
+
+              {/* Binary File Upload */}
+              <div>
+                <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                  Compiled Binary File (.bin):
+                </label>
+                <div className="border-2 border-dashed border-[#EFEDED] hover:border-[#795465] rounded-xl p-4 text-center bg-[#FBF9F9] transition-colors cursor-pointer relative">
+                  <input
+                    type="file"
+                    accept=".bin"
+                    required
+                    onChange={(e) => setOtaFile(e.target.files?.[0] || null)}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                  <Cpu className="w-8 h-8 text-[#795465] mx-auto mb-2 opacity-80" />
+                  {otaFile ? (
+                    <div className="text-xs font-mono font-extrabold text-[#795465]">
+                      {otaFile.name} ({(otaFile.size / 1024).toFixed(1)} KB)
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-xs font-extrabold text-[#1B1C1C] block">
+                        Click to select .bin file
+                      </span>
+                      <span className="text-[10px] text-[#817478] font-bold">
+                        Exported from Arduino IDE (Sketch → Export Compiled Binary)
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Release Notes */}
+              <div>
+                <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
+                  Changelog / Release Notes (Optional):
+                </label>
+                <textarea
+                  rows={2}
+                  value={otaNotes}
+                  onChange={(e) => setOtaNotes(e.target.value)}
+                  placeholder="e.g. Added multi-scan cancellation protection & faster heartbeat"
+                  className="w-full px-3.5 py-2 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#EFEDED]">
+                <button
+                  type="button"
+                  onClick={() => setShowOtaModal(false)}
+                  className="px-4 py-2.5 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#1B1C1C] font-extrabold text-xs rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isDeployingOta}
+                  className="px-5 py-2.5 bg-[#1B1C1C] hover:bg-[#333333] text-white font-extrabold text-xs rounded-xl shadow-md disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                >
+                  <CloudUpload className="w-4 h-4 text-[#D3B1C2]" />
+                  <span>{isDeployingOta ? 'Deploying to Cloud...' : 'Deploy OTA Update'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
