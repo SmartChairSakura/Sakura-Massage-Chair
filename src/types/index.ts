@@ -43,6 +43,8 @@ export interface Chair {
   location_id?: string; // UUID FK
   status: ChairStatus;
   pin?: string;
+  ip_address?: string;
+  rssi?: number;
   last_heartbeat?: string;
   firmware_version?: string;
   is_active: boolean;
@@ -50,6 +52,8 @@ export interface Chair {
   updated_at?: string;
   deleted_at?: string;
 }
+
+export type ClientDeviceType = 'ANDROID_TABLET' | 'IOT_KIOSK' | 'WEB_KIOSK' | string;
 
 export type ChairSlipStatus =
   | 'pending'
@@ -87,12 +91,13 @@ export interface ChairSlip {
   payment_method: PaymentMethod;
   status: ChairSlipStatus;
   qr_url?: string;
+  qr_string?: string;
   session_start_at?: string;
   session_end_at?: string;
   cancelled_at?: string;
   cancellation_reason?: string;
   note?: string;
-  created_from?: string;
+  created_from?: ClientDeviceType;
   created_at: string;
   updated_at: string;
   deleted_at?: string;

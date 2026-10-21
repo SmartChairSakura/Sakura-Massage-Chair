@@ -30,46 +30,54 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: EDC Terminal Hardware Heartbeat Status
+// POST: EDC / IoT Hardware Heartbeat Status (ESP32 & Android)
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { chairId, firmwareVersion, status } = body;
+    const chairId = body.chairId || body.chair_id;
+    const firmwareVersion = body.firmwareVersion || body.firmware_version || '1.0.0';
+    const status = body.status || 'ONLINE';
+    const rssi = body.rssi ? Number(body.rssi) : undefined;
+    const ipAddress = body.ip || body.ipAddress || body.ip_address;
 
     if (!chairId) {
-      return NextResponse.json({ error: 'Missing chairId' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing required field: chairId or chair_id' }, { status: 400 });
     }
 
     const timestamp = new Date().toISOString();
 
+    const upsertPayload: Record<string, any> = {
+      id: chairId,
+      status,
+      last_heartbeat: timestamp,
+      firmware_version: firmwareVersion,
+      is_active: true,
+    };
+    if (ipAddress) upsertPayload.ip_address = ipAddress;
+    if (rssi !== undefined) upsertPayload.rssi = rssi;
+
     // Upsert chair heartbeat in Supabase
     const { data: chairData, error: upsertError } = await supabaseServer
       .from('chairs')
-      .upsert(
-        {
-          id: chairId,
-          status: status || 'ONLINE',
-          last_heartbeat: timestamp,
-          firmware_version: firmwareVersion || '1.0.0',
-          is_active: true,
-        },
-        { onConflict: 'id' }
-      )
+      .upsert(upsertPayload, { onConflict: 'id' })
       .select()
-      .single();
+      .maybeSingle();
 
     if (upsertError) {
       console.warn('[Heartbeat] Supabase upsert note:', upsertError.message);
     }
 
-    console.log(`[Heartbeat Ping] Chair ${chairId} is ONLINE at ${timestamp}`);
+    console.log(`[Heartbeat Ping] Chair ${chairId} is ${status} at ${timestamp}`);
 
     return NextResponse.json({
       success: true,
+      chair_id: chairId,
       chairId,
-      status: status || 'ONLINE',
+      status,
+      last_heartbeat: timestamp,
       lastHeartbeat: timestamp,
-      firmwareVersion: firmwareVersion || '1.0.0',
+      firmware_version: firmwareVersion,
+      firmwareVersion,
       chair: chairData || null,
     });
   } catch (error: any) {

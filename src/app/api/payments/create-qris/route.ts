@@ -5,7 +5,13 @@ import { createMidtransQrisCharge } from '@/lib/midtrans';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { chairId, customerPhone, customerEmail, amount, durationMinutes, pulseCount } = body;
+    const chairId = body.chairId || body.chair_id;
+    const amount = body.amount;
+    const durationMinutes = body.durationMinutes || body.duration_minutes;
+    const pulseCount = body.pulseCount || body.pulse_count;
+    const customerPhone = body.customerPhone || body.customer_phone || 'GUEST';
+    const customerEmail = body.customerEmail || body.customer_email || '';
+    const createdFrom = body.createdFrom || body.created_from || 'IOT_KIOSK';
 
     if (!chairId || !amount || !durationMinutes || !pulseCount) {
       return NextResponse.json(
@@ -42,10 +48,11 @@ export async function POST(req: NextRequest) {
 
     const idempotencyKey = `TRX-${chairCode}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    // Generate QRIS URL (Midtrans API or fallback to Mock)
-    const mockQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=00020101021226670016ID.CO.MIDTRANS.WWW0118936009143000000000021550000000000000050303360540${amount}5802ID5910SMART_CHAIR6007JAKARTA63048F3A`;
+    // Generate Standard EMVCo QRIS Payload & URL (Midtrans API or fallback for TJC HMI qr0 component)
+    const fallbackEmvcoString = `00020101021226670016ID.CO.MIDTRANS.WWW0118936009143000000000021550000000000000050303360540${amount}5802ID5910SMART_CHAIR6007JAKARTA63048F3A`;
+    const mockQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(fallbackEmvcoString)}`;
     let activeQrUrl = mockQrUrl;
-    let qrString = '';
+    let qrString = fallbackEmvcoString;
 
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
     let midtransDebug: any = null;
@@ -62,7 +69,7 @@ export async function POST(req: NextRequest) {
 
       if (midtransResult.success && midtransResult.qrUrl) {
         activeQrUrl = midtransResult.qrUrl;
-        qrString = midtransResult.qrString || '';
+        qrString = midtransResult.qrString || fallbackEmvcoString;
         console.log(`[API create-qris] Dynamic QRIS successfully created via Midtrans (${isProduction ? 'PROD' : 'SANDBOX'}):`, idempotencyKey);
       } else {
         midtransDebug = {
@@ -80,8 +87,6 @@ export async function POST(req: NextRequest) {
       };
     }
 
-
-
     // 1. Insert into master table: chair_slips
     const slipPayload = {
       chair_slip_number: idempotencyKey,
@@ -97,7 +102,7 @@ export async function POST(req: NextRequest) {
       status: 'pending',
       qr_url: activeQrUrl,
       note: locationName,
-      created_from: 'EDC_KIOSK',
+      created_from: createdFrom,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -146,12 +151,14 @@ export async function POST(req: NextRequest) {
           status: createdSlip.status,
           qr_url: createdSlip.qr_url,
           qr_string: qrString,
+          created_from: createdSlip.created_from,
           created_at: createdSlip.created_at,
         }
       : createdTransaction || {
           id: crypto.randomUUID(),
           ...transactionPayload,
           qr_string: qrString,
+          created_from: createdFrom,
           created_at: new Date().toISOString(),
         };
 
@@ -159,6 +166,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      order_id: idempotencyKey,
+      orderId: idempotencyKey,
+      qr_string: qrString,
+      qr_url: activeQrUrl,
+      amount: Number(amount),
+      duration_minutes: Number(durationMinutes),
+      pulse_count: Number(pulseCount),
       transaction: resultTransaction,
       midtrans_debug: midtransDebug,
     });
