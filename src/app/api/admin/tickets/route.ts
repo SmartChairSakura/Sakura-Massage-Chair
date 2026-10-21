@@ -13,6 +13,59 @@ const NO_CACHE_HEADERS = {
   Expires: '0',
 };
 
+// Helper to apply common filter predicates to chair_slips queries
+function applyTicketFilters(
+  baseQuery: any,
+  params: {
+    locationId?: string | null;
+    chairCodes?: string[];
+    statusList?: string[] | null;
+    startIso?: string | null;
+    endIso?: string | null;
+    search?: string | null;
+    searchBy?: string;
+  }
+) {
+  let q = baseQuery;
+  const { locationId, chairCodes, statusList, startIso, endIso, search, searchBy } = params;
+
+  if (locationId && locationId !== 'ALL') {
+    if (chairCodes && chairCodes.length > 0) {
+      q = q.or(`location_id.eq.${locationId},chair_code.in.(${chairCodes.join(',')}),chair_id.in.(${chairCodes.join(',')})`);
+    } else {
+      q = q.eq('location_id', locationId);
+    }
+  }
+
+  if (statusList && statusList.length > 0) {
+    q = q.in('status', statusList);
+  }
+
+  if (startIso) {
+    q = q.gte('created_at', startIso);
+  }
+  if (endIso) {
+    q = q.lte('created_at', endIso);
+  }
+
+  if (search && search.trim()) {
+    const cleanSearch = search.trim();
+    if (searchBy === 'TICKET_NUMBER') {
+      q = q.ilike('chair_slip_number', `%${cleanSearch}%`);
+    } else if (searchBy === 'CHAIR_CODE') {
+      q = q.or(`chair_code.ilike.%${cleanSearch}%,chair_id.ilike.%${cleanSearch}%`);
+    } else if (searchBy === 'PHONE') {
+      q = q.ilike('customer_phone', `%${cleanSearch}%`);
+    } else {
+      q = q.or(
+        `chair_slip_number.ilike.%${cleanSearch}%,customer_phone.ilike.%${cleanSearch}%,chair_code.ilike.%${cleanSearch}%,chair_id.ilike.%${cleanSearch}%`
+      );
+    }
+  }
+
+  return q;
+}
+
 // GET: Paginated & Filterable Ticket Transactions with WIB Precision
 export async function GET(req: NextRequest) {
   try {
@@ -38,12 +91,8 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '15', 10)));
     const offset = (page - 1) * limit;
 
-    let query = supabaseServer
-      .from('chair_slips')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
-
-    // 1. Apply robust location filter (matching location_id OR known chair codes for location)
+    // 1. Resolve location chair codes (single DB query for both main & summary queries)
+    let chairCodes: string[] = [];
     if (locationId && locationId !== 'ALL') {
       const { data: locObj } = await supabaseServer
         .from('locations')
@@ -56,49 +105,30 @@ export async function GET(req: NextRequest) {
         .select('chair_code, id')
         .or(`location_id.eq.${locationId}${locObj?.name ? `,location_name.eq.${locObj.name}` : ''}`);
 
-      const chairCodes = (locChairs || []).map((c: any) => c.chair_code).filter(Boolean);
-      if (chairCodes.length > 0) {
-        query = query.or(
-          `location_id.eq.${locationId},chair_code.in.(${chairCodes.join(',')}),chair_id.in.(${chairCodes.join(',')})`
-        );
-      } else {
-        query = query.eq('location_id', locationId);
-      }
+      chairCodes = (locChairs || []).map((c: any) => c.chair_code).filter(Boolean);
     }
 
-    // 2. Apply status filter with multi-status alias mapping (done, waiting, unpaid, etc.)
+    // 2. Parse status & date range filters
     const statusList = mapStatusFilter(status);
-    if (statusList && statusList.length > 0) {
-      query = query.in('status', statusList);
-    }
-
-    // 3. Apply date range filters with WIB timezone (+07:00) boundaries
     const { startIso, endIso } = getWibDateRange(range, dateFrom, dateTo, timeFrom, timeTo);
-    if (startIso) {
-      query = query.gte('created_at', startIso);
-    }
-    if (endIso) {
-      query = query.lte('created_at', endIso);
-    }
 
-    // 4. Apply search filter
-    if (search && search.trim()) {
-      const cleanSearch = search.trim();
-      if (searchBy === 'TICKET_NUMBER') {
-        query = query.ilike('chair_slip_number', `%${cleanSearch}%`);
-      } else if (searchBy === 'CHAIR_CODE') {
-        query = query.or(`chair_code.ilike.%${cleanSearch}%,chair_id.ilike.%${cleanSearch}%`);
-      } else if (searchBy === 'PHONE') {
-        query = query.ilike('customer_phone', `%${cleanSearch}%`);
-      } else {
-        query = query.or(
-          `chair_slip_number.ilike.%${cleanSearch}%,customer_phone.ilike.%${cleanSearch}%,chair_code.ilike.%${cleanSearch}%,chair_id.ilike.%${cleanSearch}%`
-        );
-      }
-    }
+    const filterParams = {
+      locationId,
+      chairCodes,
+      statusList,
+      startIso,
+      endIso,
+      search,
+      searchBy,
+    };
 
-    // 5. Apply pagination range
-    query = query.range(offset, offset + limit - 1);
+    // 3. Main paginated query
+    const baseQuery = supabaseServer
+      .from('chair_slips')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false });
+
+    const query = applyTicketFilters(baseQuery, filterParams).range(offset, offset + limit - 1);
 
     const { data: tickets, count, error } = await query;
 
@@ -118,54 +148,9 @@ export async function GET(req: NextRequest) {
     const totalCount = count || 0;
     const totalPages = Math.ceil(totalCount / limit);
 
-    // Compute accurate KPI summary metrics across ALL matching tickets (not just current page slice)
-    let summaryQuery = supabaseServer.from('chair_slips').select('amount, status');
-
-    if (locationId && locationId !== 'ALL') {
-      const { data: locObj } = await supabaseServer
-        .from('locations')
-        .select('id, name')
-        .eq('id', locationId)
-        .maybeSingle();
-
-      const { data: locChairs } = await supabaseServer
-        .from('chairs')
-        .select('chair_code, id')
-        .or(`location_id.eq.${locationId}${locObj?.name ? `,location_name.eq.${locObj.name}` : ''}`);
-
-      const chairCodes = (locChairs || []).map((c: any) => c.chair_code).filter(Boolean);
-      if (chairCodes.length > 0) {
-        summaryQuery = summaryQuery.or(
-          `location_id.eq.${locationId},chair_code.in.(${chairCodes.join(',')}),chair_id.in.(${chairCodes.join(',')})`
-        );
-      } else {
-        summaryQuery = summaryQuery.eq('location_id', locationId);
-      }
-    }
-
-    if (statusList && statusList.length > 0) {
-      summaryQuery = summaryQuery.in('status', statusList);
-    }
-    if (startIso) {
-      summaryQuery = summaryQuery.gte('created_at', startIso);
-    }
-    if (endIso) {
-      summaryQuery = summaryQuery.lte('created_at', endIso);
-    }
-    if (search && search.trim()) {
-      const cleanSearch = search.trim();
-      if (searchBy === 'TICKET_NUMBER') {
-        summaryQuery = summaryQuery.ilike('chair_slip_number', `%${cleanSearch}%`);
-      } else if (searchBy === 'CHAIR_CODE') {
-        summaryQuery = summaryQuery.or(`chair_code.ilike.%${cleanSearch}%,chair_id.ilike.%${cleanSearch}%`);
-      } else if (searchBy === 'PHONE') {
-        summaryQuery = summaryQuery.ilike('customer_phone', `%${cleanSearch}%`);
-      } else {
-        summaryQuery = summaryQuery.or(
-          `chair_slip_number.ilike.%${cleanSearch}%,customer_phone.ilike.%${cleanSearch}%,chair_code.ilike.%${cleanSearch}%,chair_id.ilike.%${cleanSearch}%`
-        );
-      }
-    }
+    // 4. Compute accurate KPI summary metrics across ALL matching tickets
+    const summaryBaseQuery = supabaseServer.from('chair_slips').select('amount, status');
+    const summaryQuery = applyTicketFilters(summaryBaseQuery, filterParams);
 
     const { data: allMatching } = await summaryQuery;
 

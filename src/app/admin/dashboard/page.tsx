@@ -10,11 +10,8 @@ import {
   ArrowUpRight,
   Ticket,
   BarChart3,
-  Calendar,
 } from 'lucide-react';
-import { Location, Transaction } from '@/types';
 import DatePickerModal, { DateRangeState } from '@/components/admin/DatePickerModal';
-import { getWibNow } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,8 +36,6 @@ function DashboardContent() {
   const [timeFrom, setTimeFrom] = useState<string>('00:00');
   const [timeTo, setTimeTo] = useState<string>('23:59');
 
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [dailyTrend, setDailyTrend] = useState<DailyTrendItem[]>([]);
   const [hoveredTrendPoint, setHoveredTrendPoint] = useState<DailyTrendItem | null>(null);
   const [hoveredTicketPoint, setHoveredTicketPoint] = useState<DailyTrendItem | null>(null);
@@ -88,23 +83,21 @@ function DashboardContent() {
       const data = await res.json();
 
       if (data.success) {
-        setLocations(data.locations || []);
-        setTransactions(data.transactions || []);
         setDailyTrend(data.dailyTrend || []);
 
         const s = data.summary || {};
         setSummary({
-          gross_sales: s.gross_sales ?? s.grossRevenue ?? 0,
-          mdr_fee: s.mdr_fee ?? s.mdrFee ?? 0,
-          net_sales: s.net_sales ?? s.netGross ?? 0,
-          owner_net: s.owner_net ?? s.ownerNet ?? 0,
-          system_share: s.system_share ?? s.systemNet ?? 0,
-          total_tickets: s.total_tickets ?? s.totalTransactions ?? 0,
-          online_fleet: s.online_fleet ?? s.onlineCount ?? (data.chairs || []).length,
-          total_fleet: s.total_fleet ?? s.totalChairs ?? (data.chairs || []).length,
-          owner_share_pct: s.owner_share_pct ?? s.ownerSharePct ?? 95.0,
-          system_share_pct: s.system_share_pct ?? s.systemSharePct ?? 5.0,
-          period_change_pct: s.period_change_pct ?? s.periodChangePct ?? 0,
+          gross_sales: Number(s.gross_sales ?? s.grossRevenue ?? 0),
+          mdr_fee: Number(s.mdr_fee ?? s.mdrFee ?? 0),
+          net_sales: Number(s.net_sales ?? s.netGross ?? 0),
+          owner_net: Number(s.owner_net ?? s.ownerNet ?? 0),
+          system_share: Number(s.system_share ?? s.systemNet ?? 0),
+          total_tickets: Number(s.total_tickets ?? s.totalTransactions ?? 0),
+          online_fleet: Number(s.online_fleet ?? s.onlineCount ?? 0),
+          total_fleet: Number(s.total_fleet ?? s.totalChairs ?? 0),
+          owner_share_pct: Number(s.owner_share_pct ?? s.ownerSharePct ?? 95.0),
+          system_share_pct: Number(s.system_share_pct ?? s.systemSharePct ?? 5.0),
+          period_change_pct: Number(s.period_change_pct ?? s.periodChangePct ?? 0),
         });
       }
     } catch (err) {
@@ -154,24 +147,36 @@ function DashboardContent() {
 
     const points = dailyTrend.map((d, idx) => {
       const grossVal = d.grossSales || d.gross || 0;
-      const x = padding + (idx / Math.max(1, dailyTrend.length - 1)) * (width - padding * 2);
+      const x = dailyTrend.length === 1
+        ? width / 2
+        : padding + (idx / Math.max(1, dailyTrend.length - 1)) * (width - padding * 2);
       const y = height - padding - ((grossVal - minVal) / (maxVal - minVal)) * (height - padding * 2);
       return { x, y, data: d };
     });
 
-    const pathD = points.reduce(
-      (acc, pt, idx) => (idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`),
-      ''
-    );
+    const pathD = points.length === 1
+      ? `M ${padding} ${points[0].y} L ${width - padding} ${points[0].y}`
+      : points.reduce(
+          (acc, pt, idx) => (idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`),
+          ''
+        );
 
     return (
-      <div className="relative w-full overflow-x-auto">
+      <div className="relative w-full overflow-x-auto" onMouseLeave={() => setHoveredTrendPoint(null)}>
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44 overflow-visible">
           <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="#EFEDED" strokeDasharray="3 3" />
           <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="#EFEDED" strokeDasharray="3 3" />
           <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#EFEDED" />
 
-          <path d={pathD} fill="none" stroke="#795465" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d={pathD}
+            fill="none"
+            stroke="#795465"
+            strokeWidth="3"
+            strokeDasharray={points.length === 1 ? '4 4' : undefined}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
 
           {points.map((pt, idx) => (
             <g key={idx} className="cursor-pointer" onMouseEnter={() => setHoveredTrendPoint(pt.data)}>
@@ -228,25 +233,37 @@ function DashboardContent() {
 
     const points = dailyTrend.map((d, idx) => {
       const countVal = d.ticketCount || d.transactions || 0;
-      const x = padding + (idx / Math.max(1, dailyTrend.length - 1)) * (width - padding * 2);
+      const x = dailyTrend.length === 1
+        ? width / 2
+        : padding + (idx / Math.max(1, dailyTrend.length - 1)) * (width - padding * 2);
       const y = height - padding - ((countVal - minVal) / (maxVal - minVal)) * (height - padding * 2);
       return { x, y, data: d, countVal };
     });
 
-    const pathD = points.reduce(
-      (acc, pt, idx) => (idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`),
-      ''
-    );
+    const pathD = points.length === 1
+      ? `M ${padding} ${points[0].y} L ${width - padding} ${points[0].y}`
+      : points.reduce(
+          (acc, pt, idx) => (idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`),
+          ''
+        );
 
     return (
-      <div className="relative w-full overflow-x-auto">
+      <div className="relative w-full overflow-x-auto" onMouseLeave={() => setHoveredTicketPoint(null)}>
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44 overflow-visible">
           <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="#EFEDED" strokeDasharray="3 3" />
           <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="#EFEDED" strokeDasharray="3 3" />
           <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#EFEDED" />
 
           {/* Curved trend line for ticket quantity */}
-          <path d={pathD} fill="none" stroke="#4E635A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d={pathD}
+            fill="none"
+            stroke="#4E635A"
+            strokeWidth="3"
+            strokeDasharray={points.length === 1 ? '4 4' : undefined}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
 
           {points.map((pt, idx) => (
             <g key={idx} className="cursor-pointer" onMouseEnter={() => setHoveredTicketPoint(pt.data)}>

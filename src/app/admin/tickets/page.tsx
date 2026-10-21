@@ -15,8 +15,6 @@ import {
   TrendingUp,
   DollarSign,
   ShieldCheck,
-  Filter,
-  ChevronDown,
 } from 'lucide-react';
 import { ChairSlip } from '@/types';
 import DatePickerModal, { DateRangeState } from '@/components/admin/DatePickerModal';
@@ -47,7 +45,8 @@ function TicketContent() {
 
   // Search by selector (Parkee CMS: Show by TICKET_NUMBER / CHAIR_CODE / PHONE / ALL)
   const [searchBy, setSearchBy] = useState<'TICKET_NUMBER' | 'CHAIR_CODE' | 'PHONE' | 'ALL'>('TICKET_NUMBER');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
 
   // Ticket Status Dropdown (Parkee CMS Screenshot_69: ALL STATUS, DONE, INPROCESS, WAITING, UNPAID)
   const [statusFilter, setStatusFilter] = useState<string>('ALL STATUS');
@@ -87,8 +86,8 @@ function TicketContent() {
       const query = new URLSearchParams();
       if (locationIdParam !== 'ALL') query.set('location_id', locationIdParam);
       if (statusFilter && statusFilter !== 'ALL STATUS') query.set('status', statusFilter);
-      if (searchQuery.trim()) {
-        query.set('search', searchQuery.trim());
+      if (appliedSearch.trim()) {
+        query.set('search', appliedSearch.trim());
         query.set('search_by', searchBy);
       }
 
@@ -132,7 +131,7 @@ function TicketContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [locationIdParam, statusFilter, page, dateRange, searchQuery, searchBy]);
+  }, [locationIdParam, statusFilter, page, dateRange, appliedSearch, searchBy]);
 
   useEffect(() => {
     fetchTickets();
@@ -140,32 +139,12 @@ function TicketContent() {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setAppliedSearch(searchInput.trim());
     setPage(1);
-    fetchTickets();
   };
 
   const handleDateApply = (newRange: DateRangeState) => {
     setDateRange(newRange);
-    setPage(1);
-  };
-
-  const handleResetFilters = () => {
-    const wib = getWibNow();
-    const yyyy = wib.getFullYear();
-    const mm = String(wib.getMonth() + 1).padStart(2, '0');
-    const dd = String(wib.getDate()).padStart(2, '0');
-    const todayStr = `${yyyy}-${mm}-${dd}`;
-
-    setSearchQuery('');
-    setSearchBy('TICKET_NUMBER');
-    setStatusFilter('ALL STATUS');
-    setDateRange({
-      rangePreset: 'today',
-      dateFrom: todayStr,
-      dateTo: todayStr,
-      timeFrom: '00:00',
-      timeTo: '23:59',
-    });
     setPage(1);
   };
 
@@ -327,7 +306,12 @@ function TicketContent() {
             <span className="text-[#817478] text-[11px] font-medium mr-1.5 hidden sm:inline">Show by:</span>
             <select
               value={searchBy}
-              onChange={(e) => setSearchBy(e.target.value as any)}
+              onChange={(e) => {
+                setSearchBy(e.target.value as any);
+                if (appliedSearch) {
+                  setPage(1);
+                }
+              }}
               className="bg-transparent font-black text-[#795465] text-xs outline-none cursor-pointer"
             >
               <option value="TICKET_NUMBER">TICKET_NUMBER</option>
@@ -341,8 +325,15 @@ function TicketContent() {
           <div className="relative flex-1 min-w-[200px]">
             <input
               type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSearchInput(val);
+                if (val === '' && appliedSearch !== '') {
+                  setAppliedSearch('');
+                  setPage(1);
+                }
+              }}
               placeholder={`Search by ${searchBy.toLowerCase()}...`}
               className="w-full px-3.5 py-2 pl-9 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] placeholder-[#817478] focus:bg-white focus:border-[#795465] outline-none"
             />
