@@ -149,6 +149,7 @@ void netBuatOrderQRIS(uint32_t reqSeq, int durasiMenit, int nominal, int pulsa, 
   doc["durationMinutes"] = durasiMenit;
   doc["pulseCount"] = pulsa;
   doc["customerPhone"] = "GUEST";
+  doc["created_from"] = "IOT_KIOSK";
 
   String reqBody;
   serializeJson(doc, reqBody);
