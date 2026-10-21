@@ -9,7 +9,8 @@ export async function middleware(req: NextRequest) {
     pathname === '/admin/login' ||
     pathname === '/api/admin/auth/login' ||
     pathname === '/api/admin/auth/forgot-password' ||
-    pathname === '/api/admin/auth/reset-password';
+    pathname === '/api/admin/auth/reset-password' ||
+    pathname === '/api/admin/chairs/ack';
 
   // 2. Extract and verify session token from cookies
   const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;

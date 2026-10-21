@@ -48,13 +48,20 @@ export async function GET(req: NextRequest) {
     }
 
     const cleanOrderId = orderId.trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanOrderId);
 
     // 1. Query master table: chair_slips
-    const { data: slip, error: slipError } = await supabaseServer
+    let slipQuery = supabaseServer
       .from('chair_slips')
-      .select('id, chair_slip_number, chair_id, chair_code, amount, duration_in_minutes, pulse_count, status, qr_url, created_at')
-      .or(`chair_slip_number.eq.${cleanOrderId},id.eq.${cleanOrderId}`)
-      .maybeSingle();
+      .select('id, chair_slip_number, chair_id, chair_code, amount, duration_in_minutes, pulse_count, status, qr_url, created_at');
+
+    if (isUuid) {
+      slipQuery = slipQuery.or(`chair_slip_number.eq.${cleanOrderId},id.eq.${cleanOrderId}`);
+    } else {
+      slipQuery = slipQuery.eq('chair_slip_number', cleanOrderId);
+    }
+
+    const { data: slip, error: slipError } = await slipQuery.maybeSingle();
 
     if (slip) {
       const rawStatus = String(slip.status || '').toLowerCase();
@@ -84,11 +91,17 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. Fallback query to legacy transactions table
-    const { data: tx, error: txError } = await supabaseServer
+    let txQuery = supabaseServer
       .from('transactions')
-      .select('id, idempotency_key, chair_id, amount, duration_minutes, pulse_count, status, qr_url')
-      .or(`idempotency_key.eq.${cleanOrderId},id.eq.${cleanOrderId}`)
-      .maybeSingle();
+      .select('id, idempotency_key, chair_id, amount, duration_minutes, pulse_count, status, qr_url');
+
+    if (isUuid) {
+      txQuery = txQuery.or(`idempotency_key.eq.${cleanOrderId},id.eq.${cleanOrderId}`);
+    } else {
+      txQuery = txQuery.eq('idempotency_key', cleanOrderId);
+    }
+
+    const { data: tx, error: txError } = await txQuery.maybeSingle();
 
     if (tx) {
       const rawStatus = String(tx.status || '').toLowerCase();
