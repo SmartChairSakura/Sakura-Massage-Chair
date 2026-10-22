@@ -604,6 +604,10 @@ function ChairListContent() {
                 {isDeleting ? 'Deleting...' : 'Delete Unit'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
       {/* Firmware OTA Deployment Modal */}
       {showOtaModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
-import { getAdminSession } from '@/lib/jwt-edge';
+import { getAdminSession } from '@/lib/auth-server';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     // 1. Defense-in-depth admin session check
-    const session = await getAdminSession();
+    const session = await getAdminSession(req);
     if (!session) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized. Admin credentials required to deploy firmware.' },
