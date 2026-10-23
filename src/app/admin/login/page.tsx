@@ -29,6 +29,7 @@ export default function AdminLoginPage() {
   const [forgotMsg, setForgotMsg] = useState('');
   const [forgotIsError, setForgotIsError] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Load remembered device email on mount
   useEffect(() => {
@@ -75,6 +76,7 @@ export default function AdminLoginPage() {
         } else {
           localStorage.removeItem('sakura_remembered_email');
         }
+        setIsRedirecting(true);
         router.replace('/admin/dashboard');
       } else {
         setErrorMsg(data.error || 'Login failed. Please check your credentials.');
@@ -170,6 +172,98 @@ export default function AdminLoginPage() {
     }
   };
 
+  if (isRedirecting) {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#FBF9F9] flex overflow-hidden animate-in fade-in duration-300 font-sans">
+        {/* Skeleton Sidebar */}
+        <aside className="w-64 bg-white border-r border-[#EFEDED] p-5 hidden md:flex flex-col gap-6 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-[#F8C8DC]/60 animate-pulse shrink-0" />
+            <div className="space-y-1.5 flex-1">
+              <div className="h-4 bg-[#EFEDED] rounded-md w-24 animate-pulse" />
+              <div className="h-2.5 bg-[#F5F3F3] rounded-md w-16 animate-pulse" />
+            </div>
+          </div>
+          <div className="space-y-2.5 pt-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-10 rounded-xl bg-[#F5F3F3] animate-pulse" />
+            ))}
+          </div>
+        </aside>
+
+        {/* Skeleton Dashboard Main Area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Skeleton Header */}
+          <header className="h-20 bg-white border-b border-[#EFEDED] px-8 flex items-center justify-between shrink-0 shadow-xs">
+            <div className="h-5 bg-[#EFEDED] rounded-md w-40 animate-pulse" />
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#F8C8DC]/50 animate-pulse" />
+              <div className="h-4 bg-[#EFEDED] rounded-md w-28 animate-pulse" />
+            </div>
+          </header>
+
+          {/* Skeleton Dashboard Content */}
+          <main className="p-6 sm:p-8 space-y-6 flex-1 overflow-hidden">
+            {/* Top Bar Shimmer */}
+            <div className="flex items-center justify-between pb-2">
+              <div className="space-y-2">
+                <div className="h-6 bg-[#EFEDED] rounded-lg w-48 animate-pulse" />
+                <div className="h-3 bg-[#F5F3F3] rounded w-64 animate-pulse" />
+              </div>
+              <div className="h-9 bg-[#EFEDED] rounded-xl w-32 animate-pulse" />
+            </div>
+
+            {/* Metric KPI Cards with Shimmer Glow */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="h-28 rounded-2xl bg-white border border-[#EFEDED] p-5 space-y-3 shadow-xs relative overflow-hidden"
+                >
+                  <div className="h-3 bg-[#F5F3F3] rounded w-24 animate-pulse" />
+                  <div className="h-7 bg-[#EFEDED] rounded-lg w-32 animate-pulse" />
+                  <div className="h-2.5 bg-[#F5F3F3] rounded w-20 animate-pulse" />
+                </div>
+              ))}
+            </div>
+
+            {/* Chart Skeleton Card */}
+            <div className="h-80 rounded-2xl bg-white border border-[#EFEDED] p-6 space-y-4 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div className="h-4 bg-[#EFEDED] rounded-md w-44 animate-pulse" />
+                <div className="h-4 bg-[#F5F3F3] rounded-md w-28 animate-pulse" />
+              </div>
+              <div className="h-64 bg-gradient-to-b from-[#FBF9F9] to-[#F5F3F3] rounded-xl animate-pulse flex items-end p-4 gap-3">
+                {[40, 65, 30, 85, 55, 95, 70, 45, 90, 60, 80, 50].map((h, idx) => (
+                  <div
+                    key={idx}
+                    style={{ height: `${h}%` }}
+                    className="flex-1 bg-[#EFEDED] rounded-t-md animate-pulse opacity-60"
+                  />
+                ))}
+              </div>
+            </div>
+          </main>
+        </div>
+
+        {/* Center Floating Glassmorphism Transition Badge */}
+        <div className="fixed inset-0 pointer-events-none flex items-center justify-center">
+          <div className="bg-white/95 backdrop-blur-md border border-[#EFEDED] shadow-[0px_20px_50px_rgba(121,84,101,0.2)] rounded-2xl px-8 py-5 flex items-center gap-4 animate-in zoom-in-95 duration-200">
+            <div className="w-6 h-6 border-3 border-[#795465]/20 border-t-[#795465] rounded-full animate-spin shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-xs font-extrabold text-[#1B1C1C] tracking-tight">
+                Entering Sakura Zen Backoffice...
+              </span>
+              <span className="text-[10px] font-bold text-[#817478]">
+                Loading dashboard data
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <main className="w-full min-h-screen bg-[#FBF9F9] flex items-center justify-center p-4 relative overflow-hidden font-[family-name:var(--font-geist-sans)]">
       {/* Background Gradient */}
@@ -187,8 +281,8 @@ export default function AdminLoginPage() {
           <h1 className="text-2xl font-extrabold text-[#1B1C1C] tracking-tight mb-1">
             Sakura Zen Backoffice
           </h1>
-          <p className="text-xs font-bold text-[#817478] uppercase tracking-wider">
-            Secure Administrative Access
+          <p className="text-xs font-bold text-[#817478]">
+            Sign in to your account.
           </p>
         </div>
 
@@ -309,14 +403,8 @@ export default function AdminLoginPage() {
           </button>
         </form>
 
-        {/* Footer Status Bar */}
-        <div className="w-full mt-8 pt-6 border-t border-[#EFEDED] flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#4E635A] animate-pulse" />
-            <span className="text-[10px] font-extrabold text-[#817478] uppercase tracking-wider">
-              System Status: Operational
-            </span>
-          </div>
+        {/* Footer Support Link */}
+        <div className="w-full mt-8 pt-6 border-t border-[#EFEDED] flex flex-col items-center">
           <a
             href="mailto:support@sakurazen.id"
             className="text-[11px] font-bold text-[#817478] hover:text-[#795465] transition-colors underline decoration-[#817478]/30 underline-offset-4"
@@ -332,9 +420,9 @@ export default function AdminLoginPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="forgot-modal-title"
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-300 animate-in fade-in"
         >
-          <div className="bg-white rounded-2xl border border-[#EFEDED] shadow-2xl w-full max-w-md p-6 sm:p-8 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl border border-[#EFEDED] shadow-[0px_25px_60px_-15px_rgba(121,84,101,0.25)] w-full max-w-md p-6 sm:p-8 space-y-5 animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-300 ease-out">
             <div className="flex items-center justify-between border-b border-[#EFEDED] pb-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-[#F8C8DC] text-[#795465] flex items-center justify-center font-extrabold">
