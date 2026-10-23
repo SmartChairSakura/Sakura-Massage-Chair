@@ -475,7 +475,10 @@ export default function AdminLoginPage() {
                 <div className="flex items-center justify-between pt-2">
                   <button
                     type="button"
-                    onClick={() => setForgotStep(1)}
+                    onClick={() => {
+                      setForgotStep(1);
+                      setForgotMsg('');
+                    }}
                     className="text-xs font-bold text-[#795465] hover:underline"
                   >
                     ← Change Email
