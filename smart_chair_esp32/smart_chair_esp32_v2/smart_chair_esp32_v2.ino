@@ -341,7 +341,7 @@ void laporOtaStatus(const char* statusStr, const char* versionStr = "") {
   HTTPClient http;
   http.setTimeout(4000);
 
-  String queryUrl = String(SUPABASE_CHAIRS_URL) + "?id=eq." + CHAIR_ID;
+  String queryUrl = String(SUPABASE_CHAIRS_URL) + "?chair_code=eq." + CHAIR_ID;
   if (http.begin(client, queryUrl)) {
     http.addHeader("apikey", SUPABASE_KEY);
     http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
@@ -525,7 +525,7 @@ void networkTask(void* pvParameters) {
 
     // 5. Cek Jadwal Update Firmware Cloud OTA (Hanya saat Kursi Standby / Bebas)
     static unsigned long lastOtaCheckMs = 0;
-    if (currentState == STATE_STANDBY && (millis() - lastOtaCheckMs >= 30000)) {
+    if (currentState == STATE_STANDBY && (millis() - lastOtaCheckMs >= 15000)) {
       lastOtaCheckMs = millis();
       if (WiFi.status() == WL_CONNECTED) {
         WiFiClientSecure otaCheckClient;
@@ -534,7 +534,7 @@ void networkTask(void* pvParameters) {
         HTTPClient otaHttp;
         otaHttp.setTimeout(4000);
 
-        String otaUrl = String(SUPABASE_CHAIRS_URL) + "?id=eq." + CHAIR_ID + "&select=target_firmware_version,firmware_url,ota_status";
+        String otaUrl = String(SUPABASE_CHAIRS_URL) + "?chair_code=eq." + CHAIR_ID + "&select=target_firmware_version,firmware_url,ota_status";
         if (otaHttp.begin(otaCheckClient, otaUrl)) {
           otaHttp.addHeader("apikey", SUPABASE_KEY);
           otaHttp.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
@@ -550,13 +550,15 @@ void networkTask(void* pvParameters) {
               String fwUrl = doc[0]["firmware_url"] | "";
               String otaSt = doc[0]["ota_status"] | "";
 
-              if (targetVer.length() > 0 && fwUrl.length() > 0 && targetVer != FIRMWARE_VERSION && otaSt == "PENDING") {
+              if (targetVer.length() > 0 && fwUrl.length() > 0 && otaSt == "PENDING") {
                 Serial.printf("\n[OTA TRIGGER] Perintah Update Firmware Terdeteksi: %s -> %s\n", FIRMWARE_VERSION, targetVer.c_str());
                 otaHttp.end();
                 otaCheckClient.stop();
                 jalankanCloudOTA(fwUrl, targetVer);
               }
             }
+          } else {
+            Serial.printf("[OTA CHECK] Status HTTP: %d\n", code);
           }
           otaHttp.end();
         }
