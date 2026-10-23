@@ -22,6 +22,7 @@ import {
   ArrowDownRight,
   BarChart3,
   HelpCircle,
+  Info,
 } from 'lucide-react';
 import DatePickerModal, { DateRangeState } from '@/components/admin/DatePickerModal';
 
@@ -76,6 +77,8 @@ function DashboardContent() {
   const [timeTo, setTimeTo] = useState<string>('23:59');
 
   const [dailyTrend, setDailyTrend] = useState<DailyTrendItem[]>([]);
+  const [granularity, setGranularity] = useState<'daily' | 'monthly'>('daily');
+  const [granularityNotice, setGranularityNotice] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState<boolean>(false);
 
   const [summary, setSummary] = useState({
@@ -126,6 +129,8 @@ function DashboardContent() {
 
       if (data.success) {
         setDailyTrend(data.dailyTrend || []);
+        setGranularity(data.granularity || 'daily');
+        setGranularityNotice(data.granularity_notice || null);
 
         const s = data.summary || {};
         const pChange = s.period_change_pct ?? s.periodChangePct;
@@ -322,6 +327,16 @@ function DashboardContent() {
         </div>
       </div>
 
+      {/* Informative Visual Range Notification when > 60 days */}
+      {granularityNotice && (
+        <div className="flex items-start sm:items-center gap-2.5 p-3.5 bg-amber-50/80 border border-amber-200/80 rounded-2xl text-xs text-amber-900 shadow-2xs leading-relaxed">
+          <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5 sm:mt-0" />
+          <span>
+            <strong className="font-semibold">Batas Visualisasi Grafik:</strong> {granularityNotice} Total angka finansial dan sesi pada kartu ringkasan di atas tetap 100% akurat mencakup seluruh rentang yang Anda pilih.
+          </span>
+        </div>
+      )}
+
       {/* Two Trend Charts Side-by-Side Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Chart 1: Daily Revenue Trend (Recharts AreaChart with zero-fill + X/Y axis labels) */}
@@ -337,7 +352,7 @@ function DashboardContent() {
               </p>
             </div>
             <span className="px-3 py-1 bg-[#F5F3F3] text-[#795465] text-[10px] font-semibold rounded-full border border-[#EFEDED]">
-              Gross Sales (IDR)
+              {granularity === 'monthly' ? 'Monthly Gross Sales (IDR)' : 'Gross Sales (IDR)'}
             </span>
           </div>
 
@@ -400,7 +415,7 @@ function DashboardContent() {
               </p>
             </div>
             <span className="px-3 py-1 bg-[#E1F5EE] text-[#0F6E56] text-[10px] font-semibold rounded-full border border-emerald-200">
-              Session Volume
+              {granularity === 'monthly' ? 'Monthly Volume' : 'Session Volume'}
             </span>
           </div>
 

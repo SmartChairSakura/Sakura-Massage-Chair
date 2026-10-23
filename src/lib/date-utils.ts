@@ -160,6 +160,40 @@ export function getWibDateRange(
 }
 
 /**
+ * Generates an array of contiguous YYYY-MM month keys in WIB timezone
+ * from startMonthKey to endMonthKey (inclusive).
+ * Safely caps to maxMonths (default 36) to prevent runaway memory/loop conditions.
+ */
+export function getWibMonthSequence(
+  startMonthKey: string,
+  endMonthKey: string,
+  maxMonths: number = 36
+): string[] {
+  if (!startMonthKey || !endMonthKey) return [];
+  const [sy, sm] = startMonthKey.split('-').map(Number);
+  const [ey, em] = endMonthKey.split('-').map(Number);
+  if (!sy || !sm || !ey || !em) return [startMonthKey];
+
+  const result: string[] = [];
+  let curY = sy;
+  let curM = sm;
+  let count = 0;
+
+  while ((curY < ey || (curY === ey && curM <= em)) && count < maxMonths) {
+    const mm = String(curM).padStart(2, '0');
+    result.push(`${curY}-${mm}`);
+    curM++;
+    if (curM > 12) {
+      curM = 1;
+      curY++;
+    }
+    count++;
+  }
+
+  return result;
+}
+
+/**
  * Generates an array of contiguous YYYY-MM-DD date keys in WIB timezone
  * from startDateKey to endDateKey (inclusive).
  * Safely caps to maxDays (default 62) to prevent runaway memory/loop conditions.
