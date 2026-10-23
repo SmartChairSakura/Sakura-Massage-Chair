@@ -1,36 +1,64 @@
-# Task Checklist: Auth Hardening & User Management
+# Task Checklist: Sales Summary Dashboard UI/UX & Flow Overhaul
 
-- [x] **Task 1: Supabase Migration `11_admin_users_schema.sql`**
-  - Acceptance: `admin_users` table created with `id`, `email`, `username`, `phone_number`, `password_hash`, `role` (`SUPER_ADMIN` / `OWNER`), `location_id`, `is_active`, `otp_code`, `otp_expires_at`, `last_login_at`, and initial seeded accounts.
-  - Verify: SQL file is valid syntax.
-  - Files: `supabase/migrations/11_admin_users_schema.sql`
+- [x] **Task 1: Backend Date Zero-Filling & Period Delta in `route.ts`**
+  - **Description:** Enhance `src/app/api/admin/dashboard/route.ts` to automatically generate a contiguous zero-filled daily sequence between `startIso` and `endIso` in Western Indonesia Time (WIB, UTC+7). Also calculate real previous period metrics for `period_change_pct` (returning `null` if no comparison baseline exists).
+  - **Acceptance criteria:**
+    - [x] Missing days within the requested date span have `{ gross: 0, transactions: 0, ownerNet: 0 }`.
+    - [x] `dailyTrend` points contain formatted `dateLabel` (`DD MMM`) and `rawDate` (`YYYY-MM-DD`).
+    - [x] `period_change_pct` returns computed percentage difference vs previous period, or `null` if comparison period has no data.
+  - **Verification:**
+    - [x] Run `npm test` to verify API contracts and schema.
+    - [x] Test with multi-day range filter; verified 57/57 tests passing.
+  - **Dependencies:** None
+  - **Files touched:** `src/app/api/admin/dashboard/route.ts`, `src/lib/date-utils.ts`
 
-- [x] **Task 2: Server Auth Core `src/lib/auth-server.ts` & `src/lib/jwt-edge.ts`**
-  - Acceptance: Exported `hashPassword`, `comparePassword`, `signSessionJWT`, `verifySessionJWT`, `getAdminSession` functions using `bcryptjs` and `jose`.
-  - Verify: `npx tsc --noEmit` passes with 0 errors.
-  - Files: `src/lib/auth-server.ts`, `src/lib/jwt-edge.ts`
+- [x] **Task 2: DatePickerModal State Synchronization & Preset Integrity**
+  - **Description:** Fix `src/components/admin/DatePickerModal.tsx` so presets and custom inputs stay in sync. Fix the bug where `ALL TIME` preset is highlighted while date inputs display today's date (`23 Okt 2026`).
+  - **Acceptance criteria:**
+    - [x] When `preset === 'all'`, trigger button and active selection pill display `"All Time"`.
+    - [x] Clicking a preset (`today`, `yesterday`, `this_week`, `this_month`) strictly updates `dateFrom` and `dateTo` to the preset's WIB boundaries.
+    - [x] Typing in date or time inputs automatically changes preset to `'custom'`.
+  - **Verification:**
+    - [x] Open DatePickerModal, test switching presets; button display reflects preset cleanly.
+    - [x] Run `npm test`.
+  - **Dependencies:** None
+  - **Files touched:** `src/components/admin/DatePickerModal.tsx`
 
-- [x] **Task 3: Next.js Middleware `src/middleware.ts`**
-  - Acceptance: Protects `/admin/*` and `/api/admin/*`. Redirects unauthenticated users to `/admin/login`. Restricts `/admin/users` to `SUPER_ADMIN`.
-  - Verify: Edge middleware compiles cleanly.
-  - Files: `src/middleware.ts`
+- [x] **Task 3: Typography Hierarchy & Semantic Colors in `page.tsx`**
+  - **Description:** Overhaul `src/app/admin/dashboard/page.tsx` to implement the 3-tier font weight hierarchy from `SALES_SUMMARY_UI_ANALYSIS.md`. Remove the universal `font-extrabold`/`font-black` classes. Clean up decorative `border-2 border-[#4E635A]/30`. Reserve green strictly for Net Payout, and use neutral dark/gray for Gross Sales, Net Sales, and Platform Fee.
+  - **Acceptance criteria:**
+    - [x] Hero Net Payout number uses `text-4xl sm:text-5xl font-bold tracking-tight text-[#1B1C1C]`.
+    - [x] Sub-metric labels use `text-[10px] font-semibold text-gray-500 uppercase tracking-wide`.
+    - [x] `Net Sales` uses neutral text (`#1B1C1C`), NOT green.
+    - [x] Delta badge is conditionally rendered: real comparison badge when available, or neutral `"All-time total"` badge when `period_change_pct === null`.
+    - [x] Retain all copywriting contract strings (`Sales Overview`, `Net Payout`, `Platform Fee`, etc.).
+  - **Verification:**
+    - [x] `npm test` passes 100% (57/57).
+    - [x] Clean hierarchy verified across all cards and sections.
+  - **Dependencies:** Task 1, Task 2
+  - **Files touched:** `src/app/admin/dashboard/page.tsx`
 
-- [x] **Task 4: Hardened Auth APIs (`login`, `forgot-password`, `reset-password`, `me`)**
-  - Acceptance: Login checks `admin_users` DB with `bcrypt.compare`, sets `httpOnly` cookie. Forgot/Reset Password validates OTP and updates `password_hash` in DB. `/me` returns user session details.
-  - Verify: API endpoints compiled.
-  - Files: `src/app/api/admin/auth/login/route.ts`, `src/app/api/admin/auth/forgot-password/route.ts`, `src/app/api/admin/auth/reset-password/route.ts`, `src/app/api/admin/auth/me/route.ts`
+- [x] **Task 4: Chart Overhaul (Revenue Area Chart & Session Volume Bar Chart)**
+  - **Description:** Integrate Recharts for both charts on `/admin/dashboard`. Render Daily Revenue Trend as an Area chart with subtle 10% opacity gradient and X/Y axis labels. Render Daily Session Volume as a discrete Bar Chart with rounded tops (`[4, 4, 0, 0]`) and integer count Y-axis.
+  - **Acceptance criteria:**
+    - [x] Revenue Trend displays continuous curve, X-axis date labels (`19 Okt`, `20 Okt`), and Y-axis scale (`10k`, `20k`).
+    - [x] Session Volume is a Bar Chart with discrete bars for each day in range.
+    - [x] Custom tooltip displays formatted Rupiah for revenue and integer count for sessions.
+    - [x] Zero hydration errors or layout shift via `isMounted` guard.
+  - **Verification:**
+    - [x] Recharts AreaChart and BarChart compiled in Next.js production build.
+    - [x] Run `npm test`.
+  - **Dependencies:** Task 1, Task 3
+  - **Files touched:** `src/app/admin/dashboard/page.tsx`
 
-- [x] **Task 5: User Management API `/api/admin/users`**
-  - Acceptance: GET user list, POST direct user creation in DB with bcrypt hash, PATCH update role/location/password override/active status.
-  - Verify: API endpoint compiled.
-  - Files: `src/app/api/admin/users/route.ts`
-
-- [x] **Task 6: Dynamic Admin Header & Role-gated Sidebar**
-  - Acceptance: Header shows logged in user name & role badge in Sakura Zen palette. Sidebar shows `User Management` menu item only for `SUPER_ADMIN`.
-  - Verify: Rendered cleanly across roles.
-  - Files: `src/components/admin/AdminHeader.tsx`, `src/components/admin/AdminSidebar.tsx`
-
-- [x] **Task 7: User Management UI `/admin/users/page.tsx`**
-  - Acceptance: Total active user counter, Search bar, `+ Tambah User Baru` modal, table with strictly Sakura Zen styled badges (`SUPER_ADMIN` Dusty Rose, `OWNER` Pink Accent).
-  - Verify: `npx next build` passes cleanly.
-  - Files: `src/app/admin/users/page.tsx`
+- [x] **Task 5: End-to-End Regression Testing & Documentation Sync**
+  - **Description:** Verify complete build, run all automated test suites, generate the formal audit report artifact, and mirror it to Windows Downloads.
+  - **Acceptance criteria:**
+    - [x] All 57 unit tests pass without errors (`npm test`).
+    - [x] Next.js 14 production build succeeds with code 0 (`npm run build`).
+    - [x] Audit report created in brain artifacts and synced to `C:\Users\rifal\Downloads\SALES_SUMMARY_AUDIT_REPORT.md`.
+  - **Verification:**
+    - [x] `npm run build` exits with code 0.
+    - [x] Remote git commit & push.
+  - **Dependencies:** Tasks 1-4
+  - **Files touched:** Full repository

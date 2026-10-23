@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { getAdminSession } from '@/lib/auth-server';
-import { getWibDateRange, getWibDateKey } from '@/lib/date-utils';
+import {
+  getWibNow,
+  getWibDateRange,
+  getWibDateKey,
+  getWibDateSequence,
+  getPreviousWibDateRange,
+} from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -130,15 +136,42 @@ export async function GET(req: NextRequest) {
     const ownerNet = Math.round(netGross * (ownerPct / 100));
     const systemNet = netGross - ownerNet;
 
-    // Convert dailyMap to sorted array for Trend Line Charts
-    const sortedDays = Object.keys(dailyMap).sort();
-    const dailyTrend = sortedDays.map((dayKey) => {
-      const dayGross = dailyMap[dayKey].gross;
+    // Generate contiguous daily sequence and zero-fill missing dates
+    let targetDays: string[] = [];
+    const wibNow = getWibNow();
+    const todayKey = getWibDateKey(wibNow);
+
+    if (startIso && endIso) {
+      const sKey = getWibDateKey(startIso);
+      const eKey = getWibDateKey(endIso);
+      targetDays = getWibDateSequence(sKey, eKey, 62);
+    } else {
+      // 'all' time: find min transaction date up to today (or past 14-30 days if no txs)
+      const existingKeys = Object.keys(dailyMap).sort();
+      if (existingKeys.length > 0) {
+        const earliest = existingKeys[0];
+        targetDays = getWibDateSequence(earliest, todayKey, 60);
+        // Ensure any outlier dates are preserved
+        const daySet = new Set(targetDays);
+        existingKeys.forEach((k) => daySet.add(k));
+        targetDays = Array.from(daySet).sort();
+      } else {
+        // Fallback: last 7 days ending today
+        const past7 = new Date(wibNow.getTime() - 6 * 24 * 3600000);
+        targetDays = getWibDateSequence(getWibDateKey(past7), todayKey, 7);
+      }
+    }
+
+    const dailyTrend = targetDays.map((dayKey) => {
+      const dayData = dailyMap[dayKey] || { gross: 0, transactions: 0 };
+      const dayGross = dayData.gross;
       const dayMdr = Math.round(dayGross * 0.007);
       const dayNet = dayGross - dayMdr;
       const dayOwnerNet = Math.round(dayNet * (ownerPct / 100));
       const dateObj = new Date(`${dayKey}T00:00:00+07:00`);
-      const dateLabel = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+      const dateLabel = isNaN(dateObj.getTime())
+        ? dayKey
+        : dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 
       return {
         rawDate: dayKey,
@@ -146,10 +179,55 @@ export async function GET(req: NextRequest) {
         grossSales: dayGross,
         gross: dayGross,
         ownerNet: dayOwnerNet,
-        ticketCount: dailyMap[dayKey].transactions,
-        transactions: dailyMap[dayKey].transactions,
+        ticketCount: dayData.transactions,
+        transactions: dayData.transactions,
       };
     });
+
+    // 5. Compute Previous Period Comparison for Delta Metric
+    let periodChangePct: number | null = null;
+    const { prevStartIso, prevEndIso } = getPreviousWibDateRange(filterRange, startIso, endIso);
+
+    if (prevStartIso && prevEndIso && filterRange !== 'all') {
+      try {
+        let prevQuery = supabaseServer
+          .from('chair_slips')
+          .select('amount, status')
+          .gte(dateColumn, prevStartIso)
+          .lte(dateColumn, prevEndIso);
+
+        if (filterLocationId && filterLocationId !== 'ALL') {
+          const chairCodes = safeChairs.map((c: any) => c.chair_code).filter(Boolean);
+          if (chairCodes.length > 0) {
+            prevQuery = prevQuery.or(
+              `location_id.eq.${filterLocationId},chair_code.in.(${chairCodes.join(',')}),chair_id.in.(${chairCodes.join(',')})`
+            );
+          } else {
+            prevQuery = prevQuery.eq('location_id', filterLocationId);
+          }
+        }
+
+        const { data: prevSlips } = await prevQuery;
+        let prevGross = 0;
+        (prevSlips || []).forEach((tx: any) => {
+          const st = String(tx.status || '').toLowerCase();
+          if (['done', 'completed', 'paid', 'ongoing', 'session_inprocess'].includes(st)) {
+            prevGross += Number(tx.amount || 0);
+          }
+        });
+
+        if (prevGross > 0) {
+          periodChangePct = Math.round(((grossRevenue - prevGross) / prevGross) * 100);
+        } else if (grossRevenue > 0) {
+          periodChangePct = 100;
+        } else {
+          periodChangePct = 0;
+        }
+      } catch (e) {
+        console.warn('[API Dashboard] Previous period comparison query failed:', e);
+        periodChangePct = null;
+      }
+    }
 
     const onlineCount = safeChairs.filter((c) => (c.status || 'ONLINE') === 'ONLINE').length;
 
@@ -167,7 +245,7 @@ export async function GET(req: NextRequest) {
           total_fleet: safeChairs.length,
           owner_share_pct: ownerPct,
           system_share_pct: systemPct,
-          period_change_pct: 0,
+          period_change_pct: periodChangePct,
 
           // Legacy camelCase keys for 100% backward compatibility
           grossRevenue,
@@ -181,7 +259,7 @@ export async function GET(req: NextRequest) {
           totalChairs: safeChairs.length,
           ownerSharePct: ownerPct,
           systemSharePct: systemPct,
-          periodChangePct: 0,
+          periodChangePct: periodChangePct,
         },
         dailyTrend,
         locations: locationList,

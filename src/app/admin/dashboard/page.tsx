@@ -3,13 +3,25 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+import {
   TrendingUp,
   DollarSign,
   Activity,
   Layers,
   ArrowUpRight,
-  Ticket,
+  ArrowDownRight,
   BarChart3,
+  HelpCircle,
 } from 'lucide-react';
 import DatePickerModal, { DateRangeState } from '@/components/admin/DatePickerModal';
 
@@ -25,6 +37,33 @@ interface DailyTrendItem {
   transactions: number;
 }
 
+function formatRupiah(val: number): string {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(val);
+}
+
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-[#1B1C1C] text-white rounded-xl px-4 py-3 text-xs shadow-xl space-y-1.5 border border-zinc-700/50">
+      <p className="font-semibold text-gray-200 border-b border-zinc-700 pb-1">{label}</p>
+      {payload.map((entry: any) => (
+        <div key={entry.dataKey || entry.name} className="flex items-center justify-between gap-4 font-mono text-[11px]">
+          <span className="text-gray-400 capitalize">{entry.name}:</span>
+          <span className="font-semibold text-white">
+            {typeof entry.value === 'number' && entry.dataKey !== 'ticketCount'
+              ? formatRupiah(entry.value)
+              : `${entry.value} Sessions`}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DashboardContent() {
   const searchParams = useSearchParams();
   const locationIdParam = searchParams.get('location_id') || 'ALL';
@@ -37,8 +76,7 @@ function DashboardContent() {
   const [timeTo, setTimeTo] = useState<string>('23:59');
 
   const [dailyTrend, setDailyTrend] = useState<DailyTrendItem[]>([]);
-  const [hoveredTrendPoint, setHoveredTrendPoint] = useState<DailyTrendItem | null>(null);
-  const [hoveredTicketPoint, setHoveredTicketPoint] = useState<DailyTrendItem | null>(null);
+  const [isMounted, setIsMounted] = useState<boolean>(false);
 
   const [summary, setSummary] = useState({
     gross_sales: 0,
@@ -51,9 +89,13 @@ function DashboardContent() {
     total_fleet: 0,
     owner_share_pct: 95.0,
     system_share_pct: 5.0,
-    period_change_pct: 0,
+    period_change_pct: null as number | null,
   });
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const fetchDashboardData = useCallback(async () => {
     setIsLoading(true);
@@ -86,6 +128,7 @@ function DashboardContent() {
         setDailyTrend(data.dailyTrend || []);
 
         const s = data.summary || {};
+        const pChange = s.period_change_pct ?? s.periodChangePct;
         setSummary({
           gross_sales: Number(s.gross_sales ?? s.grossRevenue ?? 0),
           mdr_fee: Number(s.mdr_fee ?? s.mdrFee ?? 0),
@@ -97,7 +140,7 @@ function DashboardContent() {
           total_fleet: Number(s.total_fleet ?? s.totalChairs ?? 0),
           owner_share_pct: Number(s.owner_share_pct ?? s.ownerSharePct ?? 95.0),
           system_share_pct: Number(s.system_share_pct ?? s.systemSharePct ?? 5.0),
-          period_change_pct: Number(s.period_change_pct ?? s.periodChangePct ?? 0),
+          period_change_pct: pChange !== null && pChange !== undefined ? Number(pChange) : null,
         });
       }
     } catch (err) {
@@ -119,193 +162,16 @@ function DashboardContent() {
     setTimeTo(newRange.timeTo);
   };
 
-  const formatRupiah = (val: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      maximumFractionDigits: 0,
-    }).format(val);
-  };
-
-  // SVG Revenue Trend Line Chart Generator
-  const renderRevenueChart = () => {
-    if (dailyTrend.length === 0) {
-      return (
-        <div className="h-44 flex flex-col items-center justify-center text-[#817478] bg-[#FBF9F9] rounded-2xl border border-dashed border-[#EFEDED]">
-          <TrendingUp className="w-8 h-8 mb-2 text-[#D2C3C7]" />
-          <p className="text-xs font-bold">No transaction data recorded for this period.</p>
-        </div>
-      );
-    }
-
-    const width = 600;
-    const height = 180;
-    const padding = 25;
-
-    const maxVal = Math.max(...dailyTrend.map((d) => d.grossSales || d.gross), 100000);
-    const minVal = 0;
-
-    const points = dailyTrend.map((d, idx) => {
-      const grossVal = d.grossSales || d.gross || 0;
-      const x = dailyTrend.length === 1
-        ? width / 2
-        : padding + (idx / Math.max(1, dailyTrend.length - 1)) * (width - padding * 2);
-      const y = height - padding - ((grossVal - minVal) / (maxVal - minVal)) * (height - padding * 2);
-      return { x, y, data: d };
-    });
-
-    const pathD = points.length === 1
-      ? `M ${padding} ${points[0].y} L ${width - padding} ${points[0].y}`
-      : points.reduce(
-          (acc, pt, idx) => (idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`),
-          ''
-        );
-
-    return (
-      <div className="relative w-full overflow-x-auto" onMouseLeave={() => setHoveredTrendPoint(null)}>
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44 overflow-visible">
-          <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="#EFEDED" strokeDasharray="3 3" />
-          <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="#EFEDED" strokeDasharray="3 3" />
-          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#EFEDED" />
-
-          <path
-            d={pathD}
-            fill="none"
-            stroke="#795465"
-            strokeWidth="3"
-            strokeDasharray={points.length === 1 ? '4 4' : undefined}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          {points.map((pt, idx) => (
-            <g key={idx} className="cursor-pointer" onMouseEnter={() => setHoveredTrendPoint(pt.data)}>
-              <circle
-                cx={pt.x}
-                cy={pt.y}
-                r={hoveredTrendPoint?.rawDate === pt.data.rawDate ? 6 : 4}
-                fill={hoveredTrendPoint?.rawDate === pt.data.rawDate ? '#4E635A' : '#795465'}
-                stroke="#FFFFFF"
-                strokeWidth="2"
-                className="transition-all"
-              />
-            </g>
-          ))}
-        </svg>
-
-        {hoveredTrendPoint && (
-          <div className="p-3 bg-[#1B1C1C] text-white rounded-xl shadow-xl text-xs space-y-1 my-2">
-            <div className="flex items-center justify-between gap-4 font-bold border-b border-zinc-700 pb-1">
-              <span>{hoveredTrendPoint.dateLabel}</span>
-              <span className="text-[#F8C8DC]">{hoveredTrendPoint.ticketCount || hoveredTrendPoint.transactions} Sessions</span>
-            </div>
-            <div className="flex items-center justify-between gap-4 font-mono">
-              <span className="text-zinc-400">Gross Sales:</span>
-              <span>{formatRupiah(hoveredTrendPoint.grossSales || hoveredTrendPoint.gross)}</span>
-            </div>
-            <div className="flex items-center justify-between gap-4 font-mono font-bold text-emerald-400">
-              <span>Net Payout:</span>
-              <span>{formatRupiah(hoveredTrendPoint.ownerNet)}</span>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // SVG Ticket Volume Line/Bar Chart Generator
-  const renderTicketVolumeChart = () => {
-    if (dailyTrend.length === 0) {
-      return (
-        <div className="h-44 flex flex-col items-center justify-center text-[#817478] bg-[#FBF9F9] rounded-2xl border border-dashed border-[#EFEDED]">
-          <Ticket className="w-8 h-8 mb-2 text-[#D2C3C7]" />
-          <p className="text-xs font-bold">No session volume recorded for this period.</p>
-        </div>
-      );
-    }
-
-    const width = 600;
-    const height = 180;
-    const padding = 25;
-
-    const maxVal = Math.max(...dailyTrend.map((d) => d.ticketCount || d.transactions), 5);
-    const minVal = 0;
-
-    const points = dailyTrend.map((d, idx) => {
-      const countVal = d.ticketCount || d.transactions || 0;
-      const x = dailyTrend.length === 1
-        ? width / 2
-        : padding + (idx / Math.max(1, dailyTrend.length - 1)) * (width - padding * 2);
-      const y = height - padding - ((countVal - minVal) / (maxVal - minVal)) * (height - padding * 2);
-      return { x, y, data: d, countVal };
-    });
-
-    const pathD = points.length === 1
-      ? `M ${padding} ${points[0].y} L ${width - padding} ${points[0].y}`
-      : points.reduce(
-          (acc, pt, idx) => (idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`),
-          ''
-        );
-
-    return (
-      <div className="relative w-full overflow-x-auto" onMouseLeave={() => setHoveredTicketPoint(null)}>
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44 overflow-visible">
-          <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="#EFEDED" strokeDasharray="3 3" />
-          <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="#EFEDED" strokeDasharray="3 3" />
-          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#EFEDED" />
-
-          {/* Curved trend line for ticket quantity */}
-          <path
-            d={pathD}
-            fill="none"
-            stroke="#4E635A"
-            strokeWidth="3"
-            strokeDasharray={points.length === 1 ? '4 4' : undefined}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          {points.map((pt, idx) => (
-            <g key={idx} className="cursor-pointer" onMouseEnter={() => setHoveredTicketPoint(pt.data)}>
-              <circle
-                cx={pt.x}
-                cy={pt.y}
-                r={hoveredTicketPoint?.rawDate === pt.data.rawDate ? 6 : 4}
-                fill={hoveredTicketPoint?.rawDate === pt.data.rawDate ? '#795465' : '#4E635A'}
-                stroke="#FFFFFF"
-                strokeWidth="2"
-                className="transition-all"
-              />
-            </g>
-          ))}
-        </svg>
-
-        {hoveredTicketPoint && (
-          <div className="p-3 bg-[#1B1C1C] text-white rounded-xl shadow-xl text-xs space-y-1 my-2">
-            <div className="flex items-center justify-between gap-4 font-bold border-b border-zinc-700 pb-1">
-              <span>{hoveredTicketPoint.dateLabel}</span>
-              <span className="text-emerald-400 font-extrabold">{hoveredTicketPoint.ticketCount || hoveredTicketPoint.transactions} Sessions</span>
-            </div>
-            <div className="flex items-center justify-between gap-4 font-mono">
-              <span className="text-zinc-400">Gross Sales:</span>
-              <span>{formatRupiah(hoveredTicketPoint.grossSales || hoveredTicketPoint.gross)}</span>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-6">
-      {/* Top Streamlined Filter Bar (Parkee CMS Sales Summary Screenshot_70) */}
+      {/* Top Streamlined Filter Bar (Parkee CMS Sales Summary Architecture) */}
       <div className="bg-white rounded-3xl border border-[#EFEDED] p-5 shadow-sm flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-black text-[#1B1C1C] tracking-tight flex items-center gap-2">
+          <h1 className="text-xl font-semibold text-[#1B1C1C] tracking-tight flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-[#795465]" />
             <span>Sales Overview</span>
           </h1>
-          <p className="text-xs text-[#817478] font-medium mt-1">
+          <p className="text-xs text-gray-500 font-normal mt-1">
             Real-time QRIS revenue, payment processing fees, and partner payouts.
           </p>
         </div>
@@ -316,21 +182,23 @@ function DashboardContent() {
           <div className="flex items-center bg-[#F5F3F3] p-1 rounded-xl border border-[#EFEDED]">
             <button
               onClick={() => setDateType('created_at')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 dateType === 'created_at'
-                  ? 'bg-[#795465] text-white shadow-sm'
-                  : 'text-[#4F4448] hover:text-[#1B1C1C]'
+                  ? 'bg-[#795465] text-white shadow-xs'
+                  : 'text-gray-600 hover:text-[#1B1C1C]'
               }`}
+              title="Filter based on QRIS generation timestamp"
             >
               Transaction Date
             </button>
             <button
               onClick={() => setDateType('settled_at')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 dateType === 'settled_at'
-                  ? 'bg-[#795465] text-white shadow-sm'
-                  : 'text-[#4F4448] hover:text-[#1B1C1C]'
+                  ? 'bg-[#795465] text-white shadow-xs'
+                  : 'text-gray-600 hover:text-[#1B1C1C]'
               }`}
+              title="Filter based on payment gateway settlement timestamp"
             >
               Settlement Date
             </button>
@@ -351,56 +219,73 @@ function DashboardContent() {
 
       {/* Hero Financial Summary: Waterfall Flow Architecture */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Highlight Card: Net Payout */}
-        <div className="lg:col-span-2 bg-[#FBF9F9] border-2 border-[#4E635A]/30 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col justify-between space-y-6 relative overflow-hidden">
+        {/* Main Highlight Card: Net Payout (Clean border, 3-tier typography) */}
+        <div className="lg:col-span-2 bg-white border border-[#EFEDED] rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col justify-between space-y-6 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black">
+              <div className="w-10 h-10 rounded-2xl bg-[#E1F5EE] text-[#0F6E56] flex items-center justify-center font-bold">
                 <DollarSign className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-xs font-black text-emerald-800 uppercase tracking-wider block">
+                <span className="text-xs font-semibold text-[#0F6E56] uppercase tracking-wide block">
                   Net Payout ({summary.owner_share_pct}%)
                 </span>
-                <p className="text-[11px] text-[#817478] font-bold">Partner Net Earnings</p>
+                <p className="text-[11px] text-gray-500 font-medium">Partner Net Earnings</p>
               </div>
             </div>
 
-            <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-black">
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              {summary.period_change_pct >= 0 ? `+${summary.period_change_pct}%` : `${summary.period_change_pct}%`}
-            </span>
+            {/* Dynamic Period Delta Badge (Real Comparison vs Previous Period or Neutral Lifetime Badge) */}
+            {summary.period_change_pct !== null && summary.period_change_pct !== undefined ? (
+              <span
+                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
+                  summary.period_change_pct >= 0
+                    ? 'bg-[#E1F5EE] text-[#0F6E56]'
+                    : 'bg-[#FCEBEB] text-[#A32D2D]'
+                }`}
+              >
+                {summary.period_change_pct >= 0 ? (
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                ) : (
+                  <ArrowDownRight className="w-3.5 h-3.5" />
+                )}
+                {summary.period_change_pct >= 0 ? `+${summary.period_change_pct}%` : `${summary.period_change_pct}%`}
+              </span>
+            ) : (
+              <span className="px-3 py-1 rounded-full text-[11px] font-medium bg-[#F5F3F3] text-gray-500 border border-[#EFEDED]">
+                All-time total
+              </span>
+            )}
           </div>
 
           <div>
-            <div className="text-4xl sm:text-5xl font-black text-[#1B1C1C] tracking-tight">
+            <div className="text-4xl sm:text-5xl font-bold text-[#1B1C1C] tracking-tight">
               {formatRupiah(summary.owner_net)}
             </div>
-            <p className="text-xs font-bold text-[#817478] mt-2">
+            <p className="text-xs font-normal text-gray-500 mt-2">
               Net revenue after 0.7% MDR and {summary.system_share_pct}% platform fee.
             </p>
           </div>
 
-          {/* Waterfall Financial Deduction Flow */}
+          {/* Waterfall Financial Deduction Flow (Disciplined Semantic Colors) */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-[#EFEDED] text-xs">
-            <div className="p-3 bg-white rounded-2xl border border-[#EFEDED]">
-              <span className="text-[10px] font-extrabold text-[#795465] uppercase block">Gross Sales</span>
-              <span className="font-extrabold text-[#1B1C1C] text-sm block mt-0.5">{formatRupiah(summary.gross_sales)}</span>
+            <div className="p-3 bg-[#FBF9F9] rounded-2xl border border-[#EFEDED]">
+              <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block">Gross Sales</span>
+              <span className="font-semibold text-sm text-[#1B1C1C] block mt-0.5">{formatRupiah(summary.gross_sales)}</span>
             </div>
 
-            <div className="p-3 bg-white rounded-2xl border border-[#EFEDED]">
-              <span className="text-[10px] font-extrabold text-[#BA1A1A] uppercase block">MDR Fee (0.7%)</span>
-              <span className="font-extrabold text-[#BA1A1A] text-sm block mt-0.5">{formatRupiah(summary.mdr_fee)}</span>
+            <div className="p-3 bg-[#FBF9F9] rounded-2xl border border-[#EFEDED]">
+              <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block">MDR Fee (0.7%)</span>
+              <span className="font-semibold text-sm text-[#A32D2D] block mt-0.5">{formatRupiah(summary.mdr_fee)}</span>
             </div>
 
-            <div className="p-3 bg-white rounded-2xl border border-[#EFEDED]">
-              <span className="text-[10px] font-extrabold text-[#4E635A] uppercase block">Net Sales</span>
-              <span className="font-extrabold text-[#4E635A] text-sm block mt-0.5">{formatRupiah(summary.net_sales)}</span>
+            <div className="p-3 bg-[#FBF9F9] rounded-2xl border border-[#EFEDED]">
+              <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block">Net Sales</span>
+              <span className="font-semibold text-sm text-[#1B1C1C] block mt-0.5">{formatRupiah(summary.net_sales)}</span>
             </div>
 
-            <div className="p-3 bg-white rounded-2xl border border-[#EFEDED]">
-              <span className="text-[10px] font-extrabold text-[#795465] uppercase block">Platform Fee ({summary.system_share_pct}%)</span>
-              <span className="font-extrabold text-[#795465] text-sm block mt-0.5">{formatRupiah(summary.system_share)}</span>
+            <div className="p-3 bg-[#FBF9F9] rounded-2xl border border-[#EFEDED]">
+              <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block">Platform Fee ({summary.system_share_pct}%)</span>
+              <span className="font-semibold text-sm text-[#1B1C1C] block mt-0.5">{formatRupiah(summary.system_share)}</span>
             </div>
           </div>
         </div>
@@ -410,13 +295,13 @@ function DashboardContent() {
           {/* Active Fleet Card */}
           <div className="bg-white rounded-3xl border border-[#EFEDED] p-6 shadow-sm flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[10px] font-extrabold text-[#817478] uppercase tracking-wider block">Active Fleet</span>
-              <div className="text-2xl font-black text-emerald-700">
-                {summary.online_fleet} / {summary.total_fleet} <span className="text-xs text-[#817478] font-bold">Chairs</span>
+              <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block">Active Fleet</span>
+              <div className="text-2xl font-bold text-emerald-800">
+                {summary.online_fleet} / {summary.total_fleet} <span className="text-xs text-gray-500 font-medium">Chairs</span>
               </div>
-              <p className="text-[11px] text-[#817478] font-bold">Chairs ready for service</p>
+              <p className="text-[11px] text-gray-500 font-normal">Chairs ready for service</p>
             </div>
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold">
+            <div className="w-10 h-10 rounded-2xl bg-[#E1F5EE] text-[#0F6E56] flex items-center justify-center font-bold">
               <Activity className="w-5 h-5" />
             </div>
           </div>
@@ -424,11 +309,11 @@ function DashboardContent() {
           {/* Paid Sessions Card */}
           <div className="bg-white rounded-3xl border border-[#EFEDED] p-6 shadow-sm flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[10px] font-extrabold text-[#817478] uppercase tracking-wider block">Paid Sessions</span>
-              <div className="text-2xl font-black text-[#795465]">
-                {summary.total_tickets} <span className="text-xs text-[#817478] font-bold">Sessions</span>
+              <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block">Paid Sessions</span>
+              <div className="text-2xl font-bold text-[#795465]">
+                {summary.total_tickets} <span className="text-xs text-gray-500 font-medium">Sessions</span>
               </div>
-              <p className="text-[11px] text-[#817478] font-bold">Completed massage sessions</p>
+              <p className="text-[11px] text-gray-500 font-normal">Completed massage sessions</p>
             </div>
             <div className="w-10 h-10 rounded-2xl bg-[#F8C8DC] text-[#795465] flex items-center justify-center font-bold">
               <Layers className="w-5 h-5" />
@@ -439,44 +324,121 @@ function DashboardContent() {
 
       {/* Two Trend Charts Side-by-Side Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart 1: Daily Revenue Trend */}
+        {/* Chart 1: Daily Revenue Trend (Recharts AreaChart with zero-fill + X/Y axis labels) */}
         <div className="bg-white rounded-3xl border border-[#EFEDED] p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-black text-[#1B1C1C] flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-[#1B1C1C] flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-[#795465]" />
                 <span>Daily Revenue Trend</span>
               </h2>
-              <p className="text-xs text-[#817478] font-medium mt-0.5">
+              <p className="text-xs text-gray-500 font-normal mt-0.5">
                 Daily gross revenue and net payout performance.
               </p>
             </div>
-            <span className="px-3 py-1 bg-[#F5F3F3] text-[#795465] text-[10px] font-extrabold rounded-full border border-[#EFEDED]">
+            <span className="px-3 py-1 bg-[#F5F3F3] text-[#795465] text-[10px] font-semibold rounded-full border border-[#EFEDED]">
               Gross Sales (IDR)
             </span>
           </div>
 
-          {renderRevenueChart()}
+          {isMounted && dailyTrend.length > 0 ? (
+            <div className="w-full h-[220px]">
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={dailyTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#795465" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#795465" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#EFEDED" vertical={false} />
+                  <XAxis
+                    dataKey="dateLabel"
+                    tick={{ fontSize: 11, fill: '#817478' }}
+                    axisLine={{ stroke: '#EFEDED' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#817478' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`)}
+                    width={45}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="grossSales"
+                    name="Gross Sales"
+                    stroke="#795465"
+                    strokeWidth={2.5}
+                    fill="url(#revenueGrad)"
+                    dot={{ r: 3, fill: '#795465', strokeWidth: 2, stroke: '#FFFFFF' }}
+                    activeDot={{ r: 5, fill: '#795465', stroke: '#FFFFFF', strokeWidth: 2 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-44 flex flex-col items-center justify-center text-gray-400 bg-[#FBF9F9] rounded-2xl border border-dashed border-[#EFEDED]">
+              <TrendingUp className="w-8 h-8 mb-2 text-gray-300" />
+              <p className="text-xs font-normal">No transaction data recorded for this period.</p>
+            </div>
+          )}
         </div>
 
-        {/* Chart 2: Daily Session Volume */}
+        {/* Chart 2: Daily Session Volume (Recharts BarChart with rounded bars) */}
         <div className="bg-white rounded-3xl border border-[#EFEDED] p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-black text-[#1B1C1C] flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-[#1B1C1C] flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-[#4E635A]" />
                 <span>Daily Session Volume</span>
               </h2>
-              <p className="text-xs text-[#817478] font-medium mt-0.5">
+              <p className="text-xs text-gray-500 font-normal mt-0.5">
                 Number of completed sessions per day.
               </p>
             </div>
-            <span className="px-3 py-1 bg-emerald-50 text-emerald-800 text-[10px] font-extrabold rounded-full border border-emerald-200">
+            <span className="px-3 py-1 bg-[#E1F5EE] text-[#0F6E56] text-[10px] font-semibold rounded-full border border-emerald-200">
               Session Volume
             </span>
           </div>
 
-          {renderTicketVolumeChart()}
+          {isMounted && dailyTrend.length > 0 ? (
+            <div className="w-full h-[220px]">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={dailyTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#EFEDED" vertical={false} />
+                  <XAxis
+                    dataKey="dateLabel"
+                    tick={{ fontSize: 11, fill: '#817478' }}
+                    axisLine={{ stroke: '#EFEDED' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#817478' }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                    width={30}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar
+                    dataKey="ticketCount"
+                    name="Paid Sessions"
+                    fill="#4E635A"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={28}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-44 flex flex-col items-center justify-center text-gray-400 bg-[#FBF9F9] rounded-2xl border border-dashed border-[#EFEDED]">
+              <BarChart3 className="w-8 h-8 mb-2 text-gray-300" />
+              <p className="text-xs font-normal">No transaction sessions recorded for this period.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -485,7 +447,7 @@ function DashboardContent() {
 
 export default function SalesSummaryDashboardPage() {
   return (
-    <Suspense fallback={<div className="py-12 text-center text-xs font-extrabold text-[#795465] animate-pulse">Loading Sales Overview...</div>}>
+    <Suspense fallback={<div className="py-12 text-center text-xs font-medium text-[#795465] animate-pulse">Loading Sales Overview...</div>}>
       <DashboardContent />
     </Suspense>
   );

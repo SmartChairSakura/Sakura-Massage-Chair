@@ -41,10 +41,28 @@ export default function DatePickerModal({
   const todayStr = `${yyyy}-${mm}-${dd}`;
 
   const [preset, setPreset] = useState<string>(initialRange || 'today');
-  const [dateFrom, setDateFrom] = useState<string>(initialDateFrom || todayStr);
-  const [dateTo, setDateTo] = useState<string>(initialDateTo || todayStr);
+  const [dateFrom, setDateFrom] = useState<string>(
+    initialDateFrom ? initialDateFrom : (initialRange === 'all' ? '' : todayStr)
+  );
+  const [dateTo, setDateTo] = useState<string>(
+    initialDateTo ? initialDateTo : (initialRange === 'all' ? '' : todayStr)
+  );
   const [timeFrom, setTimeFrom] = useState<string>(initialTimeFrom || '00:00');
   const [timeTo, setTimeTo] = useState<string>(initialTimeTo || '23:59');
+
+  // Synchronize internal state when props change
+  useEffect(() => {
+    setPreset(initialRange || 'today');
+    if (initialRange === 'all' && !initialDateFrom && !initialDateTo) {
+      setDateFrom('');
+      setDateTo('');
+    } else {
+      setDateFrom(initialDateFrom || (initialRange === 'all' ? '' : todayStr));
+      setDateTo(initialDateTo || (initialRange === 'all' ? '' : todayStr));
+    }
+    setTimeFrom(initialTimeFrom || '00:00');
+    setTimeTo(initialTimeTo || '23:59');
+  }, [initialRange, initialDateFrom, initialDateTo, initialTimeFrom, initialTimeTo, todayStr]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -97,7 +115,7 @@ export default function DatePickerModal({
   };
 
   const formatButtonDisplay = () => {
-    if (preset === 'all' && !dateFrom && !dateTo) {
+    if (preset === 'all') {
       return 'All Time';
     }
     if (dateFrom && dateTo) {
@@ -110,7 +128,7 @@ export default function DatePickerModal({
       };
       return `${formatDate(dateFrom, timeFrom)} - ${formatDate(dateTo, timeTo)}`;
     }
-    return 'Select Date Range';
+    return 'All Time';
   };
 
   return (
@@ -119,13 +137,13 @@ export default function DatePickerModal({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#1B1C1C] border border-[#EFEDED] rounded-xl px-3.5 py-2.5 text-xs font-bold transition-all shadow-sm"
+        className="flex items-center gap-2 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#1B1C1C] border border-[#EFEDED] rounded-xl px-3.5 py-2 text-xs font-semibold transition-all shadow-xs"
         title="Open Date Filter"
       >
         <CalendarIcon className="w-4 h-4 text-[#795465] shrink-0" />
-        <span className="text-[#817478] font-medium hidden sm:inline">{labelPrefix}:</span>
-        <span className="font-extrabold text-[#1B1C1C]">{formatButtonDisplay()}</span>
-        <ChevronDown className="w-3.5 h-3.5 text-[#817478] ml-1 shrink-0" />
+        <span className="text-gray-500 font-normal hidden sm:inline">{labelPrefix}:</span>
+        <span className="font-semibold text-[#1B1C1C]">{formatButtonDisplay()}</span>
+        <ChevronDown className="w-3.5 h-3.5 text-gray-500 ml-0.5 shrink-0" />
       </button>
 
       {/* Popover Modal (Parkee CMS Dual Panel Style) */}
@@ -142,14 +160,14 @@ export default function DatePickerModal({
             <div className="flex items-center justify-between pb-3 border-b border-[#EFEDED]">
               <div className="flex items-center gap-2">
                 <CalendarIcon className="w-4 h-4 text-[#795465]" />
-                <h3 className="text-xs font-black text-[#1B1C1C] uppercase tracking-wider">
+                <h3 className="text-xs font-semibold text-[#1B1C1C] uppercase tracking-wider">
                   Filter Date & Time Range
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1 text-[#817478] hover:text-[#1B1C1C] rounded-lg transition-colors"
+                className="p-1 text-gray-400 hover:text-[#1B1C1C] rounded-lg transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -160,8 +178,8 @@ export default function DatePickerModal({
             <div className="sm:col-span-2 space-y-3">
               {/* Start Date & Time */}
               <div className="space-y-1">
-                <label className="text-[11px] font-extrabold text-[#795465] flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5" />
+                <label className="text-[11px] font-semibold text-gray-600 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-[#795465]" />
                   <span>Start Date & Time</span>
                 </label>
                 <div className="flex items-center gap-2">
@@ -172,7 +190,7 @@ export default function DatePickerModal({
                       setDateFrom(e.target.value);
                       setPreset('custom');
                     }}
-                    className="flex-1 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-3 py-2 text-xs font-bold text-[#1B1C1C] outline-none focus:border-[#795465]"
+                    className="flex-1 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-3 py-2 text-xs font-semibold text-[#1B1C1C] outline-none focus:border-[#795465]"
                   />
                   <input
                     type="time"
@@ -181,15 +199,15 @@ export default function DatePickerModal({
                       setTimeFrom(e.target.value);
                       setPreset('custom');
                     }}
-                    className="w-24 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-2.5 py-2 text-xs font-bold text-[#1B1C1C] outline-none focus:border-[#795465]"
+                    className="w-24 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-2.5 py-2 text-xs font-semibold text-[#1B1C1C] outline-none focus:border-[#795465]"
                   />
                 </div>
               </div>
 
               {/* End Date & Time */}
               <div className="space-y-1">
-                <label className="text-[11px] font-extrabold text-[#795465] flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5" />
+                <label className="text-[11px] font-semibold text-gray-600 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-[#795465]" />
                   <span>End Date & Time</span>
                 </label>
                 <div className="flex items-center gap-2">
@@ -200,7 +218,7 @@ export default function DatePickerModal({
                       setDateTo(e.target.value);
                       setPreset('custom');
                     }}
-                    className="flex-1 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-3 py-2 text-xs font-bold text-[#1B1C1C] outline-none focus:border-[#795465]"
+                    className="flex-1 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-3 py-2 text-xs font-semibold text-[#1B1C1C] outline-none focus:border-[#795465]"
                   />
                   <input
                     type="time"
@@ -209,21 +227,21 @@ export default function DatePickerModal({
                       setTimeTo(e.target.value);
                       setPreset('custom');
                     }}
-                    className="w-24 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-2.5 py-2 text-xs font-bold text-[#1B1C1C] outline-none focus:border-[#795465]"
+                    className="w-24 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-2.5 py-2 text-xs font-semibold text-[#1B1C1C] outline-none focus:border-[#795465]"
                   />
                 </div>
               </div>
 
               {/* Selection Summary Pill */}
-              <div className="p-3 bg-[#F5F3F3] rounded-xl border border-[#EFEDED] text-[11px] font-medium text-[#4F4448]">
-                <span className="font-extrabold text-[#795465]">Active Selection: </span>
-                <span>{formatButtonDisplay()}</span>
+              <div className="p-3 bg-[#F5F3F3] rounded-xl border border-[#EFEDED] text-[11px] font-normal text-gray-600">
+                <span className="font-semibold text-[#795465]">Active Selection: </span>
+                <span className="font-medium text-[#1B1C1C]">{formatButtonDisplay()}</span>
               </div>
             </div>
 
             {/* Right Panel: Quick Presets (Matching Parkee CMS Screenshot_68 & 70) */}
             <div className="flex flex-col gap-1.5 border-t sm:border-t-0 sm:border-l border-[#EFEDED] pt-3 sm:pt-0 sm:pl-3">
-              <span className="text-[10px] font-black text-[#817478] uppercase tracking-wider mb-1">
+              <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
                 Quick Presets
               </span>
               {[
@@ -239,10 +257,10 @@ export default function DatePickerModal({
                   key={p.id}
                   type="button"
                   onClick={() => handleSelectPreset(p.id)}
-                  className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold text-left transition-all flex items-center justify-between ${
+                  className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold text-left transition-all flex items-center justify-between ${
                     preset === p.id
-                      ? 'bg-[#795465] text-white shadow-sm'
-                      : 'bg-[#F5F3F3] text-[#4F4448] hover:bg-[#EFEDED] hover:text-[#1B1C1C]'
+                      ? 'bg-[#795465] text-white shadow-xs'
+                      : 'bg-[#F5F3F3] text-gray-700 hover:bg-[#EFEDED] hover:text-[#1B1C1C]'
                   }`}
                 >
                   <span>{p.label}</span>
@@ -257,14 +275,14 @@ export default function DatePickerModal({
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="px-4 py-2 bg-[#F5F3F3] hover:bg-[#EFEDED] text-[#4F4448] rounded-xl text-xs font-extrabold transition-all"
+              className="px-4 py-2 bg-[#F5F3F3] hover:bg-[#EFEDED] text-gray-600 rounded-xl text-xs font-semibold transition-all"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleApply}
-              className="px-5 py-2 bg-[#795465] hover:bg-[#684756] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#795465]/20 transition-all flex items-center gap-1.5"
+              className="px-5 py-2 bg-[#795465] hover:bg-[#684756] text-white rounded-xl text-xs font-semibold shadow-xs shadow-[#795465]/20 transition-all flex items-center gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
               <span>Apply Filter</span>

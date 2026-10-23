@@ -160,6 +160,62 @@ export function getWibDateRange(
 }
 
 /**
+ * Generates an array of contiguous YYYY-MM-DD date keys in WIB timezone
+ * from startDateKey to endDateKey (inclusive).
+ * Safely caps to maxDays (default 62) to prevent runaway memory/loop conditions.
+ */
+export function getWibDateSequence(
+  startDateKey: string,
+  endDateKey: string,
+  maxDays: number = 62
+): string[] {
+  if (!startDateKey || !endDateKey) return [];
+  const start = new Date(`${startDateKey}T00:00:00+07:00`);
+  const end = new Date(`${endDateKey}T00:00:00+07:00`);
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+    return [startDateKey];
+  }
+
+  const result: string[] = [];
+  const cursor = new Date(start.getTime());
+  let count = 0;
+
+  while (cursor <= end && count < maxDays) {
+    result.push(getWibDateKey(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+    count++;
+  }
+
+  return result;
+}
+
+/**
+ * Computes previous equivalent date range for period-over-period comparisons.
+ * Returns null ISOs when range is 'all' or undefined.
+ */
+export function getPreviousWibDateRange(
+  filterRange?: string | null,
+  startIso?: string | null,
+  endIso?: string | null
+): { prevStartIso: string | null; prevEndIso: string | null } {
+  if (!startIso || !endIso || filterRange === 'all') {
+    return { prevStartIso: null, prevEndIso: null };
+  }
+
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  const diffMs = end.getTime() - start.getTime();
+
+  const prevEnd = new Date(start.getTime() - 1);
+  const prevStart = new Date(prevEnd.getTime() - diffMs);
+
+  return {
+    prevStartIso: prevStart.toISOString(),
+    prevEndIso: prevEnd.toISOString(),
+  };
+}
+
+/**
  * Standard Status Categories conforming to Parkee CMS design pattern.
  */
 export const STATUS_CATEGORIES = {
