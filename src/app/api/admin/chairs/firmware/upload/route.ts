@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Format safe filename and save to /public/firmware/
+    // 2. Format safe filename
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
@@ -57,35 +57,63 @@ export async function POST(req: NextRequest) {
     const timestamp = Date.now();
     const filename = `smart_chair_firmware_${safeVer}_${timestamp}.bin`;
 
-    const publicFirmwareDir = path.join(process.cwd(), 'public', 'firmware');
-    await fs.mkdir(publicFirmwareDir, { recursive: true });
-    const localFilePath = path.join(publicFirmwareDir, filename);
-    await fs.writeFile(localFilePath, buffer);
-
-    // Determine public download URL
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://sakura-massage-chair.vercel.app');
-    let firmwareUrl = `${baseUrl}/firmware/${filename}`;
-
-    // 3. Optional fallback/upload to Supabase Storage if bucket exists
+    // 3. Upload directly to Supabase Public Cloud Storage ('firmware' bucket)
+    let firmwareUrl = '';
     try {
-      const { data: storageUpload, error: storageErr } = await supabaseServer.storage
-        .from('firmware-binaries')
+      let { error: storageErr } = await supabaseServer.storage
+        .from('firmware')
         .upload(filename, buffer, {
           contentType: 'application/octet-stream',
           upsert: true,
         });
 
-      if (!storageErr && storageUpload) {
-        const { data: publicUrlData } = supabaseServer.storage
-          .from('firmware-binaries')
-          .getPublicUrl(filename);
-        if (publicUrlData?.publicUrl) {
-          firmwareUrl = publicUrlData.publicUrl;
-        }
+      if (storageErr && (storageErr.message?.toLowerCase().includes('not found') || storageErr.message?.toLowerCase().includes('bucket'))) {
+        // Auto-create bucket if missing
+        await supabaseServer.storage.createBucket('firmware', { public: true });
+        const retry = await supabaseServer.storage
+          .from('firmware')
+          .upload(filename, buffer, {
+            contentType: 'application/octet-stream',
+            upsert: true,
+          });
+        storageErr = retry.error;
       }
-    } catch (sErr) {
-      console.warn('[Firmware Upload] Supabase storage upload note (using public static URL):', sErr);
+
+      if (storageErr) {
+        console.error('[Firmware Upload] Supabase Storage upload error:', storageErr);
+        return NextResponse.json(
+          { success: false, error: `Cloud storage upload error: ${storageErr.message}` },
+          { status: 500 }
+        );
+      }
+
+      const { data: publicUrlData } = supabaseServer.storage
+        .from('firmware')
+        .getPublicUrl(filename);
+
+      firmwareUrl = publicUrlData?.publicUrl || '';
+    } catch (sErr: any) {
+      console.error('[Firmware Upload] Storage exception:', sErr);
+      return NextResponse.json(
+        { success: false, error: `Failed to upload firmware to cloud storage: ${sErr?.message}` },
+        { status: 500 }
+      );
+    }
+
+    if (!firmwareUrl) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to generate public URL for firmware binary.' },
+        { status: 500 }
+      );
+    }
+
+    // Optional local caching in dev environment only (non-fatal on read-only serverless filesystem)
+    try {
+      const publicFirmwareDir = path.join(process.cwd(), 'public', 'firmware');
+      await fs.mkdir(publicFirmwareDir, { recursive: true });
+      await fs.writeFile(path.join(publicFirmwareDir, filename), buffer);
+    } catch {
+      // Safely ignore on serverless environments like Vercel
     }
 
     // 4. Update targeted chair(s) in Supabase database
