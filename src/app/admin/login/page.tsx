@@ -27,6 +27,7 @@ export default function AdminLoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [forgotMsg, setForgotMsg] = useState('');
+  const [forgotIsError, setForgotIsError] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
   // Load remembered device email on mount
@@ -88,12 +89,14 @@ export default function AdminLoginPage() {
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetEmail.trim()) {
+      setForgotIsError(true);
       setForgotMsg('Please enter your registered admin email.');
       return;
     }
 
     setIsResetting(true);
     setForgotMsg('');
+    setForgotIsError(false);
 
     try {
       const res = await fetch('/api/admin/auth/forgot-password', {
@@ -105,11 +108,14 @@ export default function AdminLoginPage() {
 
       if (data.success) {
         setForgotStep(2);
+        setForgotIsError(false);
         setForgotMsg(data.message);
       } else {
+        setForgotIsError(true);
         setForgotMsg(data.error || 'Failed to send verification code.');
       }
     } catch (err: any) {
+      setForgotIsError(true);
       setForgotMsg(`Error: ${err?.message || 'Server error'}`);
     } finally {
       setIsResetting(false);
@@ -119,17 +125,20 @@ export default function AdminLoginPage() {
   const handleResetPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otpCode.trim() || !newPassword.trim() || !confirmPassword.trim()) {
+      setForgotIsError(true);
       setForgotMsg('Verification code, new password, and confirmation are required.');
       return;
     }
 
     if (newPassword !== confirmPassword) {
+      setForgotIsError(true);
       setForgotMsg('Password confirmation does not match.');
       return;
     }
 
     setIsResetting(true);
     setForgotMsg('');
+    setForgotIsError(false);
 
     try {
       const res = await fetch('/api/admin/auth/reset-password', {
@@ -150,9 +159,11 @@ export default function AdminLoginPage() {
         setEmail(resetEmail.trim());
         setPassword(newPassword.trim());
       } else {
+        setForgotIsError(true);
         setForgotMsg(data.error || 'Failed to reset password.');
       }
     } catch (err: any) {
+      setForgotIsError(true);
       setForgotMsg(`Error: ${err?.message || 'Server error'}`);
     } finally {
       setIsResetting(false);
@@ -344,7 +355,14 @@ export default function AdminLoginPage() {
             </div>
 
             {forgotMsg && (
-              <div className="p-3.5 rounded-xl bg-[#F5F3F3] border border-[#EFEDED] text-xs font-bold text-[#1B1C1C] space-y-1">
+              <div
+                role={forgotIsError ? 'alert' : 'status'}
+                className={`p-3.5 rounded-xl border text-xs font-bold space-y-1 ${
+                  forgotIsError
+                    ? 'bg-[#FFDAD6] border-[#BA1A1A]/20 text-[#93000A]'
+                    : 'bg-[#CEE5DA] border-[#4E635A]/20 text-[#4E635A]'
+                }`}
+              >
                 <p>{forgotMsg}</p>
               </div>
             )}
