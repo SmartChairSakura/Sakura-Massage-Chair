@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar as CalendarIcon, Clock, X, ChevronDown, Check, Info } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, X, ChevronDown, Check } from 'lucide-react';
 import { getWibNow, getWibDateRange } from '@/lib/date-utils';
 
 export interface DateRangeState {
@@ -267,14 +267,6 @@ export default function DatePickerModal({
                   {preset === p.id && <Check className="w-3 h-3 text-white" />}
                 </button>
               ))}
-            </div>
-          </div>
-
-          {/* Visual Range Limit Notification */}
-          <div className="flex items-start gap-2 p-3 bg-amber-50/70 border border-amber-200/70 rounded-2xl text-[11px] text-amber-900 leading-relaxed">
-            <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-semibold">Batas Visualisasi Grafik:</span> Grafik harian dioptimalkan untuk rentang maksimal 60 hari. Rentang di atas 60 hari otomatis diagregasikan per bulan agar grafik tetap terbaca rapi. Ringkasan total pendapatan di atas tetap mencakup 100% periode yang dipilih.
             </div>
           </div>
 
