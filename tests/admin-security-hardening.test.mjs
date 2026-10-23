@@ -49,6 +49,13 @@ describe('Security Hardening: Login Dump Text & Credentials Elimination', () => 
     assert.strictEqual(loginSrc.includes('htmlFor="admin-password"'), true, 'Must associate password label with input');
     assert.strictEqual(loginSrc.includes('id="admin-password"'), true, 'Must have admin-password input id');
     assert.strictEqual(loginSrc.includes('EyeOff'), true, 'Must provide Eye/EyeOff password toggle');
+    assert.strictEqual(loginSrc.includes('showPassword ? <Eye '), true, 'Eye open must represent unhidden password');
+  });
+
+  it('Reset password form must harden against browser credential manager autofill', () => {
+    const loginSrc = fs.readFileSync(path.join(SRC, 'app/admin/login/page.tsx'), 'utf8');
+    assert.strictEqual(loginSrc.includes('autoComplete="one-time-code"'), true, 'OTP must use one-time-code autocomplete');
+    assert.strictEqual(loginSrc.includes('autoComplete="new-password"'), true, 'New password must use new-password autocomplete');
   });
 
   it('Reset password API route must enforce maximum OTP attempt limit for brute-force protection', () => {

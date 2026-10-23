@@ -264,7 +264,7 @@ export default function AdminLoginPage() {
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                 className="absolute right-3.5 text-[#817478] hover:text-[#795465] transition-colors focus:outline-none"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               </button>
             </div>
           </div>
@@ -411,8 +411,8 @@ export default function AdminLoginPage() {
                 </div>
               </form>
             ) : (
-              /* Step 2: Input OTP & New Password */
-              <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+              /* Step 2: Input OTP & New Password (Hardened against browser credential manager autofill) */
+              <form onSubmit={handleResetPasswordSubmit} className="space-y-4" autoComplete="off">
                 <div>
                   <label
                     htmlFor="otp-code"
@@ -422,10 +422,14 @@ export default function AdminLoginPage() {
                   </label>
                   <input
                     id="otp-code"
+                    name="security_otp_code"
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="one-time-code"
                     maxLength={6}
                     value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value)}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                     placeholder="849201"
                     required
                     className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-mono font-extrabold text-[#795465] tracking-widest outline-none focus:border-[#795465]"
@@ -442,7 +446,9 @@ export default function AdminLoginPage() {
                   <div className="relative flex items-center">
                     <input
                       id="new-password"
+                      name="new_password_field"
                       type={showNewPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="••••••••"
@@ -456,7 +462,7 @@ export default function AdminLoginPage() {
                       aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
                       className="absolute right-3 text-[#817478] hover:text-[#795465] transition-colors focus:outline-none"
                     >
-                      {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {showNewPassword ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 </div>
@@ -471,7 +477,9 @@ export default function AdminLoginPage() {
                   <div className="relative flex items-center">
                     <input
                       id="confirm-password"
+                      name="confirm_password_field"
                       type={showConfirmPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="••••••••"
@@ -485,7 +493,7 @@ export default function AdminLoginPage() {
                       aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
                       className="absolute right-3 text-[#817478] hover:text-[#795465] transition-colors focus:outline-none"
                     >
-                      {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {showConfirmPassword ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 </div>
