@@ -62,28 +62,11 @@ export async function POST(req: NextRequest) {
         .eq('id', user.id);
 
     } else {
-      // Fallback for initial bootstrap if migration 11 hasn't been executed on DB
-      const VALID_USERNAMES = ['admin', 'admin@sakurazen.id', 'support@sakurazen.id', 'rifaldi@parkee.app'];
-      const VALID_PASSWORDS = ['sakura123', 'admin123', 'parkee@1234'];
-
-      const isValidUser = VALID_USERNAMES.includes(inputAccount);
-      const isValidPass = VALID_PASSWORDS.includes(inputPassword);
-
-      if (!isValidUser || !isValidPass) {
-        return NextResponse.json(
-          { success: false, error: 'Invalid email or password.' },
-          { status: 401 }
-        );
-      }
-
-      sessionUser = {
-        id: 'admin_sakura_01',
-        email: inputAccount.includes('@') ? inputAccount : 'rifaldi@parkee.app',
-        username: inputAccount,
-        name: 'Administrator Sakura Zen',
-        role: 'SUPER_ADMIN',
-        location_id: null,
-      };
+      // User not found in database - fail closed with 401
+      return NextResponse.json(
+        { success: false, error: 'Invalid email or password.' },
+        { status: 401 }
+      );
     }
 
     // 2. Sign JWT session token

@@ -24,6 +24,37 @@ describe('Security Hardening: Login Dump Text & Credentials Elimination', () => 
     const loginSrc = fs.readFileSync(path.join(SRC, 'app/admin/login/page.tsx'), 'utf8');
     assert.strictEqual(loginSrc.includes('[Dev OTP Simulator]'), false, 'Dev OTP Simulator text must not be rendered');
   });
+
+  it('Forgot password API route must not expose devOtp in response payload', () => {
+    const forgotSrc = fs.readFileSync(path.join(SRC, 'app/api/admin/auth/forgot-password/route.ts'), 'utf8');
+    assert.strictEqual(forgotSrc.includes('devOtp:'), false, 'devOtp must not be in response body');
+  });
+
+  it('Login route must not contain hardcoded fallback plaintext passwords', () => {
+    const loginRouteSrc = fs.readFileSync(path.join(SRC, 'app/api/admin/auth/login/route.ts'), 'utf8');
+    assert.strictEqual(loginRouteSrc.includes('VALID_PASSWORDS'), false, 'Must not store plaintext fallback passwords');
+    assert.strictEqual(loginRouteSrc.includes('sakura123'), false, 'Must not contain plaintext sakura123');
+  });
+
+  it('Login submit button must use solid brand color with WCAG AA compliance (> 4.5:1)', () => {
+    const loginSrc = fs.readFileSync(path.join(SRC, 'app/admin/login/page.tsx'), 'utf8');
+    assert.strictEqual(loginSrc.includes('bg-[#795465]'), true, 'Must use solid brand plum for accessible contrast');
+    assert.strictEqual(loginSrc.includes('from-[#F8C8DC] to-[#795465]'), false, 'Must not use low contrast pastel gradient on submit');
+  });
+
+  it('Login form must feature accessible label-input associations and password visibility toggle', () => {
+    const loginSrc = fs.readFileSync(path.join(SRC, 'app/admin/login/page.tsx'), 'utf8');
+    assert.strictEqual(loginSrc.includes('htmlFor="admin-email"'), true, 'Must associate email label with input');
+    assert.strictEqual(loginSrc.includes('id="admin-email"'), true, 'Must have admin-email input id');
+    assert.strictEqual(loginSrc.includes('htmlFor="admin-password"'), true, 'Must associate password label with input');
+    assert.strictEqual(loginSrc.includes('id="admin-password"'), true, 'Must have admin-password input id');
+    assert.strictEqual(loginSrc.includes('EyeOff'), true, 'Must provide Eye/EyeOff password toggle');
+  });
+
+  it('Reset password API route must enforce maximum OTP attempt limit for brute-force protection', () => {
+    const resetSrc = fs.readFileSync(path.join(SRC, 'app/api/admin/auth/reset-password/route.ts'), 'utf8');
+    assert.strictEqual(resetSrc.includes('MAX_OTP_ATTEMPTS'), true, 'Must enforce max OTP attempts');
+  });
 });
 
 describe('Security Hardening: Middleware & Session Guard', () => {

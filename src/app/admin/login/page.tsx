@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, ArrowRight, Check, AlertCircle, KeyRound, ShieldCheck, RefreshCw, X } from 'lucide-react';
+import { Mail, Lock, ArrowRight, AlertCircle, KeyRound, ShieldCheck, X, Eye, EyeOff } from 'lucide-react';
 import SakuraLogo from '@/components/SakuraLogo';
 
 export default function AdminLoginPage() {
@@ -11,6 +11,7 @@ export default function AdminLoginPage() {
   // Login Form States (Clean initial states for security)
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberDevice, setRememberDevice] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -22,9 +23,10 @@ export default function AdminLoginPage() {
   const [resetEmail, setResetEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [forgotMsg, setForgotMsg] = useState('');
-  const [forgotDevOtp, setForgotDevOtp] = useState('');
   const [isResetting, setIsResetting] = useState(false);
 
   // Load remembered device email on mount
@@ -35,6 +37,17 @@ export default function AdminLoginPage() {
       setRememberDevice(true);
     }
   }, []);
+
+  // Keyboard accessibility: Close modal on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showForgotModal) {
+        setShowForgotModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showForgotModal]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +94,6 @@ export default function AdminLoginPage() {
 
     setIsResetting(true);
     setForgotMsg('');
-    setForgotDevOtp('');
 
     try {
       const res = await fetch('/api/admin/auth/forgot-password', {
@@ -94,9 +106,6 @@ export default function AdminLoginPage() {
       if (data.success) {
         setForgotStep(2);
         setForgotMsg(data.message);
-        if (data.devOtp) {
-          setForgotDevOtp(data.devOtp);
-        }
       } else {
         setForgotMsg(data.error || 'Failed to send verification code.');
       }
@@ -174,14 +183,20 @@ export default function AdminLoginPage() {
 
         {/* Alert Messages */}
         {errorMsg && (
-          <div className="w-full mb-6 p-4 rounded-xl bg-[#FFDAD6] border border-[#BA1A1A]/20 text-[#93000A] text-xs font-extrabold flex items-center gap-2">
+          <div
+            role="alert"
+            className="w-full mb-6 p-4 rounded-xl bg-[#FFDAD6] border border-[#BA1A1A]/20 text-[#93000A] text-xs font-extrabold flex items-center gap-2"
+          >
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {successMsg && (
-          <div className="w-full mb-6 p-4 rounded-xl bg-[#CEE5DA] border border-[#4E635A]/20 text-[#4E635A] text-xs font-extrabold flex items-center gap-2">
+          <div
+            role="status"
+            className="w-full mb-6 p-4 rounded-xl bg-[#CEE5DA] border border-[#4E635A]/20 text-[#4E635A] text-xs font-extrabold flex items-center gap-2"
+          >
             <ShieldCheck className="w-4 h-4 shrink-0" />
             <span>{successMsg}</span>
           </div>
@@ -191,12 +206,16 @@ export default function AdminLoginPage() {
         <form onSubmit={handleLoginSubmit} className="w-full flex flex-col gap-5">
           {/* Email Address Input */}
           <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider">
+            <label
+              htmlFor="admin-email"
+              className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider"
+            >
               Email Address
             </label>
             <div className="relative flex items-center">
-              <Mail className="w-4 h-4 text-[#795465] absolute left-3.5" />
+              <Mail className="w-4 h-4 text-[#795465] absolute left-3.5 pointer-events-none" />
               <input
+                id="admin-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -208,32 +227,46 @@ export default function AdminLoginPage() {
             </div>
           </div>
 
-          {/* Password Input */}
+          {/* Password Input with Visibility Toggle */}
           <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider">
+            <label
+              htmlFor="admin-password"
+              className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider"
+            >
               Password
             </label>
             <div className="relative flex items-center">
-              <Lock className="w-4 h-4 text-[#795465] absolute left-3.5" />
+              <Lock className="w-4 h-4 text-[#795465] absolute left-3.5 pointer-events-none" />
               <input
-                type="password"
+                id="admin-password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full bg-[#F5F3F3] text-[#1B1C1C] font-bold text-xs py-3.5 pl-11 pr-4 rounded-xl border border-[#EFEDED] focus:bg-white focus:border-[#795465] outline-none transition-all placeholder:text-[#817478]"
+                autoComplete="current-password"
+                className="w-full bg-[#F5F3F3] text-[#1B1C1C] font-bold text-xs py-3.5 pl-11 pr-11 rounded-xl border border-[#EFEDED] focus:bg-white focus:border-[#795465] outline-none transition-all placeholder:text-[#817478]"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute right-3.5 text-[#817478] hover:text-[#795465] transition-colors focus:outline-none"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
           {/* Remember Device & Forgot Password Row */}
           <div className="flex items-center justify-between mt-1">
-            <label className="flex items-center gap-2 cursor-pointer group">
+            <label htmlFor="remember-device" className="flex items-center gap-2 cursor-pointer group">
               <input
+                id="remember-device"
                 type="checkbox"
                 checked={rememberDevice}
                 onChange={(e) => setRememberDevice(e.target.checked)}
-                className="w-4 h-4 rounded text-[#795465] focus:ring-[#795465] border-[#EFEDED]"
+                className="w-4 h-4 rounded text-[#795465] focus:ring-[#795465] border-[#EFEDED] accent-[#795465]"
               />
               <span className="text-xs font-extrabold text-[#4F4448] group-hover:text-[#1B1C1C] transition-colors">
                 Remember device
@@ -254,11 +287,11 @@ export default function AdminLoginPage() {
             </button>
           </div>
 
-          {/* Submit Button */}
+          {/* Submit Button (WCAG 2.1 AA Compliant solid Plum background with > 5:1 contrast) */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full mt-3 bg-gradient-to-r from-[#F8C8DC] to-[#795465] hover:from-[#F8C8DC] hover:to-[#684756] text-white font-extrabold text-xs py-4 rounded-xl shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full mt-3 bg-[#795465] hover:bg-[#684756] active:bg-[#583a48] text-white font-extrabold text-xs py-4 rounded-xl shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <span>{isLoading ? 'Signing in...' : 'Sign In'}</span>
             <ArrowRight className="w-4 h-4" />
@@ -284,21 +317,27 @@ export default function AdminLoginPage() {
 
       {/* Forgot Password / Reset Password Modal */}
       {showForgotModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="forgot-modal-title"
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+        >
           <div className="bg-white rounded-2xl border border-[#EFEDED] shadow-2xl w-full max-w-md p-6 sm:p-8 space-y-5 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-[#EFEDED] pb-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-[#F8C8DC] text-[#795465] flex items-center justify-center font-extrabold">
                   <KeyRound className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-extrabold text-[#1B1C1C]">
+                <h3 id="forgot-modal-title" className="text-sm font-extrabold text-[#1B1C1C]">
                   {forgotStep === 1 ? 'Reset Admin Password' : 'Verify One-Time Code'}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowForgotModal(false)}
-                className="p-1 hover:bg-[#EFEDED] rounded-lg text-[#1B1C1C]"
+                aria-label="Close dialog"
+                className="p-1 hover:bg-[#EFEDED] rounded-lg text-[#1B1C1C] transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -314,10 +353,14 @@ export default function AdminLoginPage() {
               /* Step 1: Input Email to Request OTP */
               <form onSubmit={handleSendOtp} className="space-y-4">
                 <div>
-                  <label className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider block mb-1">
+                  <label
+                    htmlFor="reset-email"
+                    className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider block mb-1"
+                  >
                     Registered Email Address:
                   </label>
                   <input
+                    id="reset-email"
                     type="email"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
@@ -336,14 +379,14 @@ export default function AdminLoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowForgotModal(false)}
-                    className="px-4 py-2.5 bg-[#F5F3F3] text-[#1B1C1C] font-extrabold text-xs rounded-xl hover:bg-[#EFEDED]"
+                    className="px-4 py-2.5 bg-[#F5F3F3] text-[#1B1C1C] font-extrabold text-xs rounded-xl hover:bg-[#EFEDED] transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isResetting}
-                    className="px-5 py-2.5 bg-[#795465] hover:bg-[#684756] text-white font-extrabold text-xs rounded-xl shadow-md disabled:opacity-50"
+                    className="px-5 py-2.5 bg-[#795465] hover:bg-[#684756] text-white font-extrabold text-xs rounded-xl shadow-md disabled:opacity-50 transition-colors"
                   >
                     {isResetting ? 'Sending...' : 'Send Verification Code'}
                   </button>
@@ -353,10 +396,14 @@ export default function AdminLoginPage() {
               /* Step 2: Input OTP & New Password */
               <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
                 <div>
-                  <label className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider block mb-1">
+                  <label
+                    htmlFor="otp-code"
+                    className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider block mb-1"
+                  >
                     Verification Code (6 Digits):
                   </label>
                   <input
+                    id="otp-code"
                     type="text"
                     maxLength={6}
                     value={otpCode}
@@ -368,31 +415,61 @@ export default function AdminLoginPage() {
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider block mb-1">
+                  <label
+                    htmlFor="new-password"
+                    className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider block mb-1"
+                  >
                     New Password:
                   </label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] outline-none focus:border-[#795465]"
-                  />
+                  <div className="relative flex items-center">
+                    <input
+                      id="new-password"
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      minLength={6}
+                      className="w-full px-3.5 py-2.5 pr-10 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] outline-none focus:border-[#795465]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
+                      className="absolute right-3 text-[#817478] hover:text-[#795465] transition-colors focus:outline-none"
+                    >
+                      {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider block mb-1">
+                  <label
+                    htmlFor="confirm-password"
+                    className="text-[11px] font-extrabold text-[#817478] uppercase tracking-wider block mb-1"
+                  >
                     Confirm New Password:
                   </label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] outline-none focus:border-[#795465]"
-                  />
+                  <div className="relative flex items-center">
+                    <input
+                      id="confirm-password"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      minLength={6}
+                      className="w-full px-3.5 py-2.5 pr-10 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] outline-none focus:border-[#795465]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                      className="absolute right-3 text-[#817478] hover:text-[#795465] transition-colors focus:outline-none"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-2">
@@ -408,14 +485,14 @@ export default function AdminLoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowForgotModal(false)}
-                      className="px-4 py-2.5 bg-[#F5F3F3] text-[#1B1C1C] font-extrabold text-xs rounded-xl hover:bg-[#EFEDED]"
+                      className="px-4 py-2.5 bg-[#F5F3F3] text-[#1B1C1C] font-extrabold text-xs rounded-xl hover:bg-[#EFEDED] transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isResetting}
-                      className="px-5 py-2.5 bg-[#795465] hover:bg-[#684756] text-white font-extrabold text-xs rounded-xl shadow-md disabled:opacity-50"
+                      className="px-5 py-2.5 bg-[#795465] hover:bg-[#684756] text-white font-extrabold text-xs rounded-xl shadow-md disabled:opacity-50 transition-colors"
                     >
                       {isResetting ? 'Resetting...' : 'Reset Password'}
                     </button>

@@ -1,2 +1,9 @@
 // Global in-memory OTP store for reset password verification
-export const otpStore = new Map<string, { otp: string; expiresAt: number }>();
+export interface OtpRecord {
+  otp: string;
+  expiresAt: number;
+  attempts?: number;
+}
+
+export const otpStore = new Map<string, OtpRecord>();
+

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { otpStore } from '@/lib/otp-store';
+import { supabaseServer } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,11 +12,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Email address is required.' }, { status: 400 });
     }
 
-    // Generate 6-digit OTP code
+    // Generate cryptographically random-like 6-digit OTP code
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
+    const expiresMs = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
+    const expiresIso = new Date(expiresMs).toISOString();
 
-    otpStore.set(cleanEmail, { otp: otpCode, expiresAt });
+    // Store in-memory
+    otpStore.set(cleanEmail, { otp: otpCode, expiresAt: expiresMs, attempts: 0 });
+
+    // Persist OTP in Supabase admin_users for serverless / multi-container reliability
+    try {
+      await supabaseServer
+        .from('admin_users')
+        .update({
+          otp_code: otpCode,
+          otp_expires_at: expiresIso,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('email', cleanEmail);
+    } catch (dbErr) {
+      console.warn('[Forgot Password] Supabase OTP persistence warning:', dbErr);
+    }
 
     // Optional Nodemailer SMTP Email Dispatcher (Gmail SMTP)
     const smtpUser = process.env.SMTP_USER;
@@ -49,15 +66,14 @@ export async function POST(req: NextRequest) {
       } catch (mailErr) {
         console.warn('[Forgot Password] SMTP Send Error:', mailErr);
       }
-    } else {
-      console.log(`[Forgot Password Mock] OTP for ${cleanEmail} is: ${otpCode}`);
+    } else if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Forgot Password Dev Mode] OTP for ${cleanEmail} is: ${otpCode}`);
     }
 
+    // Security Hardened Response: Never leak OTP in HTTP JSON body
     return NextResponse.json({
       success: true,
       message: `A 6-digit verification code has been sent to ${cleanEmail}.`,
-      // Return OTP in dev mode if SMTP not configured so user can test seamlessly
-      devOtp: !(smtpUser && smtpPass) ? otpCode : undefined,
     });
   } catch (err: any) {
     console.error('[API Forgot Password] Error:', err);
