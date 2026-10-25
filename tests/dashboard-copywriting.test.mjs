@@ -67,6 +67,30 @@ test('TDD Copywriting Suite: Sales Summary Dashboard (/admin/dashboard)', async 
     assert.doesNotMatch(content, /Grafik Tren Omset Harian/);
     assert.doesNotMatch(content, /Grafik Tren Total Qty Tiket/);
   });
+
+  await t.test('Sales Summary Chart Architecture Overhaul (Charts #1-#4 & 5 Critique Fixes)', () => {
+    // 1. Linear interpolation instead of misleading monotone spline
+    assert.match(content, /type="linear"/);
+    assert.doesNotMatch(content, /type="monotone"/);
+
+    // 2. Light-surface tooltip with Plus Jakarta Sans tabular-nums (no dark bg-[#1B1C1C] or font-mono)
+    assert.match(content, /role="tooltip"/);
+    assert.match(content, /tabular-nums/);
+    assert.doesNotMatch(content, /font-mono/);
+
+    // 3. Semantic color discipline & authentic chair icon (no emerald green leakage or AI-slop Activity pulse icon)
+    assert.doesNotMatch(content, /text-emerald-800/);
+    assert.doesNotMatch(content, /#4E635A/);
+    assert.match(content, /<Armchair\s+className=/);
+    assert.doesNotMatch(content, /<Activity\s+className=/);
+
+    // 4. Discrete session column maxBarSize=24, niceScale, Waterfall, Sparkline, and Collapsible Table
+    assert.match(content, /maxBarSize=\{24\}/);
+    assert.match(content, /niceScale/);
+    assert.match(content, /buildWaterfallRows/);
+    assert.match(content, /buildSparklineGeometry/);
+    assert.match(content, /Lihat sebagai tabel/);
+  });
 });
 
 test('TDD Copywriting Suite: Location Management (/admin/locations)', async (t) => {
