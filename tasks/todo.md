@@ -1,64 +1,59 @@
-# Task Checklist: Sales Summary Dashboard UI/UX & Flow Overhaul
+# Task Checklist: Ticket Management (`/admin/tickets`) Overhaul
 
-- [x] **Task 1: Backend Date Zero-Filling & Period Delta in `route.ts`**
-  - **Description:** Enhance `src/app/api/admin/dashboard/route.ts` to automatically generate a contiguous zero-filled daily sequence between `startIso` and `endIso` in Western Indonesia Time (WIB, UTC+7). Also calculate real previous period metrics for `period_change_pct` (returning `null` if no comparison baseline exists).
+- [x] **Task 1: Add `export=true` Support & Filter Optimization in `/api/admin/tickets/route.ts`**
+  - **Description:** Enhance `/api/admin/tickets/route.ts` to support unpaginated querying when `export=true` is requested. Streamline `applyTicketFilters` to remove obsolete `PHONE` search, focusing on `chair_slip_number` and `chair_code`.
   - **Acceptance criteria:**
-    - [x] Missing days within the requested date span have `{ gross: 0, transactions: 0, ownerNet: 0 }`.
-    - [x] `dailyTrend` points contain formatted `dateLabel` (`DD MMM`) and `rawDate` (`YYYY-MM-DD`).
-    - [x] `period_change_pct` returns computed percentage difference vs previous period, or `null` if comparison period has no data.
+    - [x] When `export=true` is passed, returns all matching transactions without page slicing (up to 10,000 items).
+    - [x] `searchBy` handles `ALL`, `TICKET_NUMBER`, `CHAIR_CODE` efficiently.
+    - [x] Summary KPIs and count remain accurate.
   - **Verification:**
-    - [x] Run `npm test` to verify API contracts and schema.
-    - [x] Test with multi-day range filter; verified 57/57 tests passing.
+    - [x] Tested API endpoint with `export=true`; verified full array returned.
+    - [x] Run `npm test` (59/59 passed).
   - **Dependencies:** None
-  - **Files touched:** `src/app/api/admin/dashboard/route.ts`, `src/lib/date-utils.ts`
+  - **Files touched:** `src/app/api/admin/tickets/route.ts`
 
-- [x] **Task 2: DatePickerModal State Synchronization & Preset Integrity**
-  - **Description:** Fix `src/components/admin/DatePickerModal.tsx` so presets and custom inputs stay in sync. Fix the bug where `ALL TIME` preset is highlighted while date inputs display today's date (`23 Okt 2026`).
+- [x] **Task 2: Overhaul Full-Dataset CSV Export in `src/app/admin/tickets/page.tsx`**
+  - **Description:** Re-implement `handleExportCSV` to query the API with active filters and `export=true` instead of taking the 15-item paginated state. Add loading state spinner to button during export generation.
   - **Acceptance criteria:**
-    - [x] When `preset === 'all'`, trigger button and active selection pill display `"All Time"`.
-    - [x] Clicking a preset (`today`, `yesterday`, `this_week`, `this_month`) strictly updates `dateFrom` and `dateTo` to the preset's WIB boundaries.
-    - [x] Typing in date or time inputs automatically changes preset to `'custom'`.
+    - [x] Export to CSV downloads all records in the active date/status filter, not just the current page.
+    - [x] Button shows `<Loader2 className="animate-spin" /> Exporting...` while downloading.
+    - [x] CSV columns include cleanly formatted Indonesian timestamps (`YYYY-MM-DD HH:mm:ss WIB`) and UTF-8 BOM.
   - **Verification:**
-    - [x] Open DatePickerModal, test switching presets; button display reflects preset cleanly.
-    - [x] Run `npm test`.
+    - [x] Unit test verified `query.set('export', 'true')` contract.
+  - **Dependencies:** Task 1
+  - **Files touched:** `src/app/admin/tickets/page.tsx`
+
+- [x] **Task 3: Streamline "Show by" Filter & Remove `CUSTOMER_PHONE`**
+  - **Description:** Remove `PHONE` (`CUSTOMER_PHONE`) option from `Show by` selector. Format raw snake_case enums into human labels: `"All Fields"`, `"Ticket Number"`, `"Chair Code"`. Update DatePickerModal trigger label to `"Date"`.
+  - **Acceptance criteria:**
+    - [x] Dropdown options are: `All Fields`, `Ticket Number`, `Chair Code`.
+    - [x] Search input placeholder dynamically reflects the selected option.
+    - [x] Date picker label displays `Date: ...` instead of `Checkout Date: ...`.
+  - **Verification:**
+    - [x] Verified via unit test suite.
   - **Dependencies:** None
-  - **Files touched:** `src/components/admin/DatePickerModal.tsx`
+  - **Files touched:** `src/app/admin/tickets/page.tsx`, `tests/dashboard-copywriting.test.mjs`
 
-- [x] **Task 3: Typography Hierarchy & Semantic Colors in `page.tsx`**
-  - **Description:** Overhaul `src/app/admin/dashboard/page.tsx` to implement the 3-tier font weight hierarchy from `SALES_SUMMARY_UI_ANALYSIS.md`. Remove the universal `font-extrabold`/`font-black` classes. Clean up decorative `border-2 border-[#4E635A]/30`. Reserve green strictly for Net Payout, and use neutral dark/gray for Gross Sales, Net Sales, and Platform Fee.
+- [x] **Task 4: Typography Hierarchy & Status Badges Polish in `page.tsx`**
+  - **Description:** Implement 3-tier font weight scale across `/admin/tickets`. Eliminate mass `font-black`/`font-extrabold` in table, KPI cards, and badges. Polish status badges to match the Sakura Zen design palette.
   - **Acceptance criteria:**
-    - [x] Hero Net Payout number uses `text-4xl sm:text-5xl font-bold tracking-tight text-[#1B1C1C]`.
-    - [x] Sub-metric labels use `text-[10px] font-semibold text-gray-500 uppercase tracking-wide`.
-    - [x] `Net Sales` uses neutral text (`#1B1C1C`), NOT green.
-    - [x] Delta badge is conditionally rendered: real comparison badge when available, or neutral `"All-time total"` badge when `period_change_pct === null`.
-    - [x] Retain all copywriting contract strings (`Sales Overview`, `Net Payout`, `Platform Fee`, etc.).
+    - [x] Header uses `text-xl font-semibold text-[#1B1C1C]`.
+    - [x] KPI cards use `text-2xl font-bold` for values and `text-[10px] font-semibold text-gray-500` for labels.
+    - [x] Table headers use `text-[11px] font-semibold uppercase text-gray-500 tracking-wider`.
+    - [x] Status badges use clean Sakura Zen / semantic colors with consistent padding and typography.
+    - [x] Retain all copywriting test strings (`Export to CSV`, `Slip Number`, `Date & Time`, `Customer`).
   - **Verification:**
-    - [x] `npm test` passes 100% (57/57).
-    - [x] Clean hierarchy verified across all cards and sections.
-  - **Dependencies:** Task 1, Task 2
-  - **Files touched:** `src/app/admin/dashboard/page.tsx`
-
-- [x] **Task 4: Chart Overhaul (Revenue Area Chart & Session Volume Bar Chart)**
-  - **Description:** Integrate Recharts for both charts on `/admin/dashboard`. Render Daily Revenue Trend as an Area chart with subtle 10% opacity gradient and X/Y axis labels. Render Daily Session Volume as a discrete Bar Chart with rounded tops (`[4, 4, 0, 0]`) and integer count Y-axis.
-  - **Acceptance criteria:**
-    - [x] Revenue Trend displays continuous curve, X-axis date labels (`19 Okt`, `20 Okt`), and Y-axis scale (`10k`, `20k`).
-    - [x] Session Volume is a Bar Chart with discrete bars for each day in range.
-    - [x] Custom tooltip displays formatted Rupiah for revenue and integer count for sessions.
-    - [x] Zero hydration errors or layout shift via `isMounted` guard.
-  - **Verification:**
-    - [x] Recharts AreaChart and BarChart compiled in Next.js production build.
-    - [x] Run `npm test`.
-  - **Dependencies:** Task 1, Task 3
-  - **Files touched:** `src/app/admin/dashboard/page.tsx`
+    - [x] `npm test` passes 100% (59/59).
+  - **Dependencies:** None
+  - **Files touched:** `src/app/admin/tickets/page.tsx`
 
 - [x] **Task 5: End-to-End Regression Testing & Documentation Sync**
-  - **Description:** Verify complete build, run all automated test suites, generate the formal audit report artifact, and mirror it to Windows Downloads.
+  - **Description:** Run all test suites, compile production build, generate audit report artifact, and mirror to Windows.
   - **Acceptance criteria:**
-    - [x] All 57 unit tests pass without errors (`npm test`).
-    - [x] Next.js 14 production build succeeds with code 0 (`npm run build`).
-    - [x] Audit report created in brain artifacts and synced to `C:\Users\rifal\Downloads\SALES_SUMMARY_AUDIT_REPORT.md`.
+    - [x] `npm test` passes all 59 tests.
+    - [x] `npm run build` compiles with code 0.
+    - [x] Audit report created in brain artifacts and synced to `C:\Users\rifal\Downloads\TICKET_MANAGEMENT_AUDIT_REPORT.md`.
   - **Verification:**
-    - [x] `npm run build` exits with code 0.
-    - [x] Remote git commit & push.
+    - [x] Remote commit and push to `feature/iot-esp32`.
   - **Dependencies:** Tasks 1-4
-  - **Files touched:** Full repository
+  - **Files touched:** `smart-kursi-pijat-web/`

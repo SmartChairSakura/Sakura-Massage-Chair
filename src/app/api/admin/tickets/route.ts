@@ -24,10 +24,20 @@ function applyTicketFilters(
     endIso?: string | null;
     search?: string | null;
     searchBy?: string;
+    dateColumn?: 'created_at' | 'updated_at';
   }
 ) {
   let q = baseQuery;
-  const { locationId, chairCodes, statusList, startIso, endIso, search, searchBy } = params;
+  const {
+    locationId,
+    chairCodes,
+    statusList,
+    startIso,
+    endIso,
+    search,
+    searchBy,
+    dateColumn = 'created_at',
+  } = params;
 
   if (locationId && locationId !== 'ALL') {
     if (chairCodes && chairCodes.length > 0) {
@@ -42,10 +52,10 @@ function applyTicketFilters(
   }
 
   if (startIso) {
-    q = q.gte('created_at', startIso);
+    q = q.gte(dateColumn, startIso);
   }
   if (endIso) {
-    q = q.lte('created_at', endIso);
+    q = q.lte(dateColumn, endIso);
   }
 
   if (search && search.trim()) {
@@ -54,11 +64,9 @@ function applyTicketFilters(
       q = q.ilike('chair_slip_number', `%${cleanSearch}%`);
     } else if (searchBy === 'CHAIR_CODE') {
       q = q.or(`chair_code.ilike.%${cleanSearch}%,chair_id.ilike.%${cleanSearch}%`);
-    } else if (searchBy === 'PHONE') {
-      q = q.ilike('customer_phone', `%${cleanSearch}%`);
     } else {
       q = q.or(
-        `chair_slip_number.ilike.%${cleanSearch}%,customer_phone.ilike.%${cleanSearch}%,chair_code.ilike.%${cleanSearch}%,chair_id.ilike.%${cleanSearch}%`
+        `chair_slip_number.ilike.%${cleanSearch}%,chair_code.ilike.%${cleanSearch}%,chair_id.ilike.%${cleanSearch}%`
       );
     }
   }
@@ -87,6 +95,9 @@ export async function GET(req: NextRequest) {
     const timeFrom = searchParams.get('time_from') || '00:00';
     const timeTo = searchParams.get('time_to') || '23:59';
     const range = searchParams.get('range');
+    const dateType = searchParams.get('date_type') === 'settled_at' ? 'settled_at' : 'created_at';
+    const dateColumn: 'created_at' | 'updated_at' = dateType === 'settled_at' ? 'updated_at' : 'created_at';
+    const isExport = searchParams.get('export') === 'true';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '15', 10)));
     const offset = (page - 1) * limit;
@@ -120,15 +131,18 @@ export async function GET(req: NextRequest) {
       endIso,
       search,
       searchBy,
+      dateColumn,
     };
 
-    // 3. Main paginated query
+    // 3. Main query (unpaginated up to 10,000 rows if export=true, otherwise paginated)
     const baseQuery = supabaseServer
       .from('chair_slips')
       .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
+      .order(dateColumn, { ascending: false });
 
-    const query = applyTicketFilters(baseQuery, filterParams).range(offset, offset + limit - 1);
+    const query = isExport
+      ? applyTicketFilters(baseQuery, filterParams).limit(10000)
+      : applyTicketFilters(baseQuery, filterParams).range(offset, offset + limit - 1);
 
     const { data: tickets, count, error } = await query;
 

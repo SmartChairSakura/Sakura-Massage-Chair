@@ -111,6 +111,7 @@ test('TDD Copywriting Suite: Chair Fleet Management (/admin/chairs)', async (t) 
 
 test('TDD Copywriting Suite: Tickets & Audit (/admin/tickets)', async (t) => {
   const content = readFile('src/app/admin/tickets/page.tsx');
+  const routeContent = readFile('src/app/api/admin/tickets/route.ts');
 
   await t.test('Action CTA and Table Headers should be English', () => {
     assert.match(content, /Export to CSV/);
@@ -120,6 +121,19 @@ test('TDD Copywriting Suite: Tickets & Audit (/admin/tickets)', async (t) => {
     assert.doesNotMatch(content, /Ticket Number \/ Slip/);
     assert.doesNotMatch(content, /Waktu Transaksi/);
     assert.doesNotMatch(content, /Pelanggan/);
+  });
+
+  await t.test('Show by filter should use clean Title Case without obsolete CUSTOMER_PHONE', () => {
+    assert.match(content, /<option value="ALL">All Fields<\/option>/);
+    assert.match(content, /<option value="TICKET_NUMBER">Ticket Number<\/option>/);
+    assert.match(content, /<option value="CHAIR_CODE">Chair Code<\/option>/);
+    assert.doesNotMatch(content, /CUSTOMER_PHONE/);
+  });
+
+  await t.test('CSV Export should query full filtered dataset via export=true instead of 15-item page slice', () => {
+    assert.match(content, /query\.set\('export',\s*'true'\)/);
+    assert.match(routeContent, /searchParams\.get\('export'\)\s*===\s*'true'/);
+    assert.match(content, /labelPrefix="Date"/);
   });
 });
 
