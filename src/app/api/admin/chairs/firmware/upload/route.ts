@@ -1,15 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { getAdminSession } from '@/lib/auth-server';
+import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
+const MAX_FIRMWARE_BYTES = 1_572_864; // 1.5 MB ESP32 OTA partition limit
+const SEMVER_REGEX = /^\d+\.\d+\.\d+$/;
+
+function compareSemver(a: string, b: string): number {
+  const pa = a.split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = b.split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) > (pb[i] || 0)) return 1;
+    if ((pa[i] || 0) < (pb[i] || 0)) return -1;
+  }
+  return 0;
+}
+
 /**
  * POST /api/admin/chairs/firmware/upload
  * Multi-part upload handler for ESP32 compiled binary (.bin) files
- * Stores binary to public storage and deploys OTA update command to targeted chairs in Supabase
+ * Validates SemVer, max size (1.5 MB), SHA-256 checksum, and rollout strategy (canary | staged | all)
  */
 export async function POST(req: NextRequest) {
   try {
@@ -25,8 +39,11 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const version = String(formData.get('version') || '').trim();
-    const targetChairId = String(formData.get('chair_id') || 'ALL').trim();
+    const targetChairId = String(formData.get('chair_id') || '').trim();
+    const targetChairIdsRaw = String(formData.get('chair_ids') || '').trim();
+    const strategy = String(formData.get('strategy') || 'canary').trim().toLowerCase();
     const releaseNotes = String(formData.get('notes') || '').trim();
+    const scheduleWindow = String(formData.get('schedule_window') || 'standby').trim();
 
     if (!file) {
       return NextResponse.json(
@@ -42,16 +59,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!version) {
+    if (file.size <= 0 || file.size > MAX_FIRMWARE_BYTES) {
       return NextResponse.json(
-        { success: false, error: 'Firmware version string (e.g. 2.2.0) is required.' },
+        {
+          success: false,
+          error: `Firmware binary size (${(file.size / 1024).toFixed(1)} KB) exceeds the 1.5 MB ESP32 OTA partition limit.`,
+        },
         { status: 400 }
       );
     }
 
-    // 2. Format safe filename
+    if (!version || !SEMVER_REGEX.test(version)) {
+      return NextResponse.json(
+        { success: false, error: 'Valid semantic version (MAJOR.MINOR.PATCH, e.g. 2.2.0) is required.' },
+        { status: 400 }
+      );
+    }
+
+    if (!targetChairId && !targetChairIdsRaw) {
+      return NextResponse.json(
+        { success: false, error: 'Please select at least one target chair for OTA deployment.' },
+        { status: 400 }
+      );
+    }
+
+    // 2. Compute SHA-256 checksum & format safe filename
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
 
     const safeVer = version.replace(/[^a-zA-Z0-9._-]/g, '_');
     const timestamp = Date.now();
@@ -68,7 +103,6 @@ export async function POST(req: NextRequest) {
         });
 
       if (storageErr && (storageErr.message?.toLowerCase().includes('not found') || storageErr.message?.toLowerCase().includes('bucket'))) {
-        // Auto-create bucket if missing
         await supabaseServer.storage.createBucket('firmware', { public: true });
         const retry = await supabaseServer.storage
           .from('firmware')
@@ -116,24 +150,84 @@ export async function POST(req: NextRequest) {
       // Safely ignore on serverless environments like Vercel
     }
 
-    // 4. Update targeted chair(s) in Supabase database
-    const now = new Date().toISOString();
-    const updatePayload: Record<string, any> = {
-      target_firmware_version: version,
-      firmware_url: firmwareUrl,
-      ota_status: 'PENDING',
-      updated_at: now,
-    };
+    // 4. Resolve targeted chair(s) and apply rollout strategy (canary | staged | all)
+    let candidateQuery = supabaseServer
+      .from('chairs')
+      .select('id, chair_code, name, status, firmware_version')
+      .is('deleted_at', null);
 
-    let chairsQuery = supabaseServer.from('chairs').update(updatePayload);
+    const parsedIds = targetChairIdsRaw
+      ? targetChairIdsRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
 
-    if (targetChairId !== 'ALL') {
-      chairsQuery = chairsQuery.eq('id', targetChairId);
+    if (parsedIds.length > 0) {
+      candidateQuery = candidateQuery.in('chair_code', parsedIds);
+    } else if (targetChairId && targetChairId !== 'ALL') {
+      candidateQuery = candidateQuery.or(`id.eq.${targetChairId},chair_code.eq.${targetChairId}`);
     } else {
-      chairsQuery = chairsQuery.eq('is_active', true);
+      candidateQuery = candidateQuery.eq('is_active', true);
     }
 
-    const { data: updatedChairs, error: dbErr } = await chairsQuery.select('id, chair_code, name, status, firmware_version');
+    const { data: candidateChairs, error: fetchErr } = await candidateQuery.order('id', { ascending: true });
+    if (fetchErr) {
+      return NextResponse.json(
+        { success: false, error: `Failed to query target chairs: ${fetchErr.message}` },
+        { status: 500 }
+      );
+    }
+
+    const candidates = candidateChairs || [];
+    if (candidates.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'No active matching chairs found for the selected deployment target.' },
+        { status: 400 }
+      );
+    }
+
+    // Verify new version is strictly higher than the lowest installed version in target set
+    const installedVersions = candidates
+      .map((c: any) => String(c.firmware_version || '2.1.0').trim())
+      .filter((v: string) => SEMVER_REGEX.test(v));
+    if (installedVersions.length > 0) {
+      const minInstalled = installedVersions.reduce((min, cur) =>
+        compareSemver(cur, min) < 0 ? cur : min
+      );
+      if (compareSemver(version, minInstalled) <= 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Version ${version} must be higher than currently installed version (${minInstalled}).`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Slice according to rollout strategy
+    let finalTargets = candidates;
+    if (strategy === 'canary') {
+      finalTargets = candidates.slice(0, 1);
+    } else if (strategy === 'staged') {
+      const count = Math.max(1, Math.ceil(candidates.length * 0.1));
+      finalTargets = candidates.slice(0, count);
+    }
+
+    const finalCodes = finalTargets.map((c: any) => c.chair_code);
+    const now = new Date().toISOString();
+
+    const { data: updatedChairs, error: dbErr } = await supabaseServer
+      .from('chairs')
+      .update({
+        target_firmware_version: version,
+        firmware_url: firmwareUrl,
+        ota_status: 'PENDING',
+        updated_at: now,
+      })
+      .in('chair_code', finalCodes)
+      .select('id, chair_code, name, status, firmware_version, target_firmware_version, ota_status');
 
     if (dbErr) {
       console.error('[Firmware Upload] Database update error:', dbErr);
@@ -143,12 +237,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    console.info('[Audit Log] Firmware OTA deployed:', {
+      actor: session.email || session.name || 'admin',
+      version,
+      strategy,
+      schedule_window: scheduleWindow,
+      sha256,
+      file_size_bytes: buffer.length,
+      target_count: finalCodes.length,
+      target_codes: finalCodes,
+      timestamp: now,
+    });
+
     return NextResponse.json({
       success: true,
-      message: `Firmware ${version} deployed successfully to ${targetChairId === 'ALL' ? 'all active chairs' : targetChairId}.`,
+      message: `Firmware ${version} queued for ${finalCodes.length} ${finalCodes.length === 1 ? 'chair' : 'chairs'} (${strategy}).`,
       firmware_url: firmwareUrl,
       target_version: version,
-      target_chair: targetChairId,
+      strategy,
+      schedule_window: scheduleWindow,
+      sha256,
       file_size_bytes: buffer.length,
       affected_chairs: updatedChairs || [],
       release_notes: releaseNotes,

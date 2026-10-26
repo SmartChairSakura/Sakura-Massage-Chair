@@ -13,7 +13,7 @@ export default function LocationSelector() {
 
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string>(
-    searchParams.get('location_id') || 'ALL'
+    searchParams.get('location') || searchParams.get('location_id') || 'ALL'
   );
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function LocationSelector() {
   }, []);
 
   useEffect(() => {
-    const paramLoc = searchParams.get('location_id') || 'ALL';
+    const paramLoc = searchParams.get('location') || searchParams.get('location_id') || 'ALL';
     setSelectedLocationId(paramLoc);
   }, [searchParams]);
 
@@ -41,12 +41,20 @@ export default function LocationSelector() {
 
     const params = new URLSearchParams(searchParams.toString());
     if (newLocId && newLocId !== 'ALL') {
-      params.set('location_id', newLocId);
+      if (pathname.startsWith('/admin/chairs')) {
+        params.set('location', newLocId);
+        params.delete('location_id');
+      } else {
+        params.set('location_id', newLocId);
+        params.delete('location');
+      }
     } else {
+      params.delete('location');
       params.delete('location_id');
     }
 
-    router.push(`${pathname}?${params.toString()}`);
+    const queryStr = params.toString();
+    router.push(queryStr ? `${pathname}?${queryStr}` : pathname);
   };
 
   const options = useMemo<Option[]>(

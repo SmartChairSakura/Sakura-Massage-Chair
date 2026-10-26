@@ -32,7 +32,7 @@ export interface Location {
   deleted_at?: string;
 }
 
-export type ChairStatus = 'ONLINE' | 'OFFLINE' | 'BUSY' | 'MAINTENANCE';
+export type ChairStatus = 'ONLINE' | 'OFFLINE' | 'BUSY' | 'IN_USE' | 'UPDATING' | 'ERROR' | 'MAINTENANCE' | string;
 
 export interface Chair {
   id: string | number; // e.g. 1 or 'SAKURA-GI-01'
@@ -43,17 +43,20 @@ export interface Chair {
   location_id?: string; // UUID FK
   status: ChairStatus;
   pin?: string;
+  pin_masked?: string;
+  has_default_pin?: boolean;
   ip_address?: string;
   rssi?: number;
   last_heartbeat?: string;
   firmware_version?: string;
+  previous_firmware_version?: string;
   target_firmware_version?: string;
   firmware_url?: string;
   ota_status?: 'IDLE' | 'PENDING' | 'DOWNLOADING' | 'SUCCESS' | 'FAILED' | string;
   is_active: boolean;
   created_at?: string;
   updated_at?: string;
-  deleted_at?: string;
+  deleted_at?: string | null;
 }
 
 export type ClientDeviceType = 'ANDROID_TABLET' | 'IOT_KIOSK' | 'WEB_KIOSK' | string;

@@ -723,7 +723,7 @@ function LocationSettingContent() {
                       <td className="py-3 px-4 align-middle">
                         <div className="flex flex-col items-start gap-1">
                           <Link
-                            href={`/admin/locations/${loc.id}/chairs`}
+                            href={`/admin/chairs?location=${loc.id}`}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-(--bg-subtle) hover:bg-(--brand-soft) text-(--brand) text-xs font-semibold rounded-lg transition-colors tabular-nums"
                           >
                             <Armchair className="w-3.5 h-3.5" />
