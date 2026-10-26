@@ -19,6 +19,7 @@ import {
   Phone,
   ShieldCheck,
 } from 'lucide-react';
+import { AppSelect } from '@/components/admin/ThemedSelect';
 
 interface Location {
   id: string;
@@ -533,31 +534,35 @@ function UserManagementContent() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Job Role</label>
-                  <select
+                  <label className="block text-[13px] font-medium text-[#1B1C1C] mb-1.5">Job role</label>
+                  <AppSelect
+                    aria-label="Job role"
+                    zIndexClass="z-[90]"
                     value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value as 'SUPER_ADMIN' | 'MANAGEMENT' })}
-                    className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
-                  >
-                    <option value="MANAGEMENT">Management</option>
-                    <option value="SUPER_ADMIN">Super Admin</option>
-                  </select>
+                    onValueChange={(val) => setFormData({ ...formData, role: val as 'SUPER_ADMIN' | 'MANAGEMENT' })}
+                    options={[
+                      { value: 'MANAGEMENT', label: 'Management' },
+                      { value: 'SUPER_ADMIN', label: 'Super Admin' },
+                    ]}
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Assigned Branch</label>
-                  <select
+                  <label className="block text-[13px] font-medium text-[#1B1C1C] mb-1.5">Assigned branch</label>
+                  <AppSelect
+                    aria-label="Assigned branch"
+                    zIndexClass="z-[90]"
                     value={formData.location_id}
-                    onChange={(e) => setFormData({ ...formData, location_id: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
-                  >
-                    <option value="">All Locations</option>
-                    {locations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.name}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={(val) => setFormData({ ...formData, location_id: val })}
+                    options={[
+                      { value: '', label: 'All Locations' },
+                      ...locations.map((loc) => ({
+                        value: loc.id,
+                        label: loc.name,
+                        hint: loc.location_code,
+                      })),
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -646,44 +651,50 @@ function UserManagementContent() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Job Role</label>
-                  <select
+                  <label className="block text-[13px] font-medium text-[#1B1C1C] mb-1.5">Job role</label>
+                  <AppSelect
+                    aria-label="Edit job role"
+                    zIndexClass="z-[90]"
                     value={editFormData.role}
-                    onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value as 'SUPER_ADMIN' | 'MANAGEMENT' })}
-                    className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
-                  >
-                    <option value="MANAGEMENT">Management</option>
-                    <option value="SUPER_ADMIN">Super Admin</option>
-                  </select>
+                    onValueChange={(val) => setEditFormData({ ...editFormData, role: val as 'SUPER_ADMIN' | 'MANAGEMENT' })}
+                    options={[
+                      { value: 'MANAGEMENT', label: 'Management' },
+                      { value: 'SUPER_ADMIN', label: 'Super Admin' },
+                    ]}
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Assigned Branch</label>
-                  <select
+                  <label className="block text-[13px] font-medium text-[#1B1C1C] mb-1.5">Assigned branch</label>
+                  <AppSelect
+                    aria-label="Edit assigned branch"
+                    zIndexClass="z-[90]"
                     value={editFormData.location_id}
-                    onChange={(e) => setEditFormData({ ...editFormData, location_id: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
-                  >
-                    <option value="">All Locations</option>
-                    {locations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.name}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={(val) => setEditFormData({ ...editFormData, location_id: val })}
+                    options={[
+                      { value: '', label: 'All Locations' },
+                      ...locations.map((loc) => ({
+                        value: loc.id,
+                        label: loc.name,
+                        hint: loc.location_code,
+                      })),
+                    ]}
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-extrabold text-[#795465] uppercase mb-1">Account Status</label>
-                <select
+                <label className="block text-[13px] font-medium text-[#1B1C1C] mb-1.5">Account status</label>
+                <AppSelect
+                  aria-label="Account status"
+                  zIndexClass="z-[90]"
                   value={editFormData.is_active ? 'active' : 'inactive'}
-                  onChange={(e) => setEditFormData({ ...editFormData, is_active: e.target.value === 'active' })}
-                  className="w-full px-4 py-2.5 bg-[#FBF9F9] border border-[#EFEDED] rounded-xl focus:outline-none focus:border-[#795465]"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+                  onValueChange={(val) => setEditFormData({ ...editFormData, is_active: val === 'active' })}
+                  options={[
+                    { value: 'active', label: 'Active' },
+                    { value: 'inactive', label: 'Inactive' },
+                  ]}
+                />
               </div>
 
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#EFEDED]">

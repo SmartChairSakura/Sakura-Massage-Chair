@@ -17,6 +17,7 @@ import {
   Cpu,
 } from 'lucide-react';
 import { Chair, Location } from '@/types';
+import { AppSelect } from '@/components/admin/ThemedSelect';
 
 export const dynamic = 'force-dynamic';
 
@@ -341,20 +342,21 @@ function ChairListContent() {
           </div>
 
           {/* Location Filter Dropdown (Synced with Header Location Selector) */}
-          <div className="flex items-center gap-2 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-3 py-2">
-            <Filter className="w-4 h-4 text-[#795465] shrink-0" />
-            <select
+          <div className="w-full sm:w-56">
+            <AppSelect
+              aria-label="Filter chairs by location"
+              icon={<Filter className="size-4 text-[#795465]" />}
               value={selectedLocationId}
-              onChange={(e) => handleLocationFilterChange(e.target.value)}
-              className="bg-transparent text-xs font-extrabold text-[#1B1C1C] outline-none cursor-pointer pr-4"
-            >
-              <option value="ALL">All Locations</option>
-              {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name} ({loc.location_code})
-                </option>
-              ))}
-            </select>
+              onValueChange={handleLocationFilterChange}
+              options={[
+                { value: 'ALL', label: 'All Locations' },
+                ...locations.map((loc) => ({
+                  value: loc.id,
+                  label: loc.name,
+                  hint: loc.location_code,
+                })),
+              ]}
+            />
           </div>
         </div>
 
@@ -523,21 +525,20 @@ function ChairListContent() {
               </div>
 
               <div>
-                <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                  Branch Location:
+                <label className="text-[13px] font-medium text-[#1B1C1C] block mb-1.5">
+                  Branch location
                 </label>
-                <select
+                <AppSelect
+                  aria-label="Branch location"
+                  zIndexClass="z-[90]"
                   value={locationId}
-                  onChange={(e) => setLocationId(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none cursor-pointer"
-                >
-                  {locations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name} ({loc.location_code})
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={setLocationId}
+                  options={locations.map((loc) => ({
+                    value: loc.id,
+                    label: loc.name,
+                    hint: loc.location_code,
+                  }))}
+                />
               </div>
 
               <div>
@@ -641,22 +642,24 @@ function ChairListContent() {
 
               {/* Target Chair Selection */}
               <div>
-                <label className="text-[11px] font-extrabold text-[#1B1C1C] uppercase tracking-wider block mb-1">
-                  Target Chair Deployment:
+                <label className="text-[13px] font-medium text-[#1B1C1C] block mb-1.5">
+                  Target chair deployment
                 </label>
-                <select
+                <AppSelect
+                  aria-label="Target chair deployment"
+                  zIndexClass="z-[90]"
                   value={otaTargetChairId}
-                  onChange={(e) => setOtaTargetChairId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-[#F5F3F3] border border-[#EFEDED] rounded-xl text-xs font-bold text-[#1B1C1C] focus:bg-white focus:border-[#795465] outline-none cursor-pointer"
-                >
-                  <option value="ALL">🌐 All Active Chairs (Fleet-wide Broadcast)</option>
-                  {chairs.map((c) => (
-                    <option key={String(c.chair_code || c.id)} value={String(c.id)}>
-                      {c.chair_code || c.id} — {c.name} ({c.location_name})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[10px] text-[#817478] font-bold mt-1">
+                  onValueChange={setOtaTargetChairId}
+                  options={[
+                    { value: 'ALL', label: 'All Active Chairs (Fleet-wide Broadcast)' },
+                    ...chairs.map((c) => ({
+                      value: String(c.id),
+                      label: `${c.chair_code || c.id} — ${c.name}`,
+                      hint: c.location_name || undefined,
+                    })),
+                  ]}
+                />
+                <p className="text-xs text-[#6B6064] font-normal mt-1">
                   Update will be executed automatically when chair(s) are in STANDBY (idle).
                 </p>
               </div>

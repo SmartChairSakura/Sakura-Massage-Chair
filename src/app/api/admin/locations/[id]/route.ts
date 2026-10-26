@@ -32,6 +32,7 @@ export async function PATCH(
     if (body.income_breakdown !== undefined) updatePayload.income_breakdown = Array.isArray(body.income_breakdown) ? body.income_breakdown : null;
     if (body.notes !== undefined) updatePayload.notes = String(body.notes).trim();
     if (body.status !== undefined) updatePayload.status = body.status;
+    if (body.deleted_at !== undefined) updatePayload.deleted_at = body.deleted_at;
 
     if (body.owner_share_pct !== undefined || body.system_share_pct !== undefined) {
       const ownerPct = Number(body.owner_share_pct ?? 95.0);

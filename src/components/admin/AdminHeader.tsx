@@ -80,20 +80,21 @@ export default function AdminHeader() {
   };
 
   const isManagement = session?.role === 'MANAGEMENT' || session?.role === 'OWNER';
+  const hideLocationSelector = pathname === '/admin/locations';
 
   return (
-    <header className="h-20 bg-white border-b border-[#EFEDED] px-6 flex items-center justify-between shrink-0 shadow-sm">
+    <header className="h-20 bg-white border-b border-[#E6E0E3] px-6 flex items-center justify-between shrink-0 shadow-xs">
       {/* Left: Breadcrumbs */}
-      <nav className="flex items-center gap-2 text-xs text-[#817478]">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-[#6B6064]">
         <Home className="w-3.5 h-3.5 text-[#795465]" />
         {breadcrumbs.map((b, i) => (
           <React.Fragment key={i}>
-            {i > 0 && <ChevronRight className="w-3 h-3 text-[#D2C3C7]" />}
+            {i > 0 && <ChevronRight className="w-3 h-3 text-[#8F8589]" />}
             <span
               className={
                 i === breadcrumbs.length - 1
-                  ? 'font-extrabold text-[#1B1C1C]'
-                  : 'font-medium text-[#4F4448]'
+                  ? 'font-semibold text-[#1B1C1C]'
+                  : 'font-medium text-[#6B6064]'
               }
             >
               {b.label}
@@ -104,30 +105,30 @@ export default function AdminHeader() {
 
       {/* Right Actions & Location Selector */}
       <div className="flex items-center gap-4">
-        {/* Global Location Selector */}
-        <LocationSelector />
+        {/* Global Location Selector (hidden on /admin/locations which manages all locations) */}
+        {!hideLocationSelector && <LocationSelector />}
 
         {/* Admin Profile & Logout */}
-        <div className="flex items-center gap-3 pl-3 border-l border-[#EFEDED]">
-          <div className="w-9 h-9 rounded-xl bg-[#F8C8DC] text-[#795465] flex items-center justify-center font-extrabold text-xs shadow-inner">
+        <div className={`flex items-center gap-3 ${!hideLocationSelector ? 'pl-3 border-l border-[#E6E0E3]' : ''}`}>
+          <div className="w-9 h-9 rounded-xl bg-[#F6E9EF] text-[#795465] flex items-center justify-center font-semibold text-xs">
             <User className="w-4 h-4 text-[#795465]" />
           </div>
           <div className="hidden md:block">
-            <p className="text-xs font-extrabold text-[#1B1C1C] leading-none">
+            <p className="text-xs font-semibold text-[#1B1C1C] leading-none">
               {session?.name || 'Admin Sakura'}
             </p>
             <div className="mt-1 flex items-center gap-1.5">
               <span
-                className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                className={`text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wide ${
                   isManagement
-                    ? 'bg-[#F8C8DC] text-[#795465]'
+                    ? 'bg-[#F6E9EF] text-[#795465]'
                     : 'bg-[#795465] text-white'
                 }`}
               >
                 {isManagement ? 'Management' : 'Super Admin'}
               </span>
               {session?.location_name && (
-                <span className="text-[10px] text-[#817478] truncate max-w-[120px]">
+                <span className="text-[11px] text-[#6B6064] truncate max-w-[120px]">
                   • {session.location_name}
                 </span>
               )}
@@ -135,8 +136,9 @@ export default function AdminHeader() {
           </div>
           <button
             onClick={handleLogout}
-            className="p-2 hover:bg-[#FFDAD6] text-[#BA1A1A] rounded-xl transition-colors"
+            aria-label="Sign Out"
             title="Sign Out"
+            className="w-10 h-10 grid place-items-center hover:bg-[#FCEBEB] text-[#6B6064] hover:text-[#A32D2D] rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#795465]"
           >
             <LogOut className="w-4 h-4" />
           </button>

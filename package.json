@@ -13,6 +13,7 @@
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
+    "@radix-ui/react-select": "^2.4.1",
     "@supabase/supabase-js": "^2.109.0",
     "bcryptjs": "^3.0.3",
     "canvas-confetti": "^1.9.4",

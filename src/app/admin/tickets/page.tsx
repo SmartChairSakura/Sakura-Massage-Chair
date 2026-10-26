@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { ChairSlip } from '@/types';
 import DatePickerModal, { DateRangeState } from '@/components/admin/DatePickerModal';
+import { AppSelect } from '@/components/admin/ThemedSelect';
 import { getWibNow } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
@@ -383,22 +384,22 @@ function TicketContent() {
       <div className="bg-white rounded-3xl border border-[#EFEDED] p-4 shadow-sm space-y-3">
         <form onSubmit={handleSearchSubmit} className="flex flex-wrap items-center gap-2.5">
           {/* Show by dropdown selector (Clean Title Case, without obsolete Customer Phone) */}
-          <div className="flex items-center bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-3 py-2 text-xs font-medium text-[#1B1C1C]">
-            <span className="text-gray-500 text-xs font-normal mr-1.5 hidden sm:inline">Show by:</span>
-            <select
+          <div className="w-44">
+            <AppSelect
+              aria-label="Show by field"
               value={searchBy}
-              onChange={(e) => {
-                setSearchBy(e.target.value as 'ALL' | 'TICKET_NUMBER' | 'CHAIR_CODE');
+              onValueChange={(val) => {
+                setSearchBy(val as 'ALL' | 'TICKET_NUMBER' | 'CHAIR_CODE');
                 if (appliedSearch) {
                   setPage(1);
                 }
               }}
-              className="bg-transparent font-semibold text-[#795465] text-xs outline-none cursor-pointer"
-            >
-              <option value="ALL">All Fields</option>
-              <option value="TICKET_NUMBER">Ticket Number</option>
-              <option value="CHAIR_CODE">Chair Code</option>
-            </select>
+              options={[
+                { value: 'ALL', label: 'All Fields' },
+                { value: 'TICKET_NUMBER', label: 'Ticket Number' },
+                { value: 'CHAIR_CODE', label: 'Chair Code' },
+              ]}
+            />
           </div>
 
           {/* Search Query Input */}
@@ -432,22 +433,22 @@ function TicketContent() {
           />
 
           {/* Ticket Status Dropdown */}
-          <div className="flex items-center bg-[#F5F3F3] border border-[#EFEDED] rounded-xl px-3 py-2 text-xs font-medium text-[#1B1C1C]">
-            <span className="text-gray-500 text-xs font-normal mr-1.5 hidden sm:inline">Status:</span>
-            <select
+          <div className="w-44">
+            <AppSelect
+              aria-label="Filter ticket status"
               value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
+              onValueChange={(val) => {
+                setStatusFilter(val);
                 setPage(1);
               }}
-              className="bg-transparent font-semibold text-[#795465] text-xs outline-none cursor-pointer"
-            >
-              <option value="ALL STATUS">All Status</option>
-              <option value="DONE">Done</option>
-              <option value="INPROCESS">In Process</option>
-              <option value="WAITING">Waiting</option>
-              <option value="UNPAID">Unpaid / Expired</option>
-            </select>
+              options={[
+                { value: 'ALL STATUS', label: 'All Status' },
+                { value: 'DONE', label: 'Done' },
+                { value: 'INPROCESS', label: 'In Process' },
+                { value: 'WAITING', label: 'Waiting' },
+                { value: 'UNPAID', label: 'Unpaid / Expired' },
+              ]}
+            />
           </div>
 
           {/* Submit Search Button */}

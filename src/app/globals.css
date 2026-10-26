@@ -53,6 +53,83 @@
   --color-surface-variant: #e4e2e2;
 
   --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+:root {
+  /* Surface Hierarchy (WCAG 2.2 AA Audited) */
+  --bg-page: #FBF9F9;
+  --bg-surface: #FFFFFF;
+  --bg-field: #FFFFFF;
+  --bg-subtle: #F5F3F3;
+
+  /* Text Hierarchy (WCAG 1.4.3 >= 4.5:1) */
+  --text: #1B1C1C;
+  --text-muted: #6B6064;
+  --text-placeholder: #7A6F73;
+
+  /* Borders & Dividers (WCAG 1.4.11 >= 3:1 for --border-field) */
+  --border: #E6E0E3;
+  --border-field: #8F8589;
+  --axis: #D8D1D4;
+
+  /* Brand & Focus Tokens */
+  --brand: #795465;
+  --brand-hover: #664556;
+  --brand-soft: #F6E9EF;
+  --brand-soft-hover: #EFDCE5;
+  --focus-ring: #795465;
+
+  /* Semantic Status (One meaning per hue) */
+  --ok: #0F6E56;
+  --ok-bg: #E1F5EE;
+  --warn: #8A5A00;
+  --warn-bg: #FFF3D6;
+  --error: #A32D2D;
+  --error-bg: #FCEBEB;
+}
+
+/* ThemedSelect (AppSelect) custom scrollbar & reduced-motion-safe animations */
+.app-select-viewport {
+  scrollbar-width: thin;
+  scrollbar-color: var(--axis) transparent;
+}
+.app-select-viewport::-webkit-scrollbar {
+  width: 8px;
+  display: block;
+}
+.app-select-viewport::-webkit-scrollbar-thumb {
+  background: var(--axis);
+  border-radius: 4px;
+}
+.app-select-viewport::-webkit-scrollbar-button {
+  display: none;
+}
+
+.app-select-content[data-state="open"] {
+  animation: sel-in 120ms ease-out;
+}
+.app-select-content[data-state="closed"] {
+  animation: sel-out 90ms ease-in;
+}
+
+@keyframes sel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@keyframes sel-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-select-content {
+    animation: none !important;
+  }
 }
 
 @keyframes scan {

@@ -148,9 +148,9 @@ test('TDD Copywriting Suite: Tickets & Audit (/admin/tickets)', async (t) => {
   });
 
   await t.test('Show by filter should use clean Title Case without obsolete CUSTOMER_PHONE', () => {
-    assert.match(content, /<option value="ALL">All Fields<\/option>/);
-    assert.match(content, /<option value="TICKET_NUMBER">Ticket Number<\/option>/);
-    assert.match(content, /<option value="CHAIR_CODE">Chair Code<\/option>/);
+    assert.match(content, /value:\s*'ALL',\s*label:\s*'All Fields'/);
+    assert.match(content, /value:\s*'TICKET_NUMBER',\s*label:\s*'Ticket Number'/);
+    assert.match(content, /value:\s*'CHAIR_CODE',\s*label:\s*'Chair Code'/);
     assert.doesNotMatch(content, /CUSTOMER_PHONE/);
   });
 

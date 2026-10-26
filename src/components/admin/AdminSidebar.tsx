@@ -101,7 +101,7 @@ export default function AdminSidebar() {
         {navSections.map((section, idx) => (
           <div key={idx} className="space-y-2">
             {!isCollapsed && (
-              <h2 className="px-3 text-[10px] font-extrabold text-[#795465] uppercase tracking-wider">
+              <h2 className="px-3 text-[11px] font-semibold text-[#6B6064] uppercase tracking-wider">
                 {section.title}
               </h2>
             )}
@@ -115,10 +115,10 @@ export default function AdminSidebar() {
                     key={item.name}
                     href={item.href}
                     title={isCollapsed ? item.name : undefined}
-                    className={`flex items-center gap-3 px-3 py-3 rounded-xl text-xs font-extrabold transition-all duration-200 ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 ${
                       active
-                        ? 'bg-[#795465] text-white shadow-md shadow-[#795465]/20'
-                        : 'text-[#4F4448] hover:bg-[#EFEDED] hover:text-[#1B1C1C]'
+                        ? 'bg-[#795465] text-white font-semibold shadow-sm'
+                        : 'text-[#1B1C1C] font-medium hover:bg-[#F5F3F3]'
                     } ${isCollapsed ? 'justify-center px-0' : ''}`}
                   >
                     <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-white' : 'text-[#795465]'}`} />
@@ -132,16 +132,17 @@ export default function AdminSidebar() {
       </div>
 
       {/* Footer Toggle Button */}
-      <div className="p-3 border-t border-[#EFEDED] bg-white flex items-center justify-between">
+      <div className="p-3 border-t border-[#E6E0E3] bg-white flex items-center justify-between">
         {!isCollapsed && (
-          <span className="text-[10px] font-bold text-[#817478]">
+          <span className="text-xs font-normal text-[#6B6064]">
             v1.36.1 • Sakura Zen
           </span>
         )}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-2 rounded-xl text-[#795465] hover:bg-[#EFEDED] transition-colors mx-auto"
-          title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="w-10 h-10 grid place-items-center rounded-xl text-[#795465] hover:bg-[#F5F3F3] transition-colors mx-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#795465]"
         >
           {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
         </button>

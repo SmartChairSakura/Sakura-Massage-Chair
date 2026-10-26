@@ -1,73 +1,75 @@
-# Implementation Plan: Sales Summary Dashboard (`/admin/dashboard`) Chart & Visual Architecture Overhaul
+# Implementation Plan: Location Setting (`/admin/locations`) & Add/Edit Location Modal UI/UX Overhaul
 
 ## Overview
-Refactor the **Sales Summary Dashboard (`/admin/dashboard`)** in `smart-kursi-pijat-web` to align with the data visualization and semantic UI/UX architecture defined in `Panduan Chart Kursi Pijat.md` and `Panduan Chart Kursi Pijat.html` (Charts **#1 Hero KPI + Sparkline**, **#2 Linear Area Chart**, **#3 Daily Column Chart**, and **#4 Horizontal Waterfall Deduction Chart**, while deferring Charts #5–#8 for other pages). This overhaul eliminates misleading smooth spline curves on discrete daily data, replaces dark monospace tooltips with light-surface `Plus Jakarta Sans` (`tabular-nums`) tooltips, enforces strict semantic color discipline (`#0F6E56` green exclusively for Net Payout, `#A32D2D` red exclusively for fee deductions, `#795465` mauve for primary data series), adds a deterministic `niceScale` Y-axis tick generator with peak-value callouts, and embeds a floating horizontal Waterfall chart + collapsible accessible data table.
+Overhaul the **Location Setting (`/admin/locations`)** page, the **Add/Edit Location Modal**, global typography/color tokens, and native `<select>` controls based on the 15 findings in `LOCATION_SETTING_UIUX_AUDIT.md` and `ThemedSelect.tsx`. This plan fixes all P0–P2 issues: truncated `<select>` options and browser-blue native dropdowns (replaced with Radix-powered `AppSelect`), low-contrast input borders (`1.10:1` → `3.57:1` `#8F8589`), low-contrast placeholders (`2.15:1` → `4.83:1` `#7A6F73`), clipped modal footers (`max-h-[90dvh]` sticky header/footer flex layout), excessive `font-extrabold` usage (replaced with 400/500/600 hierarchy + `JetBrains Mono` exclusively for `Site Code`), redundant `+` symbols and decorative icons, separation of Location `Status` (`Active`/`Inactive`) from `Fleet Size` (`X chairs · Y online` with proper pluralization), hiding the redundant global `LocationSelector` on `/admin/locations`, and reversible interactions (dirty-form close guard + 6s/8s Undo toast for row & location deletion).
 
 ---
 
 ## Architecture Decisions
 
-1. **Deterministic `niceScale(max, maxTicks)` Tick Calculation (`src/lib/chart-utils.ts`):**
-   - **Problem:** Recharts' default auto-domain produces awkward, non-round Y-axis labels (e.g., `6k, 11k, 17k` or `0, 5.5k, 11k, 16.5k`).
-   - **Decision:** Extract a pure, unit-tested `niceScale(maxValue, maxTicks)` utility in `src/lib/chart-utils.ts` that computes human-friendly step intervals (`1, 2, 2.5, 5, 10 × 10^n`) and returns `{ top, ticks, step }`. Pass `domain={[0, scale.top]}` and `ticks={scale.ticks}` directly to `<YAxis />` on both the Revenue Area Chart and Session Column Chart.
+1. **WCAG 2.2 AA Color & Surface Token System (`src/app/globals.css` & `src/app/layout.tsx`):**
+   - Add audited CSS custom properties (`--bg-page`, `--bg-surface`, `--bg-field`, `--bg-subtle`, `--text`, `--text-muted: #6B6064`, `--text-placeholder: #7A6F73`, `--border: #E6E0E3`, `--border-field: #8F8589`, `--brand: #795465`, `--brand-hover: #664556`, `--brand-soft: #F6E9EF`, `--brand-soft-hover: #EFDCE5`, `--focus-ring: #795465`, `--ok: #0F6E56`, `--ok-bg: #E1F5EE`, `--warn: #8A5A00`, `--warn-bg: #FFF3D6`, `--error: #A32D2D`, `--error-bg: #FCEBEB`).
+   - Load `JetBrains_Mono` (`400`, `500`, `variable: '--font-mono'`) alongside `Plus_Jakarta_Sans` (`400`, `500`, `600`, `700`) in `src/app/layout.tsx` so `font-mono` uses a deliberate monospace typeface strictly on `Site Code` (`GI-01`), while numbers and percentages use `Plus Jakarta Sans` with `tabular-nums`.
 
-2. **Linear Interpolation (`type="linear"`) & Peak Data Point Callout:**
-   - **Problem:** Daily revenue is aggregated per discrete calendar day (WIB). Using `type="monotone"` fabricates smooth curved slopes between days, implying intra-day continuity where zero transactions occurred.
-   - **Decision:** Switch `<Area type="linear" />` with a subtle flat fill (`fill="#795465" fillOpacity={0.10}`), solid 1px horizontal grid lines (`stroke="#EFEDED"` without `strokeDasharray`), a crisp baseline (`axisLine={{ stroke: '#D8D1D4' }}`), and a custom dot/label renderer that highlights only the peak day (`max > 0`) with a ring dot (`r=4.5`, `stroke="#FFFFFF"`, `strokeWidth=2`) and a bold `tabular-nums` currency label above it.
+2. **Radix-Powered `AppSelect` (`src/components/admin/ThemedSelect.tsx`):**
+   - Install `@radix-ui/react-select` and implement `AppSelect` (`ThemedSelect.tsx`) with custom viewport scrollbars, `prefers-reduced-motion` support, 3 distinct item states (hover `#F5F3F3`, checked `#F6E9EF` + check icon, checked+hover `#EFDCE5`), and `hint` subtitle support.
+   - Replace all native `<select>` elements in `/admin/locations` (Status Filter, State/Province, and Recipient/Income Entity) with `AppSelect`.
+   - Shorten Income Entity labels to `Owner` (hint: `'Venue owner'`), `Platform` (hint: `'Platform / system ops'`), `Partner` (hint: `'Location sub-partner'`), and `Other` so options never truncate even at 360px width.
 
-3. **Light-Surface Tooltip with `Plus Jakarta Sans` & `tabular-nums`:**
-   - **Problem:** The existing `CustomTooltip` uses `bg-[#1B1C1C] text-white` and `font-mono`, creating harsh visual contrast on white cards and breaking typographic consistency.
-   - **Decision:** Redesign `CustomTooltip` on a light surface (`bg-white text-[#1B1C1C] border border-[#D8D1D4] rounded-[10px] px-3 py-2 shadow-[0_8px_24px_rgba(27,28,28,0.12)]`), inheriting `Plus Jakarta Sans` (`tabular-nums`). In the Revenue Trend chart, the tooltip also displays the day's completed session count (`X Sessions`) as secondary context.
+3. **Non-Clipped Modal Shell & Accessible `Field` Component:**
+   - Structure the Add/Edit Location Dialog as `role="dialog" aria-modal="true" aria-labelledby="loc-modal-title"` with `max-h-[90dvh] flex flex-col overflow-hidden`.
+   - Keep `<header>` and `<footer>` outside the scrollable `<div className="flex-1 overflow-y-auto">` container so `Cancel` and `Save Location` are permanently visible at any viewport height.
+   - Use sentence-case labels without colons (`Branch name`, `Site code`, `Address`, `Country`, `State / province`, `City`, `PIC name`, `PIC phone`, `Recipient`, `Party name`, `Share`), explicit `(optional)` tags, white input backgrounds with `border-[#8F8589]`, and `aria-live="polite"` 3-state Revenue Share Total badge (`Total 100%` ok, `Total X%, remaining Y%` warn, `Total X%, excess Y%` error).
 
-4. **Strict Semantic Color Discipline (`1 Color = 1 Meaning`):**
-   - **Green (`#0F6E56` / `#E1F5EE`):** Reserved strictly for **Net Payout** (the partner's final take-home amount) and positive period comparison delta.
-   - **Red (`#A32D2D` / `#FCEBEB`):** Reserved strictly for **Fee Deductions** (`MDR Fee 0.7%` and `Platform Fee 5%`) and negative period comparison delta.
-   - **Brand Mauve (`#795465`) & Neutral Ink (`#1B1C1C`, `#5B5257`, `#8A8186`):** Used for all operational metrics (`Active Fleet 9 / 9 Chairs`, `Paid Sessions`, `Daily Revenue Trend`, and `Daily Session Volume`). All emerald green classes (`text-emerald-800`, `bg-[#E1F5EE]`, `fill="#4E635A"`) are removed from `Active Fleet` and `Daily Session Volume`.
-
-5. **Hero KPI Sparkline (#1) & Horizontal Waterfall Deduction Chart (#4):**
-   - **Hero KPI + Sparkline:** Keep `Net Payout (95%)` as the single Hero metric on the page (`tabular-nums`), hide the percentage delta badge when `period_change_pct === null` (showing a clean muted caption instead), and embed a compact 44px linear SVG sparkline (`stroke="#8A8186"`, terminal ring dot `#795465`) representing the daily trend.
-   - **Horizontal Waterfall Deduction Chart:** Replace/upgrade the static 4-box footer inside the Hero card with an interactive SVG/HTML Horizontal Floating Bar Waterfall (`Gross Sales` `[0 → 100%]` in `#8A8186` → `MDR Fee (0.7%)` `[net_sales → gross_sales]` in `#A32D2D` → `Net Sales` `[0 → net_sales]` in `#8A8186` → `Platform Fee (5%)` `[owner_net → net_sales]` in `#A32D2D` → `Net Payout (95%)` `[0 → owner_net]` in `#0F6E56`), while preserving all copywriting strings tested by `tests/dashboard-copywriting.test.mjs`.
+4. **Table UX, Header Context & Reversible Interactions (Undo):**
+   - Hide `<LocationSelector />` in `AdminHeader.tsx` when `pathname === '/admin/locations'`.
+   - Separate Location **Status** (`Active` / `Inactive` pill with icon) from **Fleet Size** (`1 chair` / `8 chairs` pluralized via helper, showing `8 / 8 online` or warning `7 / 8 online`, and `<ChevronRight />` instead of `<ExternalLink />`).
+   - Support soft-delete restoration (`deleted_at: null, status: 'active'`) in `PATCH /api/admin/locations/[id]` so deleting a location with 0 active chairs offers an 8-second **"Undo"** toast, and removing a revenue share row in the modal offers a 6-second **"Undo"** banner.
+   - Guard modal dismissal (`Esc`, `X`, backdrop click) with an inline **"Discard unsaved changes?"** prompt when the form is dirty.
 
 ---
 
 ## Dependency Graph
 
 ```
-src/lib/chart-utils.ts (niceScale, formatCompactK, computeWaterfallRows, findPeakIndex)
+package.json (@radix-ui/react-select) + src/app/layout.tsx (JetBrains Mono) + src/app/globals.css (WCAG tokens & select animations)
     │
-    ├── tests/chart-utils.test.mjs (Unit tests for niceScale, waterfall math, peak index)
+    ├── src/components/admin/ThemedSelect.tsx (AppSelect component)
     │
-    └── src/app/admin/dashboard/page.tsx
-            ├── Task 2: Semantic Color Cleanup (Active Fleet + KPI Cards + Hero Sparkline #1)
-            ├── Task 3: Horizontal Waterfall Deduction Chart (#4)
-            ├── Task 4: Linear Area Revenue Chart (#2) + Light Tooltip + Collapsible Table
-            └── Task 5: Discrete Daily Session Column Chart (#3) + TDD Copywriting & Build Verification
+    ├── src/components/admin/AdminHeader.tsx (Hide LocationSelector on /admin/locations + 40x40 accessible icon buttons)
+    │
+    ├── src/app/api/admin/locations/[id]/route.ts (Support soft-delete undo/restore via PATCH deleted_at: null)
+    │
+    └── src/app/admin/locations/page.tsx (Full UI/UX, typography, modal, table, PIC fields, & Undo overhaul)
+            │
+            └── tests/dashboard-copywriting.test.mjs & tests/location-setting-uiux.test.mjs
 ```
 
 ---
 
 ## Task List
 
-### Phase 1: Mathematical & Scale Foundation
-- [x] **Task 1:** Create `src/lib/chart-utils.ts` (`niceScale`, `formatCompactIDR`, `computeWaterfallSteps`, `findPeakIndex`) and unit test suite `tests/chart-utils.test.mjs`.
+### Phase 1: Design Tokens, Typography Pairing & `AppSelect` Foundation
+- [x] **Task 1:** Install `@radix-ui/react-select`, configure `JetBrains_Mono` (`--font-mono`) in `src/app/layout.tsx`, and add WCAG 2.2 AA color/surface tokens & select animations to `src/app/globals.css`.
+- [x] **Task 2:** Create `src/components/admin/ThemedSelect.tsx` (`AppSelect`) with support for `hint`, `icon`, `zIndexClass`, and accessible ARIA attributes.
 
-### Checkpoint 1: Foundation Verified
-- [x] `node --test tests/chart-utils.test.mjs` passes 100%.
+### Checkpoint 1: Foundation & `AppSelect` Ready
+- [x] `ThemedSelect.tsx` and global tokens compile cleanly.
 
-### Phase 2: Hero KPI, Sparkline (#1), Waterfall (#4) & Semantic Color Discipline
-- [x] **Task 2:** Refactor Hero KPI (`Net Payout`), add 44px Linear Sparkline (**Chart #1**), hide uncomputed delta badges cleanly, and remove green leakage from `Active Fleet` (`9 / 9 Chairs`).
-- [x] **Task 3:** Implement the interactive Horizontal Waterfall Deduction Chart (**Chart #4**: `Gross Sales` → `MDR Fee (0.7%)` → `Net Sales` → `Platform Fee (5%)` → `Net Payout`) with floating bars and light-surface hover tooltips.
+### Phase 2: Location List Page, Header Context & API Undo Support
+- [x] **Task 3:** Update `src/components/admin/AdminHeader.tsx` to hide `<LocationSelector />` on `/admin/locations` and add accessible 40×40px target & `aria-label` on the Sign Out button; update `src/app/api/admin/locations/[id]/route.ts` to allow restoring soft-deleted locations (`deleted_at: null`).
+- [x] **Task 4:** Overhaul the `/admin/locations` table & filter bar in `src/app/admin/locations/page.tsx` (3-tier 400/500/600 typography, `AppSelect` status filter, separated `Status` vs `Fleet Size` with pluralization `1 chair` / `N chairs` & `<ChevronRight />`, PIC contact display, segmented Revenue Split bar, column sorting on Branch Name & Fleet Size, and neutral row action icons with 40×40px hit targets).
 
-### Checkpoint 2: Hero & Waterfall Verified
-- [x] `Net Payout`, `Gross Sales`, `MDR Fee`, `Net Sales`, `Platform Fee`, `Active Fleet`, and `Paid Sessions` render with strict semantic colors and pass copywriting assertions.
+### Checkpoint 2: List View & API Verified
+- [x] All table headers and copywriting contracts in `tests/dashboard-copywriting.test.mjs` pass.
 
-### Phase 3: Trend Charts Overhaul (#2 Linear Area & #3 Daily Column) + Light Tooltip + Table Toggle
-- [x] **Task 4:** Overhaul **Chart #2 (`Daily Revenue Trend`)** to `type="linear"`, `niceScale` Y-axis ticks, solid `#EFEDED` gridlines, peak ring dot + `Rp` label, Light-Surface `Plus Jakarta Sans` (`tabular-nums`) Tooltip with session count context, truthful subtitle, and collapsible `<details><summary>View as table</summary>` accessible table.
-- [x] **Task 5:** Overhaul **Chart #3 (`Daily Session Volume`)** to single-hue Brand Mauve (`#795465`), `maxBarSize={24}`, `niceScale` integer Y-axis ticks, peak count label above highest bar, and update TDD regression tests in `tests/dashboard-copywriting.test.mjs`.
+### Phase 3: Add/Edit Location Modal Overhaul, Global `AppSelect` Rollout & Test Suite
+- [x] **Task 5:** Overhaul the Add/Edit Location Modal in `src/app/admin/locations/page.tsx` (sticky header/footer `max-h-[90dvh]` layout, reusable `Field` component with `#8F8589` 3.57:1 borders & `#7A6F73` 4.83:1 placeholders, sentence-case labels without colons, PIC name/phone inputs, read-only Country lock, `AppSelect` for State/Province and short Recipient labels `Owner`/`Platform`/`Partner`/`Other`, `%`-suffixed `tabular-nums` share input, 3-state `aria-live="polite"` total badge, "Auto-balance" button, 6s row-delete Undo, 8s location-delete Undo, and dirty-form Esc/backdrop close guard).
+- [x] **Task 6:** Roll out `AppSelect` (`src/components/admin/ThemedSelect.tsx`) across **all remaining native `<select>` dropdowns in the web app** (14 total across `LocationSelector.tsx`, `locations/page.tsx`, `chairs/page.tsx`, `tickets/page.tsx`, and `users/page.tsx`) with empty-string (`""`) sentinel handling so zero native OS/browser dropdowns remain.
+- [x] **Task 7:** Create `tests/location-setting-uiux.test.mjs`, update `tests/dashboard-copywriting.test.mjs`, and run full verification (`node --test tests/*.test.mjs` and `npm run build`).
 
-### Checkpoint 3: Complete & Verified
-- [x] All unit & copywriting tests pass (`npm test` / `node --test`).
-- [x] Production build (`npm run build`) succeeds with zero TypeScript or Next.js errors.
+### Checkpoint 3: Complete
+- [x] All 17 items in the Section 13 AI Agent Verification Checklist (`LOCATION_SETTING_UIUX_AUDIT.md`) are satisfied and verified by automated tests.
 
 ---
 
@@ -75,12 +77,6 @@ src/lib/chart-utils.ts (niceScale, formatCompactK, computeWaterfallRows, findPea
 
 | Risk | Impact | Mitigation |
 | :--- | :--- | :--- |
-| **All-zero date ranges (`max = 0`) causing division by zero in `niceScale` or Sparkline/Waterfall** | High | Guard `max <= 0` in `niceScale` (fallback to `{ top: 20000, ticks: [0, 5000, 10000, 15000, 20000] }` for currency and `{ top: 4, ticks: [0, 1, 2, 3, 4] }` for sessions) and render flat baseline in Sparkline/Waterfall when `gross_sales === 0`. |
-| **Breaking existing TDD copywriting regexes in `tests/dashboard-copywriting.test.mjs`** | Medium | Preserve exact required English tokens (`Sales Overview`, `Real-time QRIS revenue, payment processing fees, and partner payouts.`, `Transaction Date`, `Settlement Date`, `Net Payout`, `Platform Fee`, `Active Fleet`, `Paid Sessions`, `Daily Revenue Trend`, `Daily Session Volume`). |
-| **Tiny deduction bars (`MDR 0.7%`) becoming invisible in Horizontal Waterfall** | Medium | Enforce `Math.max(3, barWidthPx)` minimum pixel width on SVG/HTML floating waterfall bars (matching `Math.max(2, X(r.to) - x0)` in `Panduan Chart Kursi Pijat.html`). |
-| **Peak value label clipping at the top of the SVG chart canvas** | Low | Increase Recharts `margin={{ top: 24, right: 16, left: 0, bottom: 4 }}` so the peak label (`y - 12`) never clips above the top gridline. |
-
----
-
-## Open Questions
-- None blocking; all specifications and visual parameters are explicitly defined in `Panduan Chart Kursi Pijat.md` and `Panduan Chart Kursi Pijat.html`.
+| **Breaking existing copywriting tests in `tests/dashboard-copywriting.test.mjs`** | High | Keep exact tested English strings (`Locations & Revenue Sharing`, `Add Location`, `Branch Name`, `Site Code`, `Fleet Size`, `Actions`, `Total revenue share must equal exactly 100%.`, `saved successfully.`). |
+| **Radix Select portal rendering behind modal backdrop (`z-50`)** | High | Pass `zIndexClass="z-[90]"` to `AppSelect` instances inside the modal so the dropdown popper always layers above the `z-50` modal overlay. |
+| **Radix Select throwing error if an option `value` is `""` (empty string)** | Medium | Ensure all `AppSelect` option values are non-empty strings (`'ALL'`, `'active'`, `'inactive'`, `'OWNER'`, `'SYSTEM'`, `'PARTNER'`, `'OTHER'`). |
