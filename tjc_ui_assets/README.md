@@ -85,3 +85,15 @@
    Successed!
    ```
 8. Lepaskan power 5V, cabut MicroSD, lalu nyalakan kembali layar. UI siap beroperasi.
+
+---
+
+## 5. Tool Patch Bahasa Inggris USART HMI (1-Click Installer)
+
+Jika editor USART HMI masih berbahasa Mandarin, gunakan tool installer patch otomatis yang sudah disediakan di:
+👉 [`tools/usart_hmi_english_patch/`](../tools/usart_hmi_english_patch/)
+
+**Cara Pakai:**
+1. Masuk ke folder `tools/usart_hmi_english_patch/`
+2. Klik ganda `install.bat` (atau klik kanan -> *Run as administrator*).
+3. Seluruh antarmuka USART HMI langsung berubah 100% menjadi Bahasa Inggris!
