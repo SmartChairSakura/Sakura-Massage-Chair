@@ -24,17 +24,18 @@ export default function LiveOngoingSessionPage() {
       setTransaction(tx);
 
       const orderKey = tx.idempotency_key || tx.chair_slip_number || orderId;
-      // Auto-sync ticket status in Supabase to 'done' when entering session
+      // Auto-sync ticket status in Supabase to 'session_inprocess' when entering session
       if (orderKey) {
-        fetch('/api/webhooks/payment', {
+        fetch('/api/admin/chairs/ack', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            idempotencyKey: orderKey,
-            transactionId: tx.id || orderId,
-            status: 'PAID',
+            chair_slip_id: tx.id || orderId,
+            chair_slip_number: orderKey,
+            chair_id: tx.chair_id,
+            status_event: 'session_inprocess',
           }),
-        }).catch((err) => console.warn('[Session] Webhook auto-sync note:', err));
+        }).catch((err) => console.warn('[Session] Ack start note:', err));
       }
     }
   }, [orderId]);
@@ -132,10 +133,23 @@ export default function LiveOngoingSessionPage() {
     try {
       // 1. Call Backend API to update status to CANCELLED in Supabase
       const txId = transaction?.id || orderId;
+      const orderKey = transaction?.idempotency_key || transaction?.chair_slip_number || orderId;
       if (txId) {
         await fetch(`/api/transactions/${txId}/cancel`, {
           method: 'POST',
         }).catch((err) => console.warn('Cancel API fetch note:', err));
+
+        // Record early session end in chair_slips via ACK API
+        await fetch('/api/admin/chairs/ack', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chair_slip_id: txId,
+            chair_slip_number: orderKey,
+            chair_id: transaction?.chair_id,
+            status_event: 'done',
+          }),
+        }).catch((err) => console.warn('Cancel ACK note:', err));
       }
 
       // 2. Send Breaker OFF command to Tokuyo PCB via USB Relay LCUS-1 (0xA0 0x01 0x00 0xA1)

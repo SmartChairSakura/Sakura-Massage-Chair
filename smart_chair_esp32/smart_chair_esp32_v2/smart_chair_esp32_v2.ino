@@ -247,6 +247,20 @@ void netBuatOrderQRIS(uint32_t reqSeq, int durasiMenit, int nominal, int pulsa, 
   }
 }
 
+// Helper: Format Waktu ISO8601 UTC untuk Supabase REST API
+String getIsoTimestamp() {
+  time_t now;
+  time(&now);
+  if (now > 100000) {
+    char buf[30];
+    struct tm timeinfo;
+    gmtime_r(&now, &timeinfo);
+    strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &timeinfo);
+    return String(buf);
+  }
+  return "";
+}
+
 // B. Kirim ACK dengan Dual-Engine (Vercel Endpoint + Direct Supabase Cloud Fallback)
 void netKirimAckSupabaseDirect(const char* orderId, const char* eventStatus) {
   WiFiClientSecure client;
@@ -262,8 +276,18 @@ void netKirimAckSupabaseDirect(const char* orderId, const char* eventStatus) {
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Prefer", "return=minimal");
 
-    StaticJsonDocument<128> doc;
+    StaticJsonDocument<256> doc;
     doc["status"] = eventStatus;
+    String isoNow = getIsoTimestamp();
+    if (isoNow.length() > 0) {
+      doc["updated_at"] = isoNow;
+      if (strcmp(eventStatus, "session_inprocess") == 0) {
+        doc["session_start_at"] = isoNow;
+      } else if (strcmp(eventStatus, "done") == 0) {
+        doc["session_end_at"] = isoNow;
+      }
+    }
+
     String reqBody;
     serializeJson(doc, reqBody);
 
@@ -707,8 +731,11 @@ void setup() {
     Serial.println("\n[WIFI] Berhasil Terhubung!");
     Serial.print("[WIFI] IP Address: ");
     Serial.println(WiFi.localIP());
+    // Sinkronisasi Waktu NTP untuk Presisi Timestamp DB
+    configTime(7 * 3600, 0, "pool.ntp.org", "time.google.com");
   } else {
     Serial.println("\n[WIFI] Belum terhubung, auto-reconnect aktif di background.");
+    configTime(7 * 3600, 0, "pool.ntp.org", "time.google.com");
   }
 
   // Set Layar TJC ke Halaman Utama (page0)

@@ -13,39 +13,46 @@ export async function GET(req: NextRequest) {
   const serverKey = process.env.MIDTRANS_SERVER_KEY || '';
 
   try {
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    const fourMinutesAgo = new Date(Date.now() - 4 * 60 * 1000).toISOString();
+    const nowIso = new Date().toISOString();
 
-    // 1. Auto-expire pending transactions created > 15 mins ago
+    // 1. Auto-expire pending QRIS transactions older than 4 mins (3 min QRIS expiry + 1 min buffer)
+    let autoExpiredCount = 0;
     try {
-      await supabaseServer
+      const { data: expiredSlips } = await supabaseServer
         .from('chair_slips')
-        .update({ status: 'expired' })
+        .update({ status: 'expired', updated_at: nowIso })
         .eq('status', 'pending')
-        .lt('created_at', fifteenMinutesAgo);
+        .lt('created_at', fourMinutesAgo)
+        .select('id');
+
+      autoExpiredCount += (expiredSlips || []).length;
 
       await supabaseServer
         .from('transactions')
-        .update({ status: 'EXPIRED' })
+        .update({ status: 'EXPIRED', updated_at: nowIso })
         .eq('status', 'PENDING')
-        .lt('created_at', fifteenMinutesAgo);
+        .lt('created_at', fourMinutesAgo);
     } catch (e: any) {
       console.warn('[Cron Reconcile] Auto-expire note:', e?.message);
     }
 
-    // 2. Fetch pending transactions between 5 and 15 mins old
+    // 2. Fetch pending transactions between 2 and 4 mins old for status verification
     const { data: pendingSlips } = await supabaseServer
       .from('chair_slips')
       .select('*')
       .eq('status', 'pending')
-      .lt('created_at', fiveMinutesAgo)
+      .lt('created_at', twoMinutesAgo)
+      .gt('created_at', fourMinutesAgo)
       .limit(20);
 
     const { data: legacyPending } = await supabaseServer
       .from('transactions')
       .select('*')
       .eq('status', 'PENDING')
-      .lt('created_at', fiveMinutesAgo)
+      .lt('created_at', twoMinutesAgo)
+      .gt('created_at', fourMinutesAgo)
       .limit(20);
 
     const itemsToReconcile = [
@@ -69,7 +76,7 @@ export async function GET(req: NextRequest) {
 
             await supabaseServer
               .from(targetTable)
-              .update({ status: statusVal, session_start_at: new Date().toISOString() })
+              .update({ status: statusVal, session_start_at: nowIso, updated_at: nowIso })
               .eq('id', item.id);
 
             // Broadcast pulse trigger to EDC Kiosk
@@ -96,7 +103,7 @@ export async function GET(req: NextRequest) {
 
             await supabaseServer
               .from(targetTable)
-              .update({ status: statusVal })
+              .update({ status: statusVal, updated_at: nowIso })
               .eq('id', item.id);
 
             expiredCount++;
@@ -105,10 +112,82 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // 3. Auto-complete abandoned session_inprocess slips whose duration + 1 min buffer has elapsed
+    let autoCompletedSessions = 0;
+    try {
+      const { data: stuckInprocess } = await supabaseServer
+        .from('chair_slips')
+        .select('*')
+        .eq('status', 'session_inprocess')
+        .limit(20);
+
+      if (stuckInprocess && stuckInprocess.length > 0) {
+        for (const slip of stuckInprocess) {
+          const durationMins = Number(slip.duration_in_minutes || 8);
+          const startMs = new Date(slip.session_start_at || slip.created_at || Date.now()).getTime();
+          const expectedEndMs = startMs + durationMins * 60 * 1000;
+
+          // If expected end time + 60s grace buffer has passed, finalize to 'done'
+          if (Date.now() > expectedEndMs + 60 * 1000) {
+            const calculatedEndIso = new Date(expectedEndMs).toISOString();
+            await supabaseServer
+              .from('chair_slips')
+              .update({
+                status: 'done',
+                session_start_at: slip.session_start_at || new Date(startMs).toISOString(),
+                session_end_at: calculatedEndIso,
+                updated_at: nowIso,
+              })
+              .eq('id', slip.id);
+
+            autoCompletedSessions++;
+          }
+        }
+      }
+    } catch (inprocessErr: any) {
+      console.warn('[Cron Reconcile] session_inprocess auto-complete note:', inprocessErr?.message);
+    }
+
+    // 4. Auto-heal any slips with status = 'done' and session_end_at IS NULL
+    let healedNullEndCount = 0;
+    try {
+      const { data: nullEndSlips } = await supabaseServer
+        .from('chair_slips')
+        .select('*')
+        .eq('status', 'done')
+        .is('session_end_at', null)
+        .limit(30);
+
+      if (nullEndSlips && nullEndSlips.length > 0) {
+        for (const slip of nullEndSlips) {
+          const durationMins = Number(slip.duration_in_minutes || 8);
+          const startMs = new Date(slip.session_start_at || slip.created_at || Date.now()).getTime();
+          const endIso = new Date(startMs + durationMins * 60 * 1000).toISOString();
+          const startIso = slip.session_start_at || new Date(startMs).toISOString();
+
+          await supabaseServer
+            .from('chair_slips')
+            .update({
+              session_start_at: startIso,
+              session_end_at: endIso,
+              updated_at: nowIso,
+            })
+            .eq('id', slip.id);
+
+          healedNullEndCount++;
+        }
+      }
+    } catch (healErr: any) {
+      console.warn('[Cron Reconcile] session_end_at auto-heal note:', healErr?.message);
+    }
+
     console.info('[Cron Reconcile] Completed run:', {
       checkedCount: itemsToReconcile.length,
       recoveredCount,
       expiredCount,
+      autoExpiredCount,
+      autoCompletedSessions,
+      healedNullEndCount,
       durationMs: Date.now() - startTime,
     });
 
@@ -118,6 +197,9 @@ export async function GET(req: NextRequest) {
         checkedCount: itemsToReconcile.length,
         recoveredCount,
         expiredCount,
+        autoExpiredCount,
+        autoCompletedSessions,
+        healedNullEndCount,
         durationMs: Date.now() - startTime,
       },
     });

@@ -30,14 +30,36 @@ export async function POST(req: NextRequest) {
       targetStatus = 'expired_paid';
     }
 
-    // 1. Update chair_slips table
-    let updated = false;
-    let query = supabaseServer.from('chair_slips').update({
+    // 1. Fetch existing chair_slip to verify start time and duration
+    let lookupQuery = supabaseServer.from('chair_slips').select('*');
+    if (slipId) {
+      lookupQuery = lookupQuery.eq('id', slipId);
+    } else {
+      lookupQuery = lookupQuery.eq('chair_slip_number', slipNumber);
+    }
+    const { data: existingSlip } = await lookupQuery.maybeSingle();
+
+    const durationMins = Number(existingSlip?.duration_in_minutes || 8);
+    const slipStartIso = existingSlip?.session_start_at;
+
+    const updatePayload: Record<string, any> = {
       status: targetStatus,
       updated_at: now,
-      ...(targetStatus === 'session_inprocess' ? { session_start_at: now } : {}),
-      ...(targetStatus === 'done' ? { session_end_at: now } : {}),
-    });
+    };
+
+    if (targetStatus === 'session_inprocess') {
+      updatePayload.session_start_at = slipStartIso || now;
+    } else if (targetStatus === 'done') {
+      updatePayload.session_end_at = now;
+      if (!slipStartIso) {
+        // Fallback: If session_start_at was never recorded, calculate it from duration
+        updatePayload.session_start_at = new Date(Date.now() - durationMins * 60 * 1000).toISOString();
+      }
+    }
+
+    // 2. Update chair_slips table
+    let updated = false;
+    let query = supabaseServer.from('chair_slips').update(updatePayload);
 
     if (slipId) {
       query = query.eq('id', slipId);
@@ -64,10 +86,17 @@ export async function POST(req: NextRequest) {
       if (targetStatus === 'done') legacyStatus = 'COMPLETED';
       if (targetStatus === 'expired_paid') legacyStatus = 'FAILED';
 
-      let legacyQuery = supabaseServer.from('transactions').update({
+      const legacyPayload: Record<string, any> = {
         status: legacyStatus,
         updated_at: now,
-      });
+      };
+      if (targetStatus === 'session_inprocess') {
+        legacyPayload.session_start_at = now;
+      } else if (targetStatus === 'done') {
+        legacyPayload.session_end_at = now;
+      }
+
+      let legacyQuery = supabaseServer.from('transactions').update(legacyPayload);
 
       if (slipId) {
         legacyQuery = legacyQuery.eq('id', slipId);

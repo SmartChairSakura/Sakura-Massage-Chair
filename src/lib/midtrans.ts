@@ -128,6 +128,10 @@ export async function createMidtransQrisCharge(
         qris: {
           acquirer: 'gopay',
         },
+        custom_expiry: {
+          expiry_duration: 3,
+          unit: 'minute',
+        },
       }),
     });
 

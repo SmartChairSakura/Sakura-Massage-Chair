@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
 
     const targetKey = String(idempotencyKey || transactionId).trim();
     const targetStatus = String(status || 'PAID').toUpperCase();
-    const slipStatus = targetStatus === 'PAID' ? 'done' : targetStatus.toLowerCase();
+    const slipStatus = targetStatus === 'PAID' ? 'paid' : targetStatus.toLowerCase();
     const now = new Date().toISOString();
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetKey);
@@ -34,14 +34,23 @@ export async function POST(req: NextRequest) {
     let finalSlip = existingSlip;
 
     if (existingSlip) {
-      // Update chair_slips to 'done' and record session start time
+      const durationMins = Number(existingSlip.duration_in_minutes || 8);
+      const startIso = existingSlip.session_start_at || now;
+
+      const updatePayload: Record<string, any> = {
+        status: slipStatus,
+        session_start_at: startIso,
+        updated_at: now,
+      };
+
+      if (slipStatus === 'done') {
+        updatePayload.session_end_at = existingSlip.session_end_at || new Date(new Date(startIso).getTime() + durationMins * 60 * 1000).toISOString();
+      }
+
+      // Update chair_slips table
       const { data: updatedSlip, error: updateSlipErr } = await supabaseServer
         .from('chair_slips')
-        .update({
-          status: slipStatus,
-          session_start_at: existingSlip.session_start_at || now,
-          updated_at: now,
-        })
+        .update(updatePayload)
         .eq('id', existingSlip.id)
         .select()
         .maybeSingle();

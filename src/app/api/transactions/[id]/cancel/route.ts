@@ -13,7 +13,22 @@ export async function POST(
 
     const timestamp = new Date().toISOString();
 
-    // Update transaction status to CANCELLED in Supabase
+    // 1. Update master table chair_slips
+    try {
+      await supabaseServer
+        .from('chair_slips')
+        .update({
+          status: 'cancelled',
+          cancelled_at: timestamp,
+          session_end_at: timestamp,
+          updated_at: timestamp,
+        })
+        .or(`id.eq.${transactionId},chair_slip_number.eq.${transactionId}`);
+    } catch (slipErr: any) {
+      console.warn('[Cancel Session] chair_slips cancel note:', slipErr?.message);
+    }
+
+    // 2. Update legacy transactions table
     const { data: updatedTx, error: updateError } = await supabaseServer
       .from('transactions')
       .update({
@@ -23,7 +38,7 @@ export async function POST(
       })
       .or(`id.eq.${transactionId},idempotency_key.eq.${transactionId}`)
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError) {
       console.warn('[Cancel Session] DB update note:', updateError.message);
