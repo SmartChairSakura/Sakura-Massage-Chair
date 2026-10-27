@@ -55,6 +55,7 @@ int sessionDurationSeconds = 0;
 unsigned long sessionStartTime = 0;
 unsigned long lastTimerUpdateTime = 0;
 unsigned long qrisDisplayStartTime = 0;
+unsigned long lastQrisTimerUpdateTime = 0;
 const unsigned long QRIS_TIMEOUT_SECONDS = 180;
 
 // Variabel antrean & sinyal antar Core (Core 1 UI <-> Core 0 Network)
@@ -108,6 +109,23 @@ void formatAndSendTimer(long remainingSec) {
   char timerBuf[32];
   snprintf(timerBuf, sizeof(timerBuf), "t_timer.txt=\"%02d:%02d\"", m, s);
   sendToTJC(String(timerBuf));
+}
+
+void formatAndSendQrisTimer(long remainingSec, bool forceColor = false) {
+  if (remainingSec < 0) remainingSec = 0;
+  int m = remainingSec / 60;
+  int s = remainingSec % 60;
+  char timerBuf[32];
+  snprintf(timerBuf, sizeof(timerBuf), "t_qtimer.txt=\"%02d:%02d\"", m, s);
+  sendToTJC(String(timerBuf));
+
+  static bool lastWasWarning = false;
+  bool isWarning = (remainingSec <= 30);
+  if (isWarning != lastWasWarning || forceColor) {
+    lastWasWarning = isWarning;
+    // Jika sisa waktu <= 30 detik: warna teks merah terang (RGB565: 63488), normal putih (65535)
+    sendToTJC(isWarning ? "t_qtimer.pco=63488" : "t_qtimer.pco=65535");
+  }
 }
 
 void eksekusiPulsaRelay(int jumlahPulsa) {
@@ -577,6 +595,7 @@ void mulaiRequestOrderQRIS(int durasiMenit, int nominal, int pulsa, const char* 
   sendToTJC("page page1");
   delay(20);
   sendToTJC("qr0.txt=\"\"");
+  formatAndSendQrisTimer(QRIS_TIMEOUT_SECONDS, true);
   clearTJCBuffer();
 
   portENTER_CRITICAL(&stateMux);
@@ -587,6 +606,7 @@ void mulaiRequestOrderQRIS(int durasiMenit, int nominal, int pulsa, const char* 
   qrisCreationFailed = false;
   paymentVerifiedFlag = false;
   qrisDisplayStartTime = millis();
+  lastQrisTimerUpdateTime = millis();
 
   pendingOrder.seq = orderSessionSeq;
   pendingOrder.durasiMenit = durasiMenit;
@@ -794,6 +814,8 @@ void loop() {
       sendToTJC("qr0.txt=\"" + qrToDraw + "\"");
       Serial.println("[TJC] Sinyal render QRIS dikirim ke komponen qr0.");
       qrisDisplayStartTime = millis(); // Reset waktu timeout 3 menit sejak QR tampil di layar
+      lastQrisTimerUpdateTime = millis();
+      formatAndSendQrisTimer(QRIS_TIMEOUT_SECONDS, true);
     }
 
     // 2. Jika pembuatan QRIS gagal setelah retry, kembalikan ke halaman utama
@@ -802,7 +824,17 @@ void loop() {
       kembaliKeMenuUtama();
     }
 
-    // 3. Cek batas waktu tampilan QRIS (180 detik)
+    // 3. Hitung mundur timer QRIS setiap 1 detik
+    if (millis() - lastQrisTimerUpdateTime >= 1000) {
+      lastQrisTimerUpdateTime += 1000;
+      long elapsed = (millis() - qrisDisplayStartTime) / 1000;
+      long remaining = (long)QRIS_TIMEOUT_SECONDS - elapsed;
+      if (remaining >= 0) {
+        formatAndSendQrisTimer(remaining);
+      }
+    }
+
+    // 4. Cek batas waktu tampilan QRIS (180 detik)
     if (currentState == STATE_QRIS_DISPLAY && (millis() - qrisDisplayStartTime >= (QRIS_TIMEOUT_SECONDS * 1000UL))) {
       Serial.println("\n[QRIS TIMEOUT] Waktu pembayaran habis (3 menit tanpa scan).");
       kembaliKeMenuUtama();
