@@ -108,9 +108,13 @@ d1.rounded_rectangle([65, qr_box_y, 415, qr_box_y + 350], radius=18, fill="#ffff
 d1.text((240, qr_box_y + 25), "QRIS DINAMIS MIDTRANS", font=font_tag, fill="#1e293b", anchor="mm")
 
 # Instruction Text
-d1.text((240, 545), "BCA • Mandiri • BRI • BNI • GoPay • OVO • DANA • ShopeePay", font=font_tag, fill="#9ca3af", anchor="mm")
-d1.text((240, 580), "Batas Waktu Pembayaran: 03:00 Menit", font=font_subtitle, fill="#cbd5e1", anchor="mm")
-d1.text((240, 610), "Kursi otomatis aktif setelah transaksi berhasil", font=font_footer, fill="#10b981", anchor="mm")
+d1.text((240, 525), "BCA • Mandiri • BRI • BNI • GoPay • OVO • DANA • ShopeePay", font=font_tag, fill="#9ca3af", anchor="mm")
+d1.text((240, 555), "SISA WAKTU PEMBAYARAN", font=font_tag, fill="#cbd5e1", anchor="mm")
+
+# Sleek Container Box untuk Komponen Teks t_qtimer (Kosong & bersih untuk t_qtimer)
+d1.rounded_rectangle([150, 575, 330, 628], radius=12, fill="#111827", outline="#334155", width=1)
+
+d1.text((240, 650), "Kursi otomatis aktif setelah transaksi berhasil", font=font_footer, fill="#10b981", anchor="mm")
 
 # Cancel Button at Bottom
 d1.rounded_rectangle([60, 680, 420, 745], radius=14, fill="#1e1e24", outline="#dc2626", width=2)
