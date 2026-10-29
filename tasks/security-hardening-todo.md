@@ -1,0 +1,24 @@
+# Security Hardening Todo Checklist (`smart-kursi-pijat-web`)
+
+- [ ] **Task 1 (Critical — Payment Webhook & Client Settlement Lock):**
+  - Remove unauthenticated client settlement mutation from `POST /api/webhooks/payment` (`src/app/api/webhooks/payment/route.ts`).
+  - Refactor `handleCheckAlreadyPaid` in `src/app/payment/[orderId]/page.tsx` and session mount in `src/app/session/[orderId]/page.tsx` to poll/verify via `GET /api/payments/status` instead of self-marking `status: 'PAID'`.
+- [ ] **Task 2 (High — Server-Side QRIS Pricing & Midtrans Signature Hardening):**
+  - Enforce server-side package pricing & pulse validation in `POST /api/payments/create-qris` (`src/app/api/payments/create-qris/route.ts`).
+  - Remove `'SB-Mid-server-DUMMYKEY'` fallback and `NODE_ENV === 'production'` bypass in `POST /api/payment/callback` (`src/app/api/payment/callback/route.ts`), verify `gross_amount` against `existingSlip.amount`, and add byte-length guard before `crypto.timingSafeEqual` in `src/lib/midtrans.ts`.
+- [ ] **Task 3 (Critical — Supabase RLS & OTP Attempts Migration):**
+  - Create `supabase/migrations/12_security_rls_and_otp_hardening.sql` to lock down `admin_users`, `chairs`, `locations`, `transactions`, `chair_slips`, and `chair_slip_payments` to `TO service_role` and add `otp_attempts` column to `admin_users`.
+- [ ] **Task 4 (Critical/High — Secrets & JWT Role Hardening):**
+  - Harden `src/lib/jwt-edge.ts` so `verifySessionJWT` rejects tokens without an explicit valid `role` (`SUPER_ADMIN` | `MANAGEMENT` | `OWNER`) instead of defaulting to `SUPER_ADMIN`.
+  - Document all required secrets (`JWT_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `MIDTRANS_SERVER_KEY`, `IOT_DEVICE_SECRET`, `CRON_SECRET`) in `.env.example` and remove unsafe production fallbacks.
+- [ ] **Task 5 (High — CSPRNG OTP & Persistent Brute-Force Lockout):**
+  - Replace `Math.random()` with `crypto.randomInt(100000, 1000000)` and escape HTML interpolations in `src/app/api/admin/auth/forgot-password/route.ts`.
+  - Persist failed OTP attempt counts to `admin_users.otp_attempts` and use constant-time comparison in `src/app/api/admin/auth/reset-password/route.ts`.
+- [ ] **Task 6 (High — Multi-Branch Tenant Isolation & `SUPER_ADMIN` Mutation Guards):**
+  - Enforce `session.location_id` for `MANAGEMENT`/`OWNER` sessions across `dashboard`, `tickets` (including `export=true`), `locations`, `locations/[id]/chairs`, and `chairs`.
+  - Require `SUPER_ADMIN` on `POST/PATCH/DELETE /api/admin/chairs`, `POST /api/admin/locations`, `PATCH/DELETE /api/admin/locations/[id]`, and `POST /api/admin/chairs/firmware/upload`, mask chair `pin` for non-`SUPER_ADMIN`, and prevent self-deactivation in `users/route.ts`.
+- [ ] **Task 7 (Medium/High — PostgREST `.or()` Sanitization, Device/Cron Auth & Security Headers):**
+  - Create `src/lib/postgrest-sanitize.ts` and sanitize all `.or()` interpolations across `login`, `tickets`, `users`, `create-qris`, `webhooks/payment`, and `transactions/[id]/cancel`.
+  - Add ESP32 `.bin` magic-byte (`0xE9`) & size validation in `firmware/upload/route.ts`, optional `IOT_DEVICE_SECRET` / `CRON_SECRET` checks on device & cron endpoints, and `X-Frame-Options: DENY` + `Content-Security-Policy: frame-ancestors 'none'` headers in `next.config.mjs` and `src/middleware.ts`.
+- [ ] **Task 8 (Verification — Security Regression Unit Tests & Build):**
+  - Add automated unit tests in `tests/security-audit-hardening.test.mjs` covering all remediated invariants and verify `npm test` + `npm run build` pass with 0 errors.

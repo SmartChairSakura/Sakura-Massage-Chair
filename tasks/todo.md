@@ -167,3 +167,85 @@
 **Verification:**
 - [x] `node --test tests/*.test.mjs` (97/97 tests pass)
 - [x] `npm run build` (30/30 pages compile cleanly)
+
+---
+
+## Task 8: Backend API Financial Enrichment & Location Context
+**Description:** Enhance `src/app/api/admin/tickets/route.ts` to return granular financial settlement fields (`gross_sales`, `mdr_fee`, `platform_fee`, `net_payout`, `payment_status`, `pg_ref_number`) and location metadata (`location_name`, `location_code`) for each ticket, resolving via joined `chair_slip_payments` or deterministic business calculation.
+
+**Acceptance criteria:**
+- [x] Ticket objects return `gross_sales`, `mdr_fee`, `platform_fee`, and `net_payout`.
+- [x] Unpaid / Expired / Cancelled tickets have `mdr_fee: 0`, `platform_fee: 0`, and `net_payout: 0`.
+- [x] Paid / Done tickets compute `mdr_fee = round(gross * 0.007)`, `platform_fee = round(gross * 0.05)`, and `net_payout = gross - mdr - platform_fee` (unless explicit payment record exists).
+- [x] Tickets payload includes `location_name` and `location_code` (resolved via `locations` / `chairs`).
+
+**Verification:**
+- [x] API returns 200 with enriched ticket objects.
+- [x] Tests pass: `node --test tests/tickets-financial-breakdown.test.mjs`
+
+**Dependencies:** None
+**Files likely touched:** `src/app/api/admin/tickets/route.ts`
+**Estimated scope:** Small (1 file)
+
+---
+
+## Task 9: UI Table Separation & Pulse Elimination
+**Description:** Restructure the tickets table in `src/app/admin/tickets/page.tsx` to separate the merged "Amount & Duration" column into individual dedicated columns (`Amount`, `Net Payout`, `MDR`, `Platform Fee`, `Duration`), eliminate pulse counts from client display, and format with high-contrast typography and semantic badge styling.
+
+**Acceptance criteria:**
+- [x] Table headers include distinct columns: `Amount`, `Net Payout`, `MDR`, `Platform Fee`, `Duration`.
+- [x] Pulse count (`pulses`) is completely removed from the table headers and row cells.
+- [x] `Amount` renders Gross Sales in bold `tabular-nums text-[#1B1C1C]`.
+- [x] `Net Payout` renders in emerald `text-[#0F6E56]` when session is paid/done, or neutral zero/dash when unpaid.
+- [x] `MDR` and `Platform Fee` render in readable muted `text-gray-500 tabular-nums`.
+- [x] `Duration` renders clean `X mins` without pulse information.
+
+**Verification:**
+- [x] Visual inspection & DOM structure validation via automated tests.
+- [x] Tests pass: `node --test tests/tickets-financial-breakdown.test.mjs`
+
+**Dependencies:** Task 8
+**Files likely touched:** `src/app/admin/tickets/page.tsx`
+**Estimated scope:** Medium (1 file)
+
+---
+
+## Task 10: Enterprise CSV Export Overhaul Matching PARKEE Standard
+**Description:** Update `handleExportCSV` in `src/app/admin/tickets/page.tsx` to output 20 structured enterprise settlement columns matching the PARKEE reference format (`Ticket_25102026-25102026_DONE.csv`), excluding pulses for a clean client-facing export, and formatting numbers cleanly for Excel / Google Sheets calculation.
+
+**Acceptance criteria:**
+- [x] Export headers contain: `Location, Location Code, Chair Code, Created From, Slip Number, Date & Time (WIB), Session Start (WIB), Session End (WIB), Duration (Mins), Customer, Payment Method, Payment Provider, Payment Status, PG Ref Number, MDR Paid By, Gross Sales (IDR), MDR Fee (IDR), Platform Fee (IDR), Net Payout (IDR), Ticket Status`.
+- [x] No pulse count column in client-facing export.
+- [x] File exports with UTF-8 BOM (`\uFEFF`) and clean numeric cells without thousands formatting.
+- [x] Exports full dataset (up to 10,000 records) based on active date & status filters.
+
+**Verification:**
+- [x] Tests pass: `node --test tests/tickets-financial-breakdown.test.mjs`
+
+**Dependencies:** Task 8, Task 9
+**Files likely touched:** `src/app/admin/tickets/page.tsx`
+**Estimated scope:** Small (1 file)
+
+---
+
+## Task 11: Automated Test Suite & Next.js Production Build
+**Description:** Create comprehensive automated test suite `tests/tickets-financial-breakdown.test.mjs` verifying backend calculations, UI table column separation, pulse elimination, and CSV export structure. Verify Next.js production build (`npm run build`).
+
+**Acceptance criteria:**
+- [x] Automated tests pass: `node --test tests/tickets-financial-breakdown.test.mjs`.
+- [x] Full test suite passes: `node --test tests/*.test.mjs` (all 100+ tests pass).
+- [x] Next.js production build completes with 0 errors (`npm run build`).
+
+**Verification:**
+- [x] `node --test tests/*.test.mjs`
+- [x] `npm run build`
+
+**Dependencies:** Task 8, Task 9, Task 10
+**Files likely touched:** `tests/tickets-financial-breakdown.test.mjs`
+**Estimated scope:** Small (1 file)
+
+---
+
+## Checkpoint 4: Complete
+- [x] All 4 tasks completed and verified
+- [x] Ready for human review and git push

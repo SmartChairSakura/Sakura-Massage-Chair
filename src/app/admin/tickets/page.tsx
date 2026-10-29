@@ -194,38 +194,78 @@ function TicketContent() {
       }
 
       const headers = [
+        'Location',
+        'Location Code',
+        'Chair Code',
+        'Created From',
         'Slip Number',
         'Date & Time (WIB)',
-        'Customer',
-        'Chair Code',
-        'Amount (IDR)',
+        'Session Start (WIB)',
+        'Session End (WIB)',
         'Duration (Mins)',
-        'Pulses',
+        'Customer',
         'Payment Method',
-        'Status',
+        'Payment Provider',
+        'Payment Status',
+        'PG Ref Number',
+        'MDR Paid By',
+        'Gross Sales (IDR)',
+        'MDR Fee (IDR)',
+        'Platform Fee (IDR)',
+        'Net Payout (IDR)',
+        'Ticket Status',
       ];
       const csvRows = [headers.join(',')];
 
       allTickets.forEach((tx: any) => {
+        const cleanLocName = String(tx.location_name || 'Grand Indonesia').replace(/"/g, '""');
+        const cleanLocCode = String(tx.location_code || 'GI-01').replace(/"/g, '""');
+        const cleanChair = String(tx.chair_code || tx.chair_id || '-').replace(/"/g, '""');
+        const cleanCreatedFrom = String(tx.created_from || 'EDC_KIOSK').replace(/"/g, '""');
         const cleanSlip = String(tx.chair_slip_number || tx.id || '').replace(/"/g, '""');
         const cleanDate = formatWibCsvTimestamp(tx.created_at);
-        const cleanCustomer = String(tx.customer_phone || 'GUEST').replace(/"/g, '""');
-        const cleanChair = String(tx.chair_code || tx.chair_id || '-').replace(/"/g, '""');
-        const amountVal = Number(tx.amount || 0);
+        const cleanStart = tx.session_start_at ? formatWibCsvTimestamp(tx.session_start_at) : '-';
+        const cleanEnd = tx.session_end_at ? formatWibCsvTimestamp(tx.session_end_at) : '-';
         const durationVal = Number(tx.duration_in_minutes || 4);
-        const pulseVal = Number(tx.pulse_count || 5);
+        const cleanCustomer = String(tx.customer_phone || 'GUEST').replace(/"/g, '""');
         const cleanMethod = String(tx.payment_method || 'QRIS').replace(/"/g, '""');
+        const cleanProvider = 'MIDTRANS';
+
+        const isPaid = ['done', 'completed', 'paid', 'ongoing', 'session_inprocess'].includes(
+          String(tx.status || '').toLowerCase()
+        );
+        const cleanPayStatus = String(
+          tx.payment_status || (isPaid ? 'SETTLEMENT' : tx.status || 'PENDING')
+        ).toUpperCase().replace(/"/g, '""');
+        const cleanPgRef = String(tx.pg_ref_number || tx.chair_slip_number || tx.id || '').replace(/"/g, '""');
+        const cleanMdrPaidBy = isPaid ? 'MERCHANT' : '-';
+
+        const grossVal = Number(tx.gross_sales ?? tx.amount ?? 0);
+        const mdrVal = Number(tx.mdr_fee ?? (isPaid ? Math.round(grossVal * 0.007) : 0));
+        const feeVal = Number(tx.platform_fee ?? (isPaid ? Math.round((grossVal - mdrVal) * 0.05) : 0));
+        const payoutVal = Number(tx.net_payout ?? (isPaid ? (grossVal - mdrVal - feeVal) : 0));
         const cleanStatus = String(tx.status || '').toUpperCase().replace(/"/g, '""');
 
         const row = [
+          `"${cleanLocName}"`,
+          `"${cleanLocCode}"`,
+          `"${cleanChair}"`,
+          `"${cleanCreatedFrom}"`,
           `"${cleanSlip}"`,
           `"${cleanDate}"`,
-          `"${cleanCustomer}"`,
-          `"${cleanChair}"`,
-          amountVal,
+          `"${cleanStart}"`,
+          `"${cleanEnd}"`,
           durationVal,
-          pulseVal,
+          `"${cleanCustomer}"`,
           `"${cleanMethod}"`,
+          `"${cleanProvider}"`,
+          `"${cleanPayStatus}"`,
+          `"${cleanPgRef}"`,
+          `"${cleanMdrPaidBy}"`,
+          grossVal,
+          mdrVal,
+          feeVal,
+          payoutVal,
           `"${cleanStatus}"`,
         ];
         csvRows.push(row.join(','));
@@ -477,55 +517,85 @@ function TicketContent() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="bg-[#F5F3F3] text-gray-500 border-b border-[#EFEDED]">
-                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider">Slip Number</th>
-                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider">Date & Time</th>
-                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider">Customer</th>
-                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider">Chair Code</th>
-                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider">Amount & Duration</th>
-                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider">Payment Method</th>
-                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider">Status</th>
+                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Slip Number</th>
+                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Date & Time</th>
+                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Location & Chair</th>
+                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Customer</th>
+                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Amount</th>
+                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Net Payout</th>
+                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">MDR (0.7%)</th>
+                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Platform Fee</th>
+                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Duration</th>
+                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Payment Method</th>
+                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EFEDED] bg-white">
-                {tickets.map((tx: any) => (
-                  <tr key={tx.id} className="hover:bg-[#FBF9F9] transition-colors">
-                    <td className="p-3.5 font-mono text-xs font-semibold text-[#795465]">
-                      {tx.chair_slip_number || tx.id}
-                    </td>
-                    <td className="p-3.5 text-xs font-normal text-gray-600">
-                      {new Date(tx.created_at).toLocaleString('en-US', {
-                        timeZone: 'Asia/Jakarta',
-                        year: 'numeric',
-                        month: 'short',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        hour12: false,
-                      })}{' '}
-                      WIB
-                    </td>
-                    <td className="p-3.5 text-xs font-medium text-gray-600">
-                      {tx.customer_phone || 'GUEST'}
-                    </td>
-                    <td className="p-3.5 font-mono text-xs font-semibold text-[#1B1C1C]">
-                      {tx.chair_code || tx.chair_id}
-                    </td>
-                    <td className="p-3.5">
-                      <div className="font-semibold text-sm text-[#1B1C1C]">{formatRupiah(tx.amount || 0)}</div>
-                      <div className="text-[11px] text-gray-400 font-normal mt-0.5">
-                        Duration: {tx.duration_in_minutes || 4} mins ({tx.pulse_count || 5} pulses)
-                      </div>
-                    </td>
-                    <td className="p-3.5 text-xs font-medium text-[#1B1C1C]">
-                      <span className="inline-flex items-center gap-1.5">
-                        <QrCode className="w-3.5 h-3.5 text-[#795465]" />
-                        <span>{tx.payment_method || 'QRIS'}</span>
-                      </span>
-                    </td>
-                    <td className="p-3.5">{renderStatusBadge(tx.status)}</td>
-                  </tr>
-                ))}
+                {tickets.map((tx: any) => {
+                  const isPaid = ['done', 'completed', 'paid', 'ongoing', 'session_inprocess'].includes(
+                    String(tx.status || '').toLowerCase()
+                  );
+                  const grossAmt = Number(tx.gross_sales ?? tx.amount ?? 0);
+                  const mdrAmt = Number(tx.mdr_fee ?? (isPaid ? Math.round(grossAmt * 0.007) : 0));
+                  const feeAmt = Number(tx.platform_fee ?? (isPaid ? Math.round((grossAmt - mdrAmt) * 0.05) : 0));
+                  const payoutAmt = Number(tx.net_payout ?? (isPaid ? (grossAmt - mdrAmt - feeAmt) : 0));
+
+                  return (
+                    <tr key={tx.id} className="hover:bg-[#FBF9F9] transition-colors">
+                      <td className="p-3.5 font-mono text-xs font-semibold text-[#795465] whitespace-nowrap">
+                        {tx.chair_slip_number || tx.id}
+                      </td>
+                      <td className="p-3.5 text-xs font-normal text-gray-600 whitespace-nowrap">
+                        {new Date(tx.created_at).toLocaleString('en-US', {
+                          timeZone: 'Asia/Jakarta',
+                          year: 'numeric',
+                          month: 'short',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: false,
+                        })}{' '}
+                        WIB
+                      </td>
+                      <td className="p-3.5 text-xs whitespace-nowrap">
+                        <div className="font-semibold text-[#1B1C1C]">{tx.location_name || 'Grand Indonesia'}</div>
+                        <div className="font-mono text-[11px] text-gray-500">{tx.chair_code || tx.chair_id}</div>
+                      </td>
+                      <td className="p-3.5 text-xs font-medium text-gray-600 whitespace-nowrap">
+                        {tx.customer_phone || 'GUEST'}
+                      </td>
+                      <td className="p-3.5 text-xs font-bold text-[#1B1C1C] tabular-nums whitespace-nowrap">
+                        {formatRupiah(grossAmt)}
+                      </td>
+                      <td className="p-3.5 text-xs tabular-nums whitespace-nowrap">
+                        {isPaid ? (
+                          <span className="font-bold text-[#0F6E56]">
+                            {formatRupiah(payoutAmt)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 font-medium">Rp 0</span>
+                        )}
+                      </td>
+                      <td className="p-3.5 text-xs font-normal text-gray-500 tabular-nums whitespace-nowrap">
+                        {isPaid ? formatRupiah(mdrAmt) : 'Rp 0'}
+                      </td>
+                      <td className="p-3.5 text-xs font-normal text-gray-500 tabular-nums whitespace-nowrap">
+                        {isPaid ? formatRupiah(feeAmt) : 'Rp 0'}
+                      </td>
+                      <td className="p-3.5 text-xs font-medium text-gray-700 whitespace-nowrap">
+                        {tx.duration_in_minutes || 4} mins
+                      </td>
+                      <td className="p-3.5 text-xs font-medium text-[#1B1C1C] whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5">
+                          <QrCode className="w-3.5 h-3.5 text-[#795465]" />
+                          <span>{tx.payment_method || 'QRIS'}</span>
+                        </span>
+                      </td>
+                      <td className="p-3.5 whitespace-nowrap">{renderStatusBadge(tx.status)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

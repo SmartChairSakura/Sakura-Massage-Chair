@@ -137,7 +137,7 @@ export async function GET(req: NextRequest) {
     // 3. Main query (unpaginated up to 10,000 rows if export=true, otherwise paginated)
     const baseQuery = supabaseServer
       .from('chair_slips')
-      .select('*', { count: 'exact' })
+      .select('*, chair_slip_payments(*)', { count: 'exact' })
       .order(dateColumn, { ascending: false });
 
     const query = isExport
@@ -162,7 +162,62 @@ export async function GET(req: NextRequest) {
     const totalCount = count || 0;
     const totalPages = Math.ceil(totalCount / limit);
 
-    // 4. Compute accurate KPI summary metrics across ALL matching tickets
+    // 4. Resolve location and chair metadata for clear display
+    const [{ data: chairsList }, { data: locationsList }] = await Promise.all([
+      supabaseServer.from('chairs').select('chair_code, location_name, location_id'),
+      supabaseServer.from('locations').select('id, name, location_code'),
+    ]);
+
+    const locMap = new Map<string, { name: string; code: string }>();
+    (locationsList || []).forEach((l: any) => {
+      locMap.set(String(l.id), { name: l.name || '', code: l.location_code || '' });
+    });
+
+    const chairMap = new Map<string, { locationName: string; locationCode: string }>();
+    (chairsList || []).forEach((c: any) => {
+      const locInfo = locMap.get(String(c.location_id));
+      chairMap.set(String(c.chair_code || '').toUpperCase(), {
+        locationName: locInfo?.name || c.location_name || '',
+        locationCode: locInfo?.code || '',
+      });
+    });
+
+    const enrichedTickets = (tickets || []).map((tx: any) => {
+      const codeKey = String(tx.chair_code || tx.chair_id || '').toUpperCase();
+      const locFromChair = chairMap.get(codeKey);
+      const locFromSlip = tx.location_id ? locMap.get(String(tx.location_id)) : null;
+
+      const locationName = locFromChair?.locationName || locFromSlip?.name || tx.location_name || 'Grand Indonesia';
+      const locationCode = locFromChair?.locationCode || locFromSlip?.code || tx.location_code || 'GI-01';
+
+      const isPaid = ['done', 'completed', 'paid', 'ongoing', 'session_inprocess'].includes(String(tx.status || '').toLowerCase());
+      const grossSales = Number(tx.amount || 0);
+
+      const payment = Array.isArray(tx.chair_slip_payments) && tx.chair_slip_payments.length > 0
+        ? tx.chair_slip_payments[0]
+        : null;
+
+      const mdrFee = isPaid ? (payment?.mdr_fee != null ? Number(payment.mdr_fee) : Math.round(grossSales * 0.007)) : 0;
+      const netGross = isPaid ? (grossSales - mdrFee) : 0;
+      const platformFee = isPaid ? (payment?.dev_share != null ? Number(payment.dev_share) : Math.round(netGross * 0.05)) : 0;
+      const netPayout = isPaid ? (payment?.owner_net != null ? Number(payment.owner_net) : (grossSales - mdrFee - platformFee)) : 0;
+      const paymentStatus = payment?.payment_status || (isPaid ? 'SETTLEMENT' : String(tx.status || 'PENDING').toUpperCase());
+      const pgRefNumber = payment?.pg_ref_number || tx.chair_slip_number || tx.id;
+
+      return {
+        ...tx,
+        location_name: locationName,
+        location_code: locationCode,
+        gross_sales: grossSales,
+        mdr_fee: mdrFee,
+        platform_fee: platformFee,
+        net_payout: netPayout,
+        payment_status: paymentStatus,
+        pg_ref_number: pgRefNumber,
+      };
+    });
+
+    // 5. Compute accurate KPI summary metrics across ALL matching tickets
     const summaryBaseQuery = supabaseServer.from('chair_slips').select('amount, status');
     const summaryQuery = applyTicketFilters(summaryBaseQuery, filterParams);
 
@@ -180,17 +235,20 @@ export async function GET(req: NextRequest) {
 
     const mdrFee = Math.round(totalGrossSales * 0.007);
     const netSales = totalGrossSales - mdrFee;
-    const netPayout = Math.round(netSales * 0.95);
+    const platformFee = Math.round(netSales * 0.05);
+    const netPayout = netSales - platformFee;
 
     return NextResponse.json(
       {
         success: true,
-        tickets: tickets || [],
+        tickets: enrichedTickets,
         summary: {
           totalTickets: totalCount,
           completedSessions: totalCompletedSessions,
           grossSales: totalGrossSales,
+          mdrFee,
           netSales,
+          platformFee,
           netPayout,
         },
         pagination: {
