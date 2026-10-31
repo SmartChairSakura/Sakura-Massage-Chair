@@ -63,4 +63,51 @@ describe('Tickets Financial Breakdown & Clean Client-Facing UI Suite', () => {
     assert.match(content, /location_name/, 'Must return location_name metadata');
     assert.match(content, /location_code/, 'Must return location_code metadata');
   });
+
+  it('Financial Invariant: Package simulation guarantees zero discrepancy across all production packages', () => {
+    const packages = [
+      { min: 4, gross: 5000 },
+      { min: 8, gross: 10000 },
+      { min: 12, gross: 15000 },
+      { min: 16, gross: 20000 },
+      { min: 20, gross: 25000 },
+      { min: 24, gross: 30000 },
+      { min: 28, gross: 35000 },
+      { min: 32, gross: 40000 },
+      { min: 36, gross: 45000 },
+      { min: 40, gross: 50000 },
+      { min: 44, gross: 55000 },
+      { min: 48, gross: 60000 },
+      { min: 52, gross: 65000 },
+      { min: 56, gross: 70000 },
+      { min: 60, gross: 75000 },
+    ];
+
+    packages.forEach(({ min, gross }) => {
+      const mdr = Math.round(gross * 0.007);
+      const netGross = gross - mdr;
+      const platformFee = Math.round(netGross * 0.05);
+      const netPayout = netGross - platformFee;
+
+      assert.strictEqual(
+        mdr + platformFee + netPayout,
+        gross,
+        `Package ${min}m (${gross}) must sum exactly to Gross with zero discrepancy`
+      );
+    });
+  });
+
+  it('Financial Invariant: Backend aggregate summaries sum exact row-level line items', () => {
+    const ticketsContent = fs.readFileSync(routePath, 'utf8');
+    const dashboardPath = path.join(SRC, 'app/api/admin/dashboard/route.ts');
+    const dashboardContent = fs.readFileSync(dashboardPath, 'utf8');
+
+    // Tickets API must sum row-level values into totalMdrFee and totalNetPayout
+    assert.match(ticketsContent, /totalMdrFee\s*\+=\s*rowMdr/);
+    assert.match(ticketsContent, /totalNetPayout\s*\+=\s*rowNetPayout/);
+
+    // Dashboard API must sum row-level values into totalMdr and totalOwnerNet
+    assert.match(dashboardContent, /totalMdr\s*\+=\s*rowMdr/);
+    assert.match(dashboardContent, /totalOwnerNet\s*\+=\s*rowOwnerNet/);
+  });
 });

@@ -125,10 +125,11 @@ export async function POST(req: NextRequest) {
       const finalSlip = updatedSlip || existingSlip;
 
 
-      // STEP 5: Insert Payment Detail & Revenue Split Record into chair_slip_payments
+      // STEP 5: Insert Payment Detail & Revenue Split Record into chair_slip_payments (Model 1: 95% Owner / 5% System on Net Gross after 0.7% MDR)
       const mdrFee = Math.round(grossAmount * 0.007); // 0.7% QRIS MDR
-      const devShare = Math.round(grossAmount * 0.05); // 5% Revenue Share
-      const ownerNet = Math.round(grossAmount * 0.943); // 94.3% Net Owner
+      const netGross = grossAmount - mdrFee;
+      const devShare = Math.round(netGross * 0.05); // 5% Revenue Share of Net
+      const ownerNet = netGross - devShare; // 95% Net Owner Payout
 
       try {
         await supabaseServer.from('chair_slip_payments').insert({

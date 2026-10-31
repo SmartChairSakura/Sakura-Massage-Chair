@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
 
     let slipQuery = supabaseServer
       .from('chair_slips')
-      .select('*')
+      .select('*, chair_slip_payments(*)')
       .order('created_at', { ascending: false });
 
     // Robust location scoping (matching location_id OR known chair codes for location)
@@ -109,33 +109,57 @@ export async function GET(req: NextRequest) {
     const { data: slips } = await slipQuery;
     const chairSlipsData = slips || [];
 
-    // 4. Compute Financial Analytics Metrics (QRIS 100%, 0.7% MDR Fee)
+    // 4. Compute Financial Analytics Metrics by summing row-level values (Zero-Discrepancy)
     let grossRevenue = 0;
     let totalTransactions = 0;
-    const dailyMap: Record<string, { gross: number; transactions: number }> = {};
+    let totalMdr = 0;
+    let totalNetGross = 0;
+    let totalOwnerNet = 0;
+    let totalSystemNet = 0;
+    const dailyMap: Record<
+      string,
+      { gross: number; mdr: number; netGross: number; ownerNet: number; systemNet: number; transactions: number }
+    > = {};
 
-    chairSlipsData.forEach((tx) => {
+    chairSlipsData.forEach((tx: any) => {
       const st = String(tx.status || '').toLowerCase();
       if (['done', 'completed', 'paid', 'ongoing', 'session_inprocess'].includes(st)) {
         const amt = Number(tx.amount || 0);
+        const payment = Array.isArray(tx.chair_slip_payments) && tx.chair_slip_payments.length > 0
+          ? tx.chair_slip_payments[0]
+          : null;
+
+        const rowMdr = payment?.mdr_fee != null ? Number(payment.mdr_fee) : Math.round(amt * 0.007);
+        const rowNetGross = amt - rowMdr;
+        const rowSystemShare = payment?.dev_share != null ? Number(payment.dev_share) : Math.round(rowNetGross * (systemPct / 100));
+        const rowOwnerNet = payment?.owner_net != null ? Number(payment.owner_net) : (rowNetGross - rowSystemShare);
+
         grossRevenue += amt;
         totalTransactions += 1;
+        totalMdr += rowMdr;
+        totalNetGross += rowNetGross;
+        totalOwnerNet += rowOwnerNet;
+        totalSystemNet += rowSystemShare;
 
         // Group by day for daily trend chart in WIB timezone
         const txDate = tx[dateColumn] ? new Date(tx[dateColumn]) : new Date(tx.created_at);
         const dayKey = getWibDateKey(txDate) || txDate.toISOString().slice(0, 10);
         if (!dailyMap[dayKey]) {
-          dailyMap[dayKey] = { gross: 0, transactions: 0 };
+          dailyMap[dayKey] = { gross: 0, mdr: 0, netGross: 0, ownerNet: 0, systemNet: 0, transactions: 0 };
         }
         dailyMap[dayKey].gross += amt;
+        dailyMap[dayKey].mdr += rowMdr;
+        dailyMap[dayKey].netGross += rowNetGross;
+        dailyMap[dayKey].ownerNet += rowOwnerNet;
+        dailyMap[dayKey].systemNet += rowSystemShare;
         dailyMap[dayKey].transactions += 1;
       }
     });
 
-    const mdrFee = Math.round(grossRevenue * 0.007); // 0.7% QRIS MDR
-    const netGross = grossRevenue - mdrFee;
-    const ownerNet = Math.round(netGross * (ownerPct / 100));
-    const systemNet = netGross - ownerNet;
+    const mdrFee = totalMdr;
+    const netGross = totalNetGross;
+    const ownerNet = totalOwnerNet;
+    const systemNet = totalSystemNet;
 
     // Adaptive Aggregation: Daily (<= 62 days) or Monthly (> 62 days)
     const wibNow = getWibNow();
@@ -161,20 +185,19 @@ export async function GET(req: NextRequest) {
         const targetMonths = getWibMonthSequence(startMonth, endMonth, 36);
 
         // Group dailyMap into monthly buckets
-        const monthMap: Record<string, { gross: number; transactions: number }> = {};
+        const monthMap: Record<string, { gross: number; ownerNet: number; transactions: number }> = {};
         existingDays.forEach((dKey) => {
           const mKey = dKey.slice(0, 7);
-          if (!monthMap[mKey]) monthMap[mKey] = { gross: 0, transactions: 0 };
+          if (!monthMap[mKey]) monthMap[mKey] = { gross: 0, ownerNet: 0, transactions: 0 };
           monthMap[mKey].gross += dailyMap[dKey].gross;
+          monthMap[mKey].ownerNet += dailyMap[dKey].ownerNet;
           monthMap[mKey].transactions += dailyMap[dKey].transactions;
         });
 
         dailyTrend = targetMonths.map((mKey) => {
-          const mData = monthMap[mKey] || { gross: 0, transactions: 0 };
+          const mData = monthMap[mKey] || { gross: 0, ownerNet: 0, transactions: 0 };
           const dayGross = mData.gross;
-          const dayMdr = Math.round(dayGross * 0.007);
-          const dayNet = dayGross - dayMdr;
-          const dayOwnerNet = Math.round(dayNet * (ownerPct / 100));
+          const dayOwnerNet = mData.ownerNet;
           const [yr, mo] = mKey.split('-').map(Number);
           const dateObj = new Date(yr, mo - 1, 1);
           const monthShort = dateObj.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' });
@@ -193,11 +216,9 @@ export async function GET(req: NextRequest) {
         granularity = 'daily';
         const targetDays = getWibDateSequence(sKey, eKey, 62);
         dailyTrend = targetDays.map((dayKey) => {
-          const dayData = dailyMap[dayKey] || { gross: 0, transactions: 0 };
+          const dayData = dailyMap[dayKey] || { gross: 0, ownerNet: 0, transactions: 0 };
           const dayGross = dayData.gross;
-          const dayMdr = Math.round(dayGross * 0.007);
-          const dayNet = dayGross - dayMdr;
-          const dayOwnerNet = Math.round(dayNet * (ownerPct / 100));
+          const dayOwnerNet = dayData.ownerNet;
           const dateObj = new Date(`${dayKey}T00:00:00+07:00`);
           const dateLabel = isNaN(dateObj.getTime())
             ? dayKey
@@ -226,20 +247,19 @@ export async function GET(req: NextRequest) {
           granularity = 'monthly';
           granularityNotice = `All-time range covers ${totalDays} days. Trend charts are summarized monthly for clarity.`;
           const targetMonths = getWibMonthSequence(earliest.slice(0, 7), todayKey.slice(0, 7), 36);
-          const monthMap: Record<string, { gross: number; transactions: number }> = {};
+          const monthMap: Record<string, { gross: number; ownerNet: number; transactions: number }> = {};
           existingDays.forEach((dKey) => {
             const mKey = dKey.slice(0, 7);
-            if (!monthMap[mKey]) monthMap[mKey] = { gross: 0, transactions: 0 };
+            if (!monthMap[mKey]) monthMap[mKey] = { gross: 0, ownerNet: 0, transactions: 0 };
             monthMap[mKey].gross += dailyMap[dKey].gross;
+            monthMap[mKey].ownerNet += dailyMap[dKey].ownerNet;
             monthMap[mKey].transactions += dailyMap[dKey].transactions;
           });
 
           dailyTrend = targetMonths.map((mKey) => {
-            const mData = monthMap[mKey] || { gross: 0, transactions: 0 };
+            const mData = monthMap[mKey] || { gross: 0, ownerNet: 0, transactions: 0 };
             const dayGross = mData.gross;
-            const dayMdr = Math.round(dayGross * 0.007);
-            const dayNet = dayGross - dayMdr;
-            const dayOwnerNet = Math.round(dayNet * (ownerPct / 100));
+            const dayOwnerNet = mData.ownerNet;
             const [yr, mo] = mKey.split('-').map(Number);
             const dateObj = new Date(yr, mo - 1, 1);
             const monthShort = dateObj.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' });
@@ -258,11 +278,9 @@ export async function GET(req: NextRequest) {
           granularity = 'daily';
           const targetDays = getWibDateSequence(earliest, todayKey, 62);
           dailyTrend = targetDays.map((dayKey) => {
-            const dayData = dailyMap[dayKey] || { gross: 0, transactions: 0 };
+            const dayData = dailyMap[dayKey] || { gross: 0, ownerNet: 0, transactions: 0 };
             const dayGross = dayData.gross;
-            const dayMdr = Math.round(dayGross * 0.007);
-            const dayNet = dayGross - dayMdr;
-            const dayOwnerNet = Math.round(dayNet * (ownerPct / 100));
+            const dayOwnerNet = dayData.ownerNet;
             const dateObj = new Date(`${dayKey}T00:00:00+07:00`);
             const dateLabel = isNaN(dateObj.getTime())
               ? dayKey

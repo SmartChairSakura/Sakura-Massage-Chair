@@ -217,26 +217,42 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // 5. Compute accurate KPI summary metrics across ALL matching tickets
-    const summaryBaseQuery = supabaseServer.from('chair_slips').select('amount, status');
+    // 5. Compute accurate KPI summary metrics across ALL matching tickets by summing row-level values (Zero-Discrepancy)
+    const summaryBaseQuery = supabaseServer
+      .from('chair_slips')
+      .select('amount, status, chair_slip_payments(mdr_fee, dev_share, owner_net)');
     const summaryQuery = applyTicketFilters(summaryBaseQuery, filterParams);
 
     const { data: allMatching } = await summaryQuery;
 
     let totalGrossSales = 0;
     let totalCompletedSessions = 0;
+    let totalMdrFee = 0;
+    let totalNetSales = 0;
+    let totalPlatformFee = 0;
+    let totalNetPayout = 0;
+
     (allMatching || []).forEach((t: any) => {
       const st = String(t.status || '').toLowerCase();
       if (['done', 'completed', 'paid', 'ongoing', 'session_inprocess'].includes(st)) {
-        totalGrossSales += Number(t.amount || 0);
+        const gross = Number(t.amount || 0);
+        const payment = Array.isArray(t.chair_slip_payments) && t.chair_slip_payments.length > 0
+          ? t.chair_slip_payments[0]
+          : null;
+
+        const rowMdr = payment?.mdr_fee != null ? Number(payment.mdr_fee) : Math.round(gross * 0.007);
+        const rowNetGross = gross - rowMdr;
+        const rowPlatformFee = payment?.dev_share != null ? Number(payment.dev_share) : Math.round(rowNetGross * 0.05);
+        const rowNetPayout = payment?.owner_net != null ? Number(payment.owner_net) : (rowNetGross - rowPlatformFee);
+
+        totalGrossSales += gross;
         totalCompletedSessions += 1;
+        totalMdrFee += rowMdr;
+        totalNetSales += rowNetGross;
+        totalPlatformFee += rowPlatformFee;
+        totalNetPayout += rowNetPayout;
       }
     });
-
-    const mdrFee = Math.round(totalGrossSales * 0.007);
-    const netSales = totalGrossSales - mdrFee;
-    const platformFee = Math.round(netSales * 0.05);
-    const netPayout = netSales - platformFee;
 
     return NextResponse.json(
       {
@@ -246,10 +262,10 @@ export async function GET(req: NextRequest) {
           totalTickets: totalCount,
           completedSessions: totalCompletedSessions,
           grossSales: totalGrossSales,
-          mdrFee,
-          netSales,
-          platformFee,
-          netPayout,
+          mdrFee: totalMdrFee,
+          netSales: totalNetSales,
+          platformFee: totalPlatformFee,
+          netPayout: totalNetPayout,
         },
         pagination: {
           total: totalCount,
