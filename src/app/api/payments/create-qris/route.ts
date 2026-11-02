@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { createMidtransQrisCharge } from '@/lib/midtrans';
+import { sanitizePostgrestValue, validateChairPackage } from '@/lib/security';
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,8 +21,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Server-side package validation (prevents price / pulse tampering)
+    const pkg = validateChairPackage(
+      { amount, durationMinutes, pulseCount },
+      Number(process.env.MIN_PRICE_PER_PULSE_IDR || 1)
+    );
+    if (!pkg.ok) {
+      return NextResponse.json({ error: pkg.error }, { status: 400 });
+    }
+
     // Lookup chair unit details from chairs table
-    const cleanChairId = String(chairId).trim();
+    const cleanChairId = sanitizePostgrestValue(chairId);
     const { data: chairData } = await supabaseServer
       .from('chairs')
       .select('*')

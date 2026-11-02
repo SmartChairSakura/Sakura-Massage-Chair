@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { otpStore } from '@/lib/otp-store';
 import { supabaseServer } from '@/lib/supabase-server';
 import { hashPassword } from '@/lib/auth-server';
@@ -28,32 +29,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check rate limit / brute-force attempts from memory store
     const memData = otpStore.get(cleanEmail);
-    const currentAttempts = (memData?.attempts || 0) + 1;
 
-    if (memData && memData.attempts && memData.attempts >= MAX_OTP_ATTEMPTS) {
+    // Lookup OTP from Supabase admin_users (Primary) and otpStore (Fallback)
+    // select('*') so the route keeps working before migration 12 adds otp_attempts
+    const { data: dbUsers } = await supabaseServer
+      .from('admin_users')
+      .select('*')
+      .eq('email', cleanEmail)
+      .limit(1);
+
+    const dbUser = dbUsers && dbUsers.length > 0 ? dbUsers[0] : null;
+
+    // Brute-force counter: persisted in DB (survives serverless cold starts), memory as fallback
+    const priorAttempts = Math.max(memData?.attempts || 0, Number(dbUser?.otp_attempts || 0));
+    const currentAttempts = priorAttempts + 1;
+
+    if (priorAttempts >= MAX_OTP_ATTEMPTS) {
       otpStore.delete(cleanEmail);
       // Invalidate Supabase OTP as well on lockout
       await supabaseServer
         .from('admin_users')
         .update({ otp_code: null, otp_expires_at: null, updated_at: new Date().toISOString() })
         .eq('email', cleanEmail);
+      await supabaseServer.from('admin_users').update({ otp_attempts: 0 }).eq('email', cleanEmail);
 
       return NextResponse.json(
         { success: false, error: 'Too many failed verification attempts. Please request a new code.' },
         { status: 429 }
       );
     }
-
-    // Lookup OTP from Supabase admin_users (Primary) and otpStore (Fallback)
-    const { data: dbUsers } = await supabaseServer
-      .from('admin_users')
-      .select('id, email, otp_code, otp_expires_at')
-      .eq('email', cleanEmail)
-      .limit(1);
-
-    const dbUser = dbUsers && dbUsers.length > 0 ? dbUsers[0] : null;
 
     let expectedOtp: string | null = null;
     let isExpired = false;
@@ -90,8 +95,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify OTP match
-    if (expectedOtp !== cleanOtp) {
+    // Verify OTP match (constant-time)
+    const expectedBuf = Buffer.from(String(expectedOtp));
+    const givenBuf = Buffer.from(cleanOtp);
+    const otpMatches = expectedBuf.length === givenBuf.length && crypto.timingSafeEqual(expectedBuf, givenBuf);
+
+    if (!otpMatches) {
+      await supabaseServer.from('admin_users').update({ otp_attempts: currentAttempts }).eq('email', cleanEmail);
       if (memData) {
         memData.attempts = currentAttempts;
         otpStore.set(cleanEmail, memData);
@@ -135,8 +145,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Clear memory OTP store
+    // Clear memory OTP store and persisted attempt counter
     otpStore.delete(cleanEmail);
+    await supabaseServer.from('admin_users').update({ otp_attempts: 0 }).eq('email', cleanEmail);
 
     return NextResponse.json({
       success: true,

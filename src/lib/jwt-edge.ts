@@ -14,8 +14,14 @@ export interface AdminSessionPayload {
 export const AUTH_COOKIE_NAME = 'sakura_admin_session';
 
 // Secret key for signing JWT tokens in Edge environment
+// TODO(post-demo): remove the literal fallback once JWT_SECRET is set in Vercel.
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  console.error('[SECURITY] JWT_SECRET is not set in production; using insecure fallback secret. Set JWT_SECRET in Vercel env.');
+}
 const JWT_SECRET_STRING = process.env.JWT_SECRET || 'sakura_zen_backoffice_jwt_secret_key_2026_production_secure_795465';
 const JWT_SECRET_KEY = new TextEncoder().encode(JWT_SECRET_STRING);
+
+const VALID_ROLES: UserRole[] = ['SUPER_ADMIN', 'MANAGEMENT', 'OWNER'];
 
 /**
  * Generates cryptographically signed HMAC-SHA256 JWT session token (Edge compatible).
@@ -35,13 +41,17 @@ export async function verifySessionJWT(token: string): Promise<AdminSessionPaylo
   try {
     if (!token) return null;
     const { payload } = await jwtVerify(token, JWT_SECRET_KEY);
+
+    // Never default a missing/unknown role to SUPER_ADMIN
+    const role = payload.role as UserRole;
+    if (!VALID_ROLES.includes(role)) return null;
     
     return {
       id: String(payload.id || ''),
       email: String(payload.email || ''),
       username: String(payload.username || ''),
       name: String(payload.name || ''),
-      role: (payload.role as UserRole) || 'SUPER_ADMIN',
+      role,
       location_id: payload.location_id ? String(payload.location_id) : null,
     };
   } catch (err) {

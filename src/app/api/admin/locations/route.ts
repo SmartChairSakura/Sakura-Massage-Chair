@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { getAdminSession } from '@/lib/auth-server';
+import { resolveScopedLocationId } from '@/lib/security';
 
 // GET: List all active locations with aggregated chair count
 export async function GET(req: NextRequest) {
@@ -10,11 +11,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized', locations: [] }, { status: 401 });
     }
 
-    const { data: locations, error } = await supabaseServer
+    let locationQuery = supabaseServer
       .from('locations')
       .select('*')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: true });
+      .is('deleted_at', null);
+    if (session.role !== 'SUPER_ADMIN') {
+      locationQuery = locationQuery.eq('id', resolveScopedLocationId(session, null));
+    }
+    const { data: locations, error } = await locationQuery.order('created_at', { ascending: true });
 
     if (error) {
       console.error('[API Locations GET] DB Error:', error.message);
@@ -55,6 +59,11 @@ export async function GET(req: NextRequest) {
 // POST: Register new location
 export async function POST(req: NextRequest) {
   try {
+    const session = await getAdminSession(req);
+    if (!session || session.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ success: false, error: 'Forbidden. SUPER_ADMIN role required.' }, { status: session ? 403 : 401 });
+    }
+
     const body = await req.json();
     const {
       location_code,

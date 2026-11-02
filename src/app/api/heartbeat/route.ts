@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
+import { sanitizePostgrestValue, verifyOptionalSecret } from '@/lib/security';
 
 // GET: Heartbeat Ping & Supabase Database Keep-Alive (Prevents Supabase Free Tier Auto-Pause)
 export async function GET(req: NextRequest) {
@@ -33,10 +34,20 @@ export async function GET(req: NextRequest) {
 // POST: EDC / IoT Hardware Heartbeat Status (ESP32 & Android)
 export async function POST(req: NextRequest) {
   try {
+    if (
+      !verifyOptionalSecret(
+        req.headers.get('x-device-key') || req.headers.get('authorization'),
+        process.env.IOT_DEVICE_SECRET
+      )
+    ) {
+      return NextResponse.json({ error: 'Unauthorized device' }, { status: 401 });
+    }
+
     const body = await req.json();
-    const chairId = body.chairId || body.chair_id;
-    const firmwareVersion = body.firmwareVersion || body.firmware_version || '1.0.0';
-    const status = body.status || 'ONLINE';
+    const chairId = sanitizePostgrestValue(body.chairId || body.chair_id);
+    const firmwareVersion = String(body.firmwareVersion || body.firmware_version || '1.0.0').trim();
+    const rawStatus = String(body.status || 'ONLINE').trim().toUpperCase();
+    const status = ['ONLINE', 'BUSY', 'OFFLINE', 'MAINTENANCE'].includes(rawStatus) ? rawStatus : 'ONLINE';
     const rssi = body.rssi ? Number(body.rssi) : undefined;
     const ipAddress = body.ip || body.ipAddress || body.ip_address;
 
@@ -46,25 +57,26 @@ export async function POST(req: NextRequest) {
 
     const timestamp = new Date().toISOString();
 
-    const upsertPayload: Record<string, any> = {
-      id: chairId,
+    const updatePayload: Record<string, any> = {
       status,
       last_heartbeat: timestamp,
       firmware_version: firmwareVersion,
       is_active: true,
     };
-    if (ipAddress) upsertPayload.ip_address = ipAddress;
-    if (rssi !== undefined) upsertPayload.rssi = rssi;
+    if (ipAddress) updatePayload.ip_address = String(ipAddress).trim();
+    if (rssi !== undefined) updatePayload.rssi = rssi;
 
-    // Upsert chair heartbeat in Supabase
+    // Update existing registered chair by chair_code or numeric id (prevents arbitrary row creation)
+    const lookupCol = /^\d+$/.test(chairId) ? 'id' : 'chair_code';
     const { data: chairData, error: upsertError } = await supabaseServer
       .from('chairs')
-      .upsert(upsertPayload, { onConflict: 'id' })
+      .update(updatePayload)
+      .eq(lookupCol, chairId)
       .select()
       .maybeSingle();
 
     if (upsertError) {
-      console.warn('[Heartbeat] Supabase upsert note:', upsertError.message);
+      console.warn('[Heartbeat] Supabase update note:', upsertError.message);
     }
 
     console.log(`[Heartbeat Ping] Chair ${chairId} is ${status} at ${timestamp}`);

@@ -13,7 +13,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const body: MidtransNotificationPayload = await req.json();
-    const serverKey = process.env.MIDTRANS_SERVER_KEY || 'SB-Mid-server-DUMMYKEY';
+    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    if (!serverKey) {
+      console.error('[Payment Webhook] MIDTRANS_SERVER_KEY is not configured; rejecting notification', { requestId });
+      return NextResponse.json({ error: 'Payment gateway not configured' }, { status: 503 });
+    }
 
     console.info('[Payment Webhook] Notification received:', {
       requestId,
@@ -23,9 +27,8 @@ export async function POST(req: NextRequest) {
     });
 
     // STEP 1: Verify Midtrans Signature (Timing-Safe SHA512)
-    // Note: In dev/test environments without server key, log warning
     const isValidSignature = verifyMidtransSignature(body, serverKey);
-    if (!isValidSignature && process.env.NODE_ENV === 'production') {
+    if (!isValidSignature) {
       console.error('[Payment Webhook] Invalid signature key:', { requestId, orderId: body.order_id });
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
@@ -86,6 +89,17 @@ export async function POST(req: NextRequest) {
       (transactionStatus === 'capture' && fraudStatus === 'accept');
 
     if (isPaymentConfirmed) {
+      // Reject settlements whose amount differs from the slip we issued
+      if (Math.round(grossAmount) !== Math.round(Number(existingSlip.amount))) {
+        console.error('[Payment Webhook] gross_amount mismatch:', {
+          requestId,
+          orderId,
+          grossAmount,
+          expectedAmount: existingSlip.amount,
+        });
+        return NextResponse.json({ error: 'Amount mismatch' }, { status: 400 });
+      }
+
       const now = new Date().toISOString();
       const targetTable = isLegacyTable ? 'transactions' : 'chair_slips';
       const keyColumn = isLegacyTable ? 'idempotency_key' : 'chair_slip_number';

@@ -42,10 +42,14 @@ export function verifyMidtransSignature(
   const stringToHash2 = `${payload.order_id}${payload.status_code}${formattedAmount}${serverKey}`;
   const hash2 = crypto.createHash('sha512').update(stringToHash2).digest('hex');
 
-  return (
-    crypto.timingSafeEqual(Buffer.from(payload.signature_key), Buffer.from(hash1)) ||
-    crypto.timingSafeEqual(Buffer.from(payload.signature_key), Buffer.from(hash2))
-  );
+  // timingSafeEqual throws on length mismatch, so compare lengths first
+  const given = Buffer.from(String(payload.signature_key));
+  const safeEqual = (hash: string) => {
+    const expected = Buffer.from(hash);
+    return given.length === expected.length && crypto.timingSafeEqual(given, expected);
+  };
+
+  return safeEqual(hash1) || safeEqual(hash2);
 }
 
 /**

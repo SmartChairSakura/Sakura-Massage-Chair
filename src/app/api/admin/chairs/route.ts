@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { getAdminSession } from '@/lib/auth-server';
+import { resolveScopedLocationId } from '@/lib/security';
 import crypto from 'crypto';
 
 function generateRandomPin(): string {
@@ -30,6 +31,9 @@ export async function GET(req: NextRequest) {
 
     const startTime = Date.now();
     let query = supabaseServer.from('chairs').select('*');
+    if (session.role !== 'SUPER_ADMIN') {
+      query = query.eq('location_id', resolveScopedLocationId(session, null));
+    }
     if (!includeArchived) {
       query = query.is('deleted_at', null);
     }
@@ -116,6 +120,9 @@ export async function POST(req: NextRequest) {
     const session = await getAdminSession(req);
     if (!session) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ success: false, error: 'Forbidden. SUPER_ADMIN role required.' }, { status: 403 });
     }
 
     // === 2. AUDITED TERMINAL PIN REVEAL ===
@@ -214,6 +221,9 @@ export async function DELETE(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+    if (session.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ success: false, error: 'Forbidden. SUPER_ADMIN role required.' }, { status: 403 });
+    }
 
     const { searchParams } = new URL(req.url);
     const chairCode = searchParams.get('id') || searchParams.get('chair_code');
@@ -252,6 +262,9 @@ export async function PATCH(req: NextRequest) {
     const session = await getAdminSession(req);
     if (!session) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ success: false, error: 'Forbidden. SUPER_ADMIN role required.' }, { status: 403 });
     }
 
     const body = await req.json();

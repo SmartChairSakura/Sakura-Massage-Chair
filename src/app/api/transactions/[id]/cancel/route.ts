@@ -1,42 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
+import { sanitizePostgrestValue } from '@/lib/security';
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const transactionId = params.id;
+    const transactionId = sanitizePostgrestValue(params.id);
     if (!transactionId) {
       return NextResponse.json({ error: 'Missing transaction id' }, { status: 400 });
     }
 
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(transactionId);
     const timestamp = new Date().toISOString();
 
     // 1. Update master table chair_slips
     try {
-      await supabaseServer
+      let slipUpdate = supabaseServer
         .from('chair_slips')
         .update({
           status: 'cancelled',
           cancelled_at: timestamp,
           session_end_at: timestamp,
           updated_at: timestamp,
-        })
-        .or(`id.eq.${transactionId},chair_slip_number.eq.${transactionId}`);
+        });
+      slipUpdate = isUuid
+        ? slipUpdate.or(`id.eq.${transactionId},chair_slip_number.eq.${transactionId}`)
+        : slipUpdate.eq('chair_slip_number', transactionId);
+      await slipUpdate;
     } catch (slipErr: any) {
       console.warn('[Cancel Session] chair_slips cancel note:', slipErr?.message);
     }
 
     // 2. Update legacy transactions table
-    const { data: updatedTx, error: updateError } = await supabaseServer
+    let txUpdate = supabaseServer
       .from('transactions')
       .update({
         status: 'CANCELLED',
         cancelled_at: timestamp,
         updated_at: timestamp,
-      })
-      .or(`id.eq.${transactionId},idempotency_key.eq.${transactionId}`)
+      });
+    txUpdate = isUuid
+      ? txUpdate.or(`id.eq.${transactionId},idempotency_key.eq.${transactionId}`)
+      : txUpdate.eq('idempotency_key', transactionId);
+    const { data: updatedTx, error: updateError } = await txUpdate
       .select()
       .maybeSingle();
 

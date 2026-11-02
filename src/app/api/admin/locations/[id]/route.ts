@@ -12,6 +12,9 @@ export async function PATCH(
     if (!session) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+    if (session.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ success: false, error: 'Forbidden. SUPER_ADMIN role required.' }, { status: 403 });
+    }
 
     const locationId = params.id;
     if (!locationId) {
@@ -79,6 +82,9 @@ export async function DELETE(
     const session = await getAdminSession(req);
     if (!session) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ success: false, error: 'Forbidden. SUPER_ADMIN role required.' }, { status: 403 });
     }
 
     const locationId = params.id;

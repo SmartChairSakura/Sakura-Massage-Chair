@@ -12,6 +12,10 @@ if (typeof window === 'undefined' && !globalThis.WebSocket) {
 }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ndhlvkqswysexrdurlrk.supabase.co';
+// TODO(post-demo): rotate the service_role key and remove this literal fallback.
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NODE_ENV === 'production') {
+  console.error('[SECURITY] SUPABASE_SERVICE_ROLE_KEY is not set in production; using committed fallback key. Set it in Vercel env.');
+}
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kaGx2a3Fzd3lzZXhyZHVybHJrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NTM5NzY0OCwiZXhwIjoyMTAwOTczNjQ4fQ.x57j7Ev9ETNmuTxxwGTMvjZX0hF4rQbxj2dpEpu4X8I';
 
 export const supabaseServer = createClient(supabaseUrl, supabaseServiceRoleKey, {

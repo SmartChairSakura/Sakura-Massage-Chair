@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { getAdminSession } from '@/lib/auth-server';
+import { resolveScopedLocationId, sanitizePostgrestValue } from '@/lib/security';
 import {
   getWibNow,
   getWibDateRange,
@@ -31,7 +32,11 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const filterLocationId = searchParams.get('location_id') || searchParams.get('locationId') || searchParams.get('chairId');
+    // Non-SUPER_ADMIN sessions are pinned to their own location
+    const filterLocationId = resolveScopedLocationId(
+      session,
+      sanitizePostgrestValue(searchParams.get('location_id') || searchParams.get('locationId') || searchParams.get('chairId')) || null
+    );
     const filterRange = searchParams.get('range') || 'all';
     const dateType = searchParams.get('date_type') === 'settled_at' ? 'settled_at' : 'created_at';
     const dateColumn = dateType === 'settled_at' ? 'updated_at' : 'created_at';
@@ -65,11 +70,11 @@ export async function GET(req: NextRequest) {
     }
 
     const { data: chairs } = await chairQuery;
-    const safeChairs = (chairs || []).map((c: any) => ({
+    // Terminal PIN is never needed by the dashboard; keep it out of the response
+    const safeChairs = (chairs || []).map(({ pin: _pin, ...c }: any) => ({
       ...c,
       chair_code: c.chair_code || String(c.id),
       model_type: c.model_type || 'Tokuyo TC-355',
-      pin: c.pin || '123456',
       status: c.status || 'ONLINE',
     }));
 

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { otpStore } from '@/lib/otp-store';
 import { supabaseServer } from '@/lib/supabase-server';
+
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
 
 export async function POST(req: NextRequest) {
   try {
@@ -52,8 +56,8 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
 
-    // 3. Generate 6-digit OTP code
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    // 3. Generate 6-digit OTP code (CSPRNG)
+    const otpCode = crypto.randomInt(100000, 1000000).toString();
     const expiresMs = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
     const expiresIso = new Date(expiresMs).toISOString();
 
@@ -79,9 +83,9 @@ export async function POST(req: NextRequest) {
               <h2 style="color: #795465; margin: 0; font-size: 20px;">Sakura Zen Backoffice</h2>
               <span style="font-size: 11px; color: #817478; text-transform: uppercase; letter-spacing: 1px;">Security Verification</span>
             </div>
-            <p style="font-size: 14px; line-height: 1.5; color: #1b1c1c;">Hello <strong>${adminUser.full_name || 'Admin'}</strong>,</p>
+            <p style="font-size: 14px; line-height: 1.5; color: #1b1c1c;">Hello <strong>${escapeHtml(adminUser.full_name || 'Admin')}</strong>,</p>
             <p style="font-size: 14px; line-height: 1.5; color: #4f4448;">
-              We received a request to reset the password for your Sakura Zen administrative account (<strong>${cleanEmail}</strong>).
+              We received a request to reset the password for your Sakura Zen administrative account (<strong>${escapeHtml(cleanEmail)}</strong>).
             </p>
             <div style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #795465; padding: 18px 24px; background: #f8c8dc; display: inline-block; border-radius: 12px; margin: 20px 0; font-family: monospace;">
               ${otpCode}
@@ -116,6 +120,8 @@ export async function POST(req: NextRequest) {
     } catch (dbErr) {
       console.warn('[Forgot Password] Supabase OTP persistence warning:', dbErr);
     }
+    // Reset persisted brute-force counter for the new code (no-op before migration 12)
+    await supabaseServer.from('admin_users').update({ otp_attempts: 0 }).eq('email', cleanEmail);
 
     return NextResponse.json({
       success: true,

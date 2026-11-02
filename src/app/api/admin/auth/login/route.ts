@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { comparePassword, signSessionJWT, AUTH_COOKIE_NAME, AdminSessionPayload, UserRole } from '@/lib/auth-server';
+import { sanitizePostgrestValue } from '@/lib/security';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { email, password } = body;
 
-    const inputAccount = String(email || '').trim().toLowerCase();
+    const inputAccount = sanitizePostgrestValue(email).toLowerCase();
     const inputPassword = String(password || '').trim();
 
     if (!inputAccount || !inputPassword) {

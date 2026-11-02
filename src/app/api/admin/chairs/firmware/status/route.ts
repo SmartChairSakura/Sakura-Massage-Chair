@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
+import { sanitizePostgrestValue, verifyOptionalSecret } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,10 +11,19 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(req: NextRequest) {
   try {
+    if (
+      !verifyOptionalSecret(
+        req.headers.get('x-device-key') || req.headers.get('authorization'),
+        process.env.IOT_DEVICE_SECRET
+      )
+    ) {
+      return NextResponse.json({ success: false, error: 'Unauthorized device' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { chair_id, status, error: errorDetails, firmware_version } = body;
 
-    const chairId = String(chair_id || '').trim();
+    const chairId = sanitizePostgrestValue(chair_id);
     const otaStatus = String(status || '').trim().toUpperCase();
 
     if (!chairId) {
@@ -32,11 +42,12 @@ export async function POST(req: NextRequest) {
 
     const now = new Date().toISOString();
 
-    // 1. Fetch current chair record to get target_firmware_version
+    // 1. Fetch current chair record to get target_firmware_version (by numeric id or chair_code)
+    const chairCol = /^\d+$/.test(chairId) ? 'id' : 'chair_code';
     const { data: chairData } = await supabaseServer
       .from('chairs')
-      .select('id, target_firmware_version, firmware_version')
-      .eq('id', chairId)
+      .select('id, chair_code, target_firmware_version, firmware_version')
+      .eq(chairCol, chairId)
       .maybeSingle();
 
     const updatePayload: Record<string, any> = {
@@ -53,7 +64,7 @@ export async function POST(req: NextRequest) {
     const { data: updatedChair, error: updateErr } = await supabaseServer
       .from('chairs')
       .update(updatePayload)
-      .eq('id', chairId)
+      .eq(chairCol, chairId)
       .select()
       .maybeSingle();
 

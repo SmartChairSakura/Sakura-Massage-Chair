@@ -17,6 +17,9 @@ export async function GET(
     if (!locationId) {
       return NextResponse.json({ success: false, error: 'ID Lokasi wajib diisi.', chairs: [] }, { status: 400 });
     }
+    if (session.role !== 'SUPER_ADMIN' && locationId !== session.location_id) {
+      return NextResponse.json({ success: false, error: 'Forbidden', chairs: [] }, { status: 403 });
+    }
 
     // 1. Fetch location details first
     const { data: location } = await supabaseServer

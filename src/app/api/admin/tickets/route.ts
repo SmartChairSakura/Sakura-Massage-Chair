@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { getAdminSession } from '@/lib/auth-server';
+import { resolveScopedLocationId, sanitizePostgrestValue } from '@/lib/security';
 import { getWibDateRange, mapStatusFilter } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
@@ -86,9 +87,13 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const locationId = searchParams.get('location_id') || searchParams.get('locationId');
+    // Non-SUPER_ADMIN sessions are pinned to their own location (also applies to export=true)
+    const locationId = resolveScopedLocationId(
+      session,
+      sanitizePostgrestValue(searchParams.get('location_id') || searchParams.get('locationId')) || null
+    );
     const status = searchParams.get('status');
-    const search = searchParams.get('search');
+    const search = sanitizePostgrestValue(searchParams.get('search'));
     const searchBy = searchParams.get('search_by') || 'ALL';
     const dateFrom = searchParams.get('date_from');
     const dateTo = searchParams.get('date_to');

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
+import { sanitizePostgrestValue, verifyOptionalSecret } from '@/lib/security';
 
 /**
  * POST /api/admin/chairs/ack
@@ -8,6 +9,15 @@ import { supabaseServer } from '@/lib/supabase-server';
  */
 export async function POST(req: NextRequest) {
   try {
+    if (
+      !verifyOptionalSecret(
+        req.headers.get('x-device-key') || req.headers.get('authorization'),
+        process.env.IOT_DEVICE_SECRET
+      )
+    ) {
+      return NextResponse.json({ success: false, error: 'Unauthorized device' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { chair_slip_id, chair_slip_number, chair_id, status_event, pulses_sent } = body;
 
@@ -72,13 +82,15 @@ export async function POST(req: NextRequest) {
     if (updatedSlip) {
       updated = true;
 
-      // Update chair device status to BUSY or ONLINE
+      // Update chair device status to BUSY or ONLINE (match by numeric id or chair_code)
       if (chair_id) {
+        const cleanChairId = sanitizePostgrestValue(chair_id);
+        const chairCol = /^\d+$/.test(cleanChairId) ? 'id' : 'chair_code';
         const deviceStatus = targetStatus === 'session_inprocess' ? 'BUSY' : 'ONLINE';
         await supabaseServer
           .from('chairs')
           .update({ status: deviceStatus, last_heartbeat: now })
-          .eq('id', chair_id);
+          .eq(chairCol, cleanChairId);
       }
     } else {
       // Fallback query to legacy transactions table

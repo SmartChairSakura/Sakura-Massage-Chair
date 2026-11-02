@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { checkMidtransTransactionStatus } from '@/lib/midtrans';
+import { verifyOptionalSecret } from '@/lib/security';
 
 /**
  * GET /api/cron/reconcile
@@ -9,6 +10,15 @@ import { checkMidtransTransactionStatus } from '@/lib/midtrans';
  * Follows /security-and-hardening & /observability-and-instrumentation
  */
 export async function GET(req: NextRequest) {
+  if (
+    !verifyOptionalSecret(
+      req.headers.get('x-cron-secret') || req.headers.get('authorization'),
+      process.env.CRON_SECRET
+    )
+  ) {
+    return NextResponse.json({ error: 'Unauthorized cron request' }, { status: 401 });
+  }
+
   const startTime = Date.now();
   const serverKey = process.env.MIDTRANS_SERVER_KEY || '';
 

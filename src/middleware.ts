@@ -54,6 +54,9 @@ export async function middleware(req: NextRequest) {
   const response = NextResponse.next();
   if (pathname === '/admin' || pathname.startsWith('/admin/') || pathname.startsWith('/api/admin/')) {
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('Content-Security-Policy', "frame-ancestors 'none'");
   }
   return response;
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { getAdminSession } from '@/lib/auth-server';
+import { sanitizePostgrestValue } from '@/lib/security';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
@@ -33,6 +34,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized. Admin credentials required to deploy firmware.' },
         { status: 401 }
+      );
+    }
+    if (session.role !== 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden. SUPER_ADMIN role required to deploy firmware.' },
+        { status: 403 }
       );
     }
 
@@ -83,9 +90,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Compute SHA-256 checksum & format safe filename
+    // 2. Compute SHA-256 checksum, validate ESP32 magic byte (0xE9), & format safe filename
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    if (buffer.length === 0 || buffer[0] !== 0xe9) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid ESP32 firmware binary: missing ESP32 image magic byte (0xE9).',
+        },
+        { status: 400 }
+      );
+    }
     const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
 
     const safeVer = version.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -166,7 +182,10 @@ export async function POST(req: NextRequest) {
     if (parsedIds.length > 0) {
       candidateQuery = candidateQuery.in('chair_code', parsedIds);
     } else if (targetChairId && targetChairId !== 'ALL') {
-      candidateQuery = candidateQuery.or(`id.eq.${targetChairId},chair_code.eq.${targetChairId}`);
+      const cleanTargetChairId = sanitizePostgrestValue(targetChairId);
+      candidateQuery = /^\d+$/.test(cleanTargetChairId)
+        ? candidateQuery.or(`id.eq.${cleanTargetChairId},chair_code.eq.${cleanTargetChairId}`)
+        : candidateQuery.eq('chair_code', cleanTargetChairId);
     } else {
       candidateQuery = candidateQuery.eq('is_active', true);
     }

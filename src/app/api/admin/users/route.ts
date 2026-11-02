@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession, hashPassword } from '@/lib/auth-server';
+import { sanitizePostgrestValue } from '@/lib/security';
 import { supabaseServer } from '@/lib/supabase-server';
 
 export async function GET(req: NextRequest) {
@@ -10,8 +11,8 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const search = searchParams.get('search')?.trim().toLowerCase() || '';
-    const locationId = searchParams.get('location_id')?.trim();
+    const search = sanitizePostgrestValue(searchParams.get('search')).toLowerCase();
+    const locationId = sanitizePostgrestValue(searchParams.get('location_id'));
 
     let query = supabaseServer
       .from('admin_users')
@@ -63,8 +64,8 @@ export async function POST(req: NextRequest) {
     const { full_name, email, username, phone_number, password, role, location_id } = body;
 
     const cleanName = String(full_name || '').trim();
-    const cleanEmail = String(email || '').trim().toLowerCase();
-    const cleanUsername = String(username || cleanEmail.split('@')[0] || '').trim().toLowerCase();
+    const cleanEmail = sanitizePostgrestValue(email).toLowerCase();
+    const cleanUsername = sanitizePostgrestValue(username || cleanEmail.split('@')[0] || '').toLowerCase();
     const cleanPhone = String(phone_number || '').trim();
     const cleanPass = String(password || '').trim();
     const cleanRole = (role === 'MANAGEMENT' || role === 'OWNER' ? 'MANAGEMENT' : 'SUPER_ADMIN');
@@ -138,6 +139,15 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'User ID is required.' }, { status: 400 });
     }
 
+    if (String(id) === String(session.id)) {
+      if (is_active === false) {
+        return NextResponse.json({ success: false, error: 'You cannot deactivate your own account.' }, { status: 400 });
+      }
+      if (role !== undefined && role !== 'SUPER_ADMIN') {
+        return NextResponse.json({ success: false, error: 'You cannot demote your own Super Admin role.' }, { status: 400 });
+      }
+    }
+
     const updatePayload: Record<string, any> = {
       updated_at: new Date().toISOString(),
     };
@@ -186,6 +196,10 @@ export async function DELETE(req: NextRequest) {
 
     if (!userId) {
       return NextResponse.json({ success: false, error: 'User ID is required.' }, { status: 400 });
+    }
+
+    if (String(userId) === String(session.id)) {
+      return NextResponse.json({ success: false, error: 'You cannot deactivate your own account.' }, { status: 400 });
     }
 
     // Toggle active status to false
