@@ -15,8 +15,9 @@ export async function GET(req: NextRequest) {
       .from('locations')
       .select('*')
       .is('deleted_at', null);
-    if (session.role !== 'SUPER_ADMIN') {
-      locationQuery = locationQuery.eq('id', resolveScopedLocationId(session, null));
+    const scopedLocationId = resolveScopedLocationId(session, null);
+    if (scopedLocationId !== 'ALL') {
+      locationQuery = locationQuery.eq('id', scopedLocationId);
     }
     const { data: locations, error } = await locationQuery.order('created_at', { ascending: true });
 

@@ -85,7 +85,7 @@ test('Security Audit Hardening — Pure Function & ESP32 Compatibility Suite', a
     );
   });
 
-  await t.test('VULN-05: resolveScopedLocationId pins non-SUPER_ADMIN to session.location_id', () => {
+  await t.test('VULN-05: resolveScopedLocationId pins branch-assigned non-SUPER_ADMIN to session.location_id and allows All Locations when location_id is null', () => {
     assert.equal(
       security.resolveScopedLocationId({ role: 'SUPER_ADMIN', location_id: null }, 'ALL'),
       'ALL'
@@ -94,9 +94,14 @@ test('Security Audit Hardening — Pure Function & ESP32 Compatibility Suite', a
       security.resolveScopedLocationId({ role: 'MANAGEMENT', location_id: 'loc-123' }, 'ALL'),
       'loc-123'
     );
+    // Management user with Assigned branch = "All Locations" (location_id: null, e.g. Boss Besar)
     assert.equal(
-      security.resolveScopedLocationId({ role: 'OWNER', location_id: null }, 'ALL'),
-      security.NO_LOCATION_ID
+      security.resolveScopedLocationId({ role: 'MANAGEMENT', location_id: null }, 'ALL'),
+      'ALL'
+    );
+    assert.equal(
+      security.resolveScopedLocationId({ role: 'OWNER', location_id: null }, 'loc-456'),
+      'loc-456'
     );
   });
 

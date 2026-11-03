@@ -31,8 +31,16 @@ export async function GET(req: NextRequest) {
 
     const startTime = Date.now();
     let query = supabaseServer.from('chairs').select('*');
-    if (session.role !== 'SUPER_ADMIN') {
-      query = query.eq('location_id', resolveScopedLocationId(session, null));
+    const scopedLocationId = resolveScopedLocationId(session, null);
+    if (scopedLocationId !== 'ALL') {
+      const { data: locObj } = await supabaseServer
+        .from('locations')
+        .select('id, name')
+        .eq('id', scopedLocationId)
+        .maybeSingle();
+      query = locObj?.name
+        ? query.or(`location_id.eq.${scopedLocationId},location_name.eq.${locObj.name}`)
+        : query.eq('location_id', scopedLocationId);
     }
     if (!includeArchived) {
       query = query.is('deleted_at', null);

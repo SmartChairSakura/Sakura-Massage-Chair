@@ -61,15 +61,18 @@ export function validateChairPackage(
 export const NO_LOCATION_ID = '00000000-0000-0000-0000-000000000000';
 
 /**
- * SUPER_ADMIN may query any location (including 'ALL').
- * Every other role is pinned to its own session.location_id.
+ * SUPER_ADMIN or MANAGEMENT/OWNER with Assigned branch = "All Locations" (`location_id: null`)
+ * may query any location (including 'ALL').
+ * When a non-SUPER_ADMIN has a specific assigned branch (`session.location_id`), they are pinned to it.
  */
 export function resolveScopedLocationId(
   session: { role: string; location_id: string | null },
   requestedLocationId: string | null | undefined
 ): string {
-  if (session.role === 'SUPER_ADMIN') return requestedLocationId || 'ALL';
-  return session.location_id || NO_LOCATION_ID;
+  if (session.role === 'SUPER_ADMIN' || !session.location_id) {
+    return requestedLocationId || 'ALL';
+  }
+  return session.location_id;
 }
 
 /**
