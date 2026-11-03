@@ -24,6 +24,7 @@ import {
   Info,
 } from 'lucide-react';
 import DatePickerModal, { DateRangeState } from '@/components/admin/DatePickerModal';
+import { getWibDateKey } from '@/lib/date-utils';
 import {
   niceScale,
   formatCompactK,
@@ -106,10 +107,10 @@ function DashboardContent() {
   const searchParams = useSearchParams();
   const locationIdParam = searchParams.get('location_id') || 'ALL';
 
-  const [rangeFilter, setRangeFilter] = useState<string>('all');
+  const [rangeFilter, setRangeFilter] = useState<string>('today');
   const [dateType, setDateType] = useState<'created_at' | 'settled_at'>('created_at');
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState<string>(() => getWibDateKey(new Date()));
+  const [dateTo, setDateTo] = useState<string>(() => getWibDateKey(new Date()));
   const [timeFrom, setTimeFrom] = useState<string>('00:00');
   const [timeTo, setTimeTo] = useState<string>('23:59');
 
@@ -145,13 +146,16 @@ function DashboardContent() {
       if (locationIdParam !== 'ALL') query.set('location_id', locationIdParam);
       query.set('date_type', dateType);
 
-      if (dateFrom) query.set('date_from', dateFrom);
-      if (dateTo) query.set('date_to', dateTo);
-      if (timeFrom) query.set('time_from', timeFrom);
-      if (timeTo) query.set('time_to', timeTo);
-
-      if (rangeFilter) {
-        query.set('range', rangeFilter);
+      if (rangeFilter === 'all') {
+        query.set('range', 'all');
+      } else {
+        if (dateFrom) query.set('date_from', dateFrom);
+        if (dateTo) query.set('date_to', dateTo);
+        if (timeFrom) query.set('time_from', timeFrom);
+        if (timeTo) query.set('time_to', timeTo);
+        if (rangeFilter && rangeFilter !== 'custom') {
+          query.set('range', rangeFilter);
+        }
       }
 
       query.set('_t', Date.now().toString());

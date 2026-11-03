@@ -3,12 +3,13 @@ import { supabaseServer } from '@/lib/supabase-server';
 import { getAdminSession } from '@/lib/auth-server';
 import { resolveScopedLocationId, sanitizePostgrestValue } from '@/lib/security';
 import {
-  getWibNow,
   getWibDateRange,
   getWibDateKey,
   getWibDateSequence,
   getWibMonthSequence,
   getPreviousWibDateRange,
+  formatWibDayLabel,
+  formatWibMonthLabel,
 } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
@@ -84,7 +85,7 @@ export async function GET(req: NextRequest) {
     const timeFrom = searchParams.get('time_from') || '00:00';
     const timeTo = searchParams.get('time_to') || '23:59';
 
-    const { startIso, endIso } = getWibDateRange(filterRange, dateFrom, dateTo, timeFrom, timeTo);
+    const { startIso, endIso, todayKey } = getWibDateRange(filterRange, dateFrom, dateTo, timeFrom, timeTo);
 
     let slipQuery = supabaseServer
       .from('chair_slips')
@@ -167,159 +168,66 @@ export async function GET(req: NextRequest) {
     const systemNet = totalSystemNet;
 
     // Adaptive Aggregation: Daily (<= 62 days) or Monthly (> 62 days)
-    const wibNow = getWibNow();
-    const todayKey = getWibDateKey(wibNow);
     let granularity: 'daily' | 'monthly' = 'daily';
     let granularityNotice: string | null = null;
     let dailyTrend: any[] = [];
 
     const existingDays = Object.keys(dailyMap).sort();
+    const isBoundedRange = Boolean(startIso && endIso);
+    const sKey = isBoundedRange
+      ? getWibDateKey(startIso!)
+      : existingDays.length > 0
+      ? existingDays[0]
+      : getWibDateKey(new Date(Date.now() - 6 * 24 * 3600000));
+    const eKey = isBoundedRange ? getWibDateKey(endIso!) : todayKey;
 
-    if (startIso && endIso) {
-      const sKey = getWibDateKey(startIso);
-      const eKey = getWibDateKey(endIso);
-      const sDate = new Date(`${sKey}T00:00:00+07:00`);
-      const eDate = new Date(`${eKey}T00:00:00+07:00`);
-      const totalDays = Math.max(1, Math.round((eDate.getTime() - sDate.getTime()) / (24 * 3600000)) + 1);
+    const sDate = new Date(`${sKey}T00:00:00+07:00`);
+    const eDate = new Date(`${eKey}T00:00:00+07:00`);
+    const totalDays = Math.max(1, Math.round((eDate.getTime() - sDate.getTime()) / (24 * 3600000)) + 1);
 
-      if (totalDays > 62) {
-        granularity = 'monthly';
-        granularityNotice = `Date range covers ${totalDays} days. Trend charts are summarized monthly for clarity.`;
-        const startMonth = sKey.slice(0, 7);
-        const endMonth = eKey.slice(0, 7);
-        const targetMonths = getWibMonthSequence(startMonth, endMonth, 36);
+    if (totalDays > 62) {
+      granularity = 'monthly';
+      granularityNotice = isBoundedRange
+        ? `Date range covers ${totalDays} days. Trend charts are summarized monthly for clarity.`
+        : `All-time range covers ${totalDays} days. Trend charts are summarized monthly for clarity.`;
 
-        // Group dailyMap into monthly buckets
-        const monthMap: Record<string, { gross: number; ownerNet: number; transactions: number }> = {};
-        existingDays.forEach((dKey) => {
-          const mKey = dKey.slice(0, 7);
-          if (!monthMap[mKey]) monthMap[mKey] = { gross: 0, ownerNet: 0, transactions: 0 };
-          monthMap[mKey].gross += dailyMap[dKey].gross;
-          monthMap[mKey].ownerNet += dailyMap[dKey].ownerNet;
-          monthMap[mKey].transactions += dailyMap[dKey].transactions;
-        });
+      const targetMonths = getWibMonthSequence(sKey.slice(0, 7), eKey.slice(0, 7), 36);
+      const monthMap: Record<string, { gross: number; ownerNet: number; transactions: number }> = {};
+      existingDays.forEach((dKey) => {
+        const mKey = dKey.slice(0, 7);
+        if (!monthMap[mKey]) monthMap[mKey] = { gross: 0, ownerNet: 0, transactions: 0 };
+        monthMap[mKey].gross += dailyMap[dKey].gross;
+        monthMap[mKey].ownerNet += dailyMap[dKey].ownerNet;
+        monthMap[mKey].transactions += dailyMap[dKey].transactions;
+      });
 
-        dailyTrend = targetMonths.map((mKey) => {
-          const mData = monthMap[mKey] || { gross: 0, ownerNet: 0, transactions: 0 };
-          const dayGross = mData.gross;
-          const dayOwnerNet = mData.ownerNet;
-          const [yr, mo] = mKey.split('-').map(Number);
-          const dateObj = new Date(yr, mo - 1, 1);
-          const monthShort = dateObj.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' });
-
-          return {
-            rawDate: mKey,
-            dateLabel: monthShort,
-            grossSales: dayGross,
-            gross: dayGross,
-            ownerNet: dayOwnerNet,
-            ticketCount: mData.transactions,
-            transactions: mData.transactions,
-          };
-        });
-      } else {
-        granularity = 'daily';
-        const targetDays = getWibDateSequence(sKey, eKey, 62);
-        dailyTrend = targetDays.map((dayKey) => {
-          const dayData = dailyMap[dayKey] || { gross: 0, ownerNet: 0, transactions: 0 };
-          const dayGross = dayData.gross;
-          const dayOwnerNet = dayData.ownerNet;
-          const dateObj = new Date(`${dayKey}T00:00:00+07:00`);
-          const dateLabel = isNaN(dateObj.getTime())
-            ? dayKey
-            : dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-
-          return {
-            rawDate: dayKey,
-            dateLabel,
-            grossSales: dayGross,
-            gross: dayGross,
-            ownerNet: dayOwnerNet,
-            ticketCount: dayData.transactions,
-            transactions: dayData.transactions,
-          };
-        });
-      }
+      dailyTrend = targetMonths.map((mKey) => {
+        const mData = monthMap[mKey] || { gross: 0, ownerNet: 0, transactions: 0 };
+        return {
+          rawDate: mKey,
+          dateLabel: formatWibMonthLabel(mKey),
+          grossSales: mData.gross,
+          gross: mData.gross,
+          ownerNet: mData.ownerNet,
+          ticketCount: mData.transactions,
+          transactions: mData.transactions,
+        };
+      });
     } else {
-      // 'all' time: if recorded transactions span > 60 days, group monthly, else daily
-      if (existingDays.length > 0) {
-        const earliest = existingDays[0];
-        const sDate = new Date(`${earliest}T00:00:00+07:00`);
-        const eDate = new Date(`${todayKey}T00:00:00+07:00`);
-        const totalDays = Math.max(1, Math.round((eDate.getTime() - sDate.getTime()) / (24 * 3600000)) + 1);
-
-        if (totalDays > 62) {
-          granularity = 'monthly';
-          granularityNotice = `All-time range covers ${totalDays} days. Trend charts are summarized monthly for clarity.`;
-          const targetMonths = getWibMonthSequence(earliest.slice(0, 7), todayKey.slice(0, 7), 36);
-          const monthMap: Record<string, { gross: number; ownerNet: number; transactions: number }> = {};
-          existingDays.forEach((dKey) => {
-            const mKey = dKey.slice(0, 7);
-            if (!monthMap[mKey]) monthMap[mKey] = { gross: 0, ownerNet: 0, transactions: 0 };
-            monthMap[mKey].gross += dailyMap[dKey].gross;
-            monthMap[mKey].ownerNet += dailyMap[dKey].ownerNet;
-            monthMap[mKey].transactions += dailyMap[dKey].transactions;
-          });
-
-          dailyTrend = targetMonths.map((mKey) => {
-            const mData = monthMap[mKey] || { gross: 0, ownerNet: 0, transactions: 0 };
-            const dayGross = mData.gross;
-            const dayOwnerNet = mData.ownerNet;
-            const [yr, mo] = mKey.split('-').map(Number);
-            const dateObj = new Date(yr, mo - 1, 1);
-            const monthShort = dateObj.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' });
-
-            return {
-              rawDate: mKey,
-              dateLabel: monthShort,
-              grossSales: dayGross,
-              gross: dayGross,
-              ownerNet: dayOwnerNet,
-              ticketCount: mData.transactions,
-              transactions: mData.transactions,
-            };
-          });
-        } else {
-          granularity = 'daily';
-          const targetDays = getWibDateSequence(earliest, todayKey, 62);
-          dailyTrend = targetDays.map((dayKey) => {
-            const dayData = dailyMap[dayKey] || { gross: 0, ownerNet: 0, transactions: 0 };
-            const dayGross = dayData.gross;
-            const dayOwnerNet = dayData.ownerNet;
-            const dateObj = new Date(`${dayKey}T00:00:00+07:00`);
-            const dateLabel = isNaN(dateObj.getTime())
-              ? dayKey
-              : dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-
-            return {
-              rawDate: dayKey,
-              dateLabel,
-              grossSales: dayGross,
-              gross: dayGross,
-              ownerNet: dayOwnerNet,
-              ticketCount: dayData.transactions,
-              transactions: dayData.transactions,
-            };
-          });
-        }
-      } else {
-        // Fallback: last 7 days ending today
-        granularity = 'daily';
-        const past7 = new Date(wibNow.getTime() - 6 * 24 * 3600000);
-        const targetDays = getWibDateSequence(getWibDateKey(past7), todayKey, 7);
-        dailyTrend = targetDays.map((dayKey) => {
-          const dateObj = new Date(`${dayKey}T00:00:00+07:00`);
-          return {
-            rawDate: dayKey,
-            dateLabel: dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
-            grossSales: 0,
-            gross: 0,
-            ownerNet: 0,
-            ticketCount: 0,
-            transactions: 0,
-          };
-        });
-      }
+      granularity = 'daily';
+      const targetDays = getWibDateSequence(sKey, eKey, 62);
+      dailyTrend = targetDays.map((dayKey) => {
+        const dayData = dailyMap[dayKey] || { gross: 0, ownerNet: 0, transactions: 0 };
+        return {
+          rawDate: dayKey,
+          dateLabel: formatWibDayLabel(dayKey),
+          grossSales: dayData.gross,
+          gross: dayData.gross,
+          ownerNet: dayData.ownerNet,
+          ticketCount: dayData.transactions,
+          transactions: dayData.transactions,
+        };
+      });
     }
 
     // 5. Compute Previous Period Comparison for Delta Metric

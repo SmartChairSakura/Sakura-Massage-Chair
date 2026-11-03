@@ -20,7 +20,7 @@ import {
 import { ChairSlip } from '@/types';
 import DatePickerModal, { DateRangeState } from '@/components/admin/DatePickerModal';
 import { AppSelect } from '@/components/admin/ThemedSelect';
-import { getWibNow } from '@/lib/date-utils';
+import { getWibDateKey } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,11 +69,7 @@ function TicketContent() {
 
   // Date Range State (Defaults to today in WIB)
   const [dateRange, setDateRange] = useState<DateRangeState>(() => {
-    const wib = getWibNow();
-    const yyyy = wib.getFullYear();
-    const mm = String(wib.getMonth() + 1).padStart(2, '0');
-    const dd = String(wib.getDate()).padStart(2, '0');
-    const todayStr = `${yyyy}-${mm}-${dd}`;
+    const todayStr = getWibDateKey(new Date());
     return {
       rangePreset: 'today',
       dateFrom: todayStr,

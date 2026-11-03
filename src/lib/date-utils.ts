@@ -4,6 +4,7 @@
  */
 
 const WIB_OFFSET_HOURS = 7;
+const WIB_MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
 /**
  * Returns current timestamp converted to WIB Date representation.
@@ -18,14 +19,39 @@ export function getWibNow(): Date {
  * Formats a Date or ISO string into YYYY-MM-DD in WIB.
  */
 export function getWibDateKey(dateInput: string | Date): string {
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput.trim())) {
+    return dateInput.trim();
+  }
   const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
   if (isNaN(d.getTime())) return '';
-  const utc = d.getTime() + d.getTimezoneOffset() * 60000;
-  const wib = new Date(utc + WIB_OFFSET_HOURS * 3600000);
-  const yyyy = wib.getFullYear();
-  const mm = String(wib.getMonth() + 1).padStart(2, '0');
-  const dd = String(wib.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  const wib = new Date(d.getTime() + WIB_OFFSET_HOURS * 3600000);
+  return wib.toISOString().slice(0, 10);
+}
+
+/**
+ * Formats a WIB YYYY-MM-DD key into short Indonesian label (e.g. "3 Nov", "21 Okt")
+ * deterministically regardless of whether the server runs in TZ=UTC or TZ=Asia/Jakarta.
+ */
+export function formatWibDayLabel(dayKey: string): string {
+  const parts = String(dayKey || '').split('-');
+  if (parts.length !== 3) return dayKey;
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  const dayNum = parseInt(parts[2], 10);
+  if (isNaN(monthIdx) || isNaN(dayNum) || !WIB_MONTHS_SHORT[monthIdx]) return dayKey;
+  return `${dayNum} ${WIB_MONTHS_SHORT[monthIdx]}`;
+}
+
+/**
+ * Formats a WIB YYYY-MM key into short Indonesian month label (e.g. "Nov 26")
+ * deterministically regardless of server timezone.
+ */
+export function formatWibMonthLabel(monthKey: string): string {
+  const parts = String(monthKey || '').split('-');
+  if (parts.length < 2) return monthKey;
+  const yearShort = parts[0].slice(-2);
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  if (isNaN(monthIdx) || !WIB_MONTHS_SHORT[monthIdx]) return monthKey;
+  return `${WIB_MONTHS_SHORT[monthIdx]} ${yearShort}`;
 }
 
 /**
@@ -39,8 +65,7 @@ export function formatWibDisplayRange(startIso: string | null, endIso: string | 
     const utc = d.getTime() + d.getTimezoneOffset() * 60000;
     const wib = new Date(utc + WIB_OFFSET_HOURS * 3600000);
     const day = String(wib.getDate()).padStart(2, '0');
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-    const month = months[wib.getMonth()];
+    const month = WIB_MONTHS_SHORT[wib.getMonth()];
     const year = wib.getFullYear();
     const hours = String(wib.getHours()).padStart(2, '0');
     const mins = String(wib.getMinutes()).padStart(2, '0');
@@ -216,7 +241,7 @@ export function getWibDateSequence(
 
   while (cursor <= end && count < maxDays) {
     result.push(getWibDateKey(cursor));
-    cursor.setDate(cursor.getDate() + 1);
+    cursor.setTime(cursor.getTime() + 24 * 3600000);
     count++;
   }
 

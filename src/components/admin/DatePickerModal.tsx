@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Calendar as CalendarIcon, Clock, X, ChevronDown, Check } from 'lucide-react';
-import { getWibNow, getWibDateRange } from '@/lib/date-utils';
+import { getWibDateKey, getWibDateRange } from '@/lib/date-utils';
 
 export interface DateRangeState {
   rangePreset: string; // 'today' | 'yesterday' | 'this_week' | 'last_week' | 'month' | 'last_month' | 'all' | 'custom'
@@ -34,11 +34,7 @@ export default function DatePickerModal({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const wibNow = getWibNow();
-  const yyyy = wibNow.getFullYear();
-  const mm = String(wibNow.getMonth() + 1).padStart(2, '0');
-  const dd = String(wibNow.getDate()).padStart(2, '0');
-  const todayStr = `${yyyy}-${mm}-${dd}`;
+  const todayStr = getWibDateKey(new Date());
 
   const [preset, setPreset] = useState<string>(initialRange || 'today');
   const [dateFrom, setDateFrom] = useState<string>(
@@ -90,14 +86,8 @@ export default function DatePickerModal({
 
     const { startIso, endIso } = getWibDateRange(pId);
     if (startIso && endIso) {
-      const dStart = new Date(startIso);
-      const dEnd = new Date(endIso);
-      // Format back to WIB YYYY-MM-DD
-      const startWib = new Date(dStart.getTime() + 7 * 3600000);
-      const endWib = new Date(dEnd.getTime() + 7 * 3600000);
-
-      setDateFrom(startWib.toISOString().slice(0, 10));
-      setDateTo(endWib.toISOString().slice(0, 10));
+      setDateFrom(getWibDateKey(startIso));
+      setDateTo(getWibDateKey(endIso));
       setTimeFrom('00:00');
       setTimeTo('23:59');
     }

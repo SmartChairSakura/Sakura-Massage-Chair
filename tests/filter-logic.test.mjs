@@ -157,18 +157,75 @@ describe('Filter Logic & Timezone Precision (WIB UTC+7)', () => {
     assert.strictEqual(endIso, '2026-10-16T16:59:59.999Z', 'End of 2026-10-16 WIB in UTC');
   });
 
-  it('getWibDateKey should convert UTC timestamps to WIB YYYY-MM-DD correctly', () => {
+  it('getWibDateKey should convert UTC timestamps to WIB YYYY-MM-DD correctly (including after 17:00 WIB)', () => {
     assert.strictEqual(getWibDateKey('2026-10-15T17:30:00.000Z'), '2026-10-16');
     assert.strictEqual(getWibDateKey('2026-10-16T14:49:17.754Z'), '2026-10-16');
     assert.strictEqual(getWibDateKey('2026-10-16T16:59:59.000Z'), '2026-10-16');
     assert.strictEqual(getWibDateKey('2026-10-16T17:01:00.000Z'), '2026-10-17');
+    assert.strictEqual(getWibDateKey('2026-11-03T10:05:00.000Z'), '2026-11-03', '17:05 WIB on Nov 3 must stay 2026-11-03');
+  });
+
+  it('formatWibDayLabel and formatWibMonthLabel should format WIB keys identically in TZ=UTC and TZ=Asia/Jakarta', () => {
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const formatWibDayLabel = (dayKey) => {
+      const parts = String(dayKey || '').split('-');
+      return `${parseInt(parts[2], 10)} ${MONTHS[parseInt(parts[1], 10) - 1]}`;
+    };
+    const formatWibMonthLabel = (monthKey) => {
+      const parts = String(monthKey || '').split('-');
+      return `${MONTHS[parseInt(parts[1], 10) - 1]} ${parts[0].slice(-2)}`;
+    };
+    assert.strictEqual(formatWibDayLabel('2026-11-03'), '3 Nov');
+    assert.strictEqual(formatWibDayLabel('2026-10-21'), '21 Okt');
+    assert.strictEqual(formatWibDayLabel('2026-10-16'), '16 Okt');
+    assert.strictEqual(formatWibMonthLabel('2026-11'), 'Nov 26');
   });
 
   it('src/lib/date-utils.ts file must exist and export required utilities', () => {
     const dateUtilsSrc = fs.readFileSync(path.join(SRC, 'lib/date-utils.ts'), 'utf8');
     assert.strictEqual(dateUtilsSrc.includes('export function getWibDateRange'), true);
     assert.strictEqual(dateUtilsSrc.includes('export function getWibDateKey'), true);
+    assert.strictEqual(dateUtilsSrc.includes('export function formatWibDayLabel'), true);
+    assert.strictEqual(dateUtilsSrc.includes('export function formatWibMonthLabel'), true);
     assert.strictEqual(dateUtilsSrc.includes('export function mapStatusFilter'), true);
     assert.strictEqual(dateUtilsSrc.includes('export const STATUS_CATEGORIES'), true);
+  });
+
+  it('Dashboard route must not double-shift getWibNow() into getWibDateKey() or use timezone-naive toLocaleDateString', () => {
+    const dashboardRouteSrc = fs.readFileSync(path.join(SRC, 'app/api/admin/dashboard/route.ts'), 'utf8');
+    assert.strictEqual(
+      dashboardRouteSrc.includes('getWibDateKey(wibNow)'),
+      false,
+      'Must not pass already-shifted wibNow into getWibDateKey (causes +14h double shift after 17:00 WIB)'
+    );
+    assert.strictEqual(
+      dashboardRouteSrc.includes('getWibDateKey(past7)'),
+      false,
+      'Must not pass wibNow-derived past7 into getWibDateKey'
+    );
+    assert.strictEqual(
+      dashboardRouteSrc.includes("toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })"),
+      false,
+      'Must not use timezone-naive toLocaleDateString which shifts WIB dates back 1 day on UTC servers'
+    );
+    assert.strictEqual(
+      dashboardRouteSrc.includes('formatWibDayLabel'),
+      true,
+      'Must format daily trend labels deterministically via formatWibDayLabel'
+    );
+  });
+
+  it('Sales Summary (/admin/dashboard) and Tickets (/admin/tickets) must both default to "today" in WIB', () => {
+    const dashboardPageSrc = fs.readFileSync(path.join(SRC, 'app/admin/dashboard/page.tsx'), 'utf8');
+    const ticketsPageSrc = fs.readFileSync(path.join(SRC, 'app/admin/tickets/page.tsx'), 'utf8');
+    assert.match(dashboardPageSrc, /useState<string>\('today'\)/);
+    assert.match(ticketsPageSrc, /rangePreset:\s*'today'/);
+  });
+
+  it('DatePickerModal must reuse getWibDateKey instead of manual +7h millisecond arithmetic', () => {
+    const modalSrc = fs.readFileSync(path.join(SRC, 'components/admin/DatePickerModal.tsx'), 'utf8');
+    assert.strictEqual(modalSrc.includes('getWibDateKey(startIso)'), true);
+    assert.strictEqual(modalSrc.includes('getWibDateKey(endIso)'), true);
+    assert.strictEqual(modalSrc.includes('dStart.getTime() + 7 * 3600000'), false);
   });
 });
