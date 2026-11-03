@@ -161,8 +161,40 @@
   animation: float 7s ease-in-out infinite;
 }
 
+/* Tactile palette-themed scrollbars (Vertical & Horizontal) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c7bdc1 #f5f3f3;
+}
+
 ::-webkit-scrollbar {
-  display: none;
+  width: 8px;
+  height: 8px;
+  display: block;
+}
+
+::-webkit-scrollbar-track {
+  background: #f5f3f3;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c7bdc1;
+  border-radius: 9999px;
+  border: 2px solid #f5f3f3;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #795465;
+}
+
+::-webkit-scrollbar-corner {
+  background: #f5f3f3;
+}
+
+.sakura-scroll {
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
 }
 
 body {

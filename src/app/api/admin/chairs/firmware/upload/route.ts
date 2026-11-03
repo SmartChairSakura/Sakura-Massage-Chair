@@ -36,9 +36,9 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
-    if (session.role !== 'SUPER_ADMIN') {
+    if (session.role !== 'SUPER_ADMIN' && session.location_id) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden. SUPER_ADMIN role required to deploy firmware.' },
+        { success: false, error: 'Forbidden. All-Locations or Super Admin access required to deploy firmware.' },
         { status: 403 }
       );
     }

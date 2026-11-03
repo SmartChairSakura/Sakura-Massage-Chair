@@ -623,7 +623,7 @@ function LocationSettingContent() {
         </div>
 
         {/* Locations Table */}
-        <div className="overflow-x-auto rounded-xl border border-(--border)">
+        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)] rounded-xl border border-(--border) sakura-scroll">
           {isLoading ? (
             <div className="py-12 text-center text-sm font-medium text-(--brand) animate-pulse">
               Loading branches...
@@ -633,8 +633,8 @@ function LocationSettingContent() {
               No locations found. Click &ldquo;Add Location&rdquo; to register your first branch.
             </div>
           ) : (
-            <table className="w-full text-left text-sm border-collapse">
-              <thead>
+            <table className="w-full min-w-[880px] text-left text-sm border-collapse">
+              <thead className="sticky top-0 z-20 bg-(--bg-subtle) shadow-[0_1px_0_0_var(--border)]">
                 <tr className="bg-(--bg-subtle) text-(--text-muted) border-b border-(--border) text-xs uppercase tracking-wide">
                   <th className="py-3 px-4 font-semibold">
                     <button

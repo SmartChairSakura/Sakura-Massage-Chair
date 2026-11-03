@@ -501,7 +501,7 @@ function TicketContent() {
         </form>
 
         {/* Tickets Table */}
-        <div className="overflow-x-auto rounded-2xl border border-[#EFEDED]">
+        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-310px)] min-h-[280px] rounded-2xl border border-[#EFEDED] sakura-scroll">
           {isLoading ? (
             <div className="py-14 text-center text-xs font-medium text-[#795465] animate-pulse">
               Loading transactions...
@@ -514,10 +514,10 @@ function TicketContent() {
               </p>
             </div>
           ) : (
-            <table className="w-full text-left text-xs">
-              <thead>
+            <table className="w-full min-w-[1120px] text-left text-xs border-collapse">
+              <thead className="sticky top-0 z-20 bg-[#F5F3F3] shadow-[0_1px_0_0_#EFEDED]">
                 <tr className="bg-[#F5F3F3] text-gray-500 border-b border-[#EFEDED]">
-                  <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Slip Number</th>
+                  <th className="py-3.5 pl-4 pr-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Slip Number</th>
                   <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Date & Time</th>
                   <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Location & Chair</th>
                   <th className="p-3.5 font-semibold uppercase text-[11px] tracking-wider whitespace-nowrap">Customer</th>
@@ -542,7 +542,7 @@ function TicketContent() {
 
                   return (
                     <tr key={tx.id} className="hover:bg-[#FBF9F9] transition-colors">
-                      <td className="p-3.5 font-mono text-xs font-semibold text-[#795465] whitespace-nowrap">
+                      <td className="py-3.5 pl-4 pr-3.5 font-mono text-xs font-semibold text-[#795465] whitespace-nowrap">
                         {tx.chair_slip_number || tx.id}
                       </td>
                       <td className="p-3.5 text-xs font-normal text-gray-600 whitespace-nowrap">

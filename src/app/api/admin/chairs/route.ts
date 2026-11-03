@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { getAdminSession } from '@/lib/auth-server';
-import { resolveScopedLocationId } from '@/lib/security';
+import { canAccessLocation, resolveScopedLocationId } from '@/lib/security';
 import crypto from 'crypto';
 
 function generateRandomPin(): string {
@@ -129,8 +129,8 @@ export async function POST(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    if (session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ success: false, error: 'Forbidden. SUPER_ADMIN role required.' }, { status: 403 });
+    if (!canAccessLocation(session, location_id || session.location_id)) {
+      return NextResponse.json({ success: false, error: 'Forbidden for this branch.' }, { status: 403 });
     }
 
     // === 2. AUDITED TERMINAL PIN REVEAL ===
@@ -229,8 +229,8 @@ export async function DELETE(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    if (session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ success: false, error: 'Forbidden. SUPER_ADMIN role required.' }, { status: 403 });
+    if (session.role !== 'SUPER_ADMIN' && session.location_id) {
+      return NextResponse.json({ success: false, error: 'Forbidden. All-Locations or Super Admin access required.' }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -271,8 +271,8 @@ export async function PATCH(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    if (session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ success: false, error: 'Forbidden. SUPER_ADMIN role required.' }, { status: 403 });
+    if (session.role !== 'SUPER_ADMIN' && session.location_id) {
+      return NextResponse.json({ success: false, error: 'Forbidden. All-Locations or Super Admin access required.' }, { status: 403 });
     }
 
     const body = await req.json();

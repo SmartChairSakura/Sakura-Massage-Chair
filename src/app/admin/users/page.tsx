@@ -329,9 +329,9 @@ function UserManagementContent() {
 
       {/* Users Table */}
       <div className="bg-white border border-[#EFEDED] rounded-3xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
+        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)] sakura-scroll">
+          <table className="w-full min-w-[920px] text-left border-collapse">
+            <thead className="sticky top-0 z-20 bg-[#FBF9F9] shadow-[0_1px_0_0_#EFEDED]">
               <tr className="bg-[#FBF9F9] border-b border-[#EFEDED] text-[10px] font-extrabold text-[#795465] uppercase tracking-wider">
                 <th className="py-4 px-6">Employee / User Name</th>
                 <th className="py-4 px-6">Email Address</th>

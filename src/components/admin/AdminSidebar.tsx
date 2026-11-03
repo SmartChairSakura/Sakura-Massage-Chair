@@ -85,7 +85,7 @@ export default function AdminSidebar() {
     <aside
       className={`relative flex flex-col transition-all duration-300 ease-in-out border-r border-[#EFEDED] bg-[#FBF9F9] ${
         isCollapsed ? 'w-20' : 'w-64'
-      } shrink-0 min-h-screen select-none`}
+      } shrink-0 h-screen sticky top-0 select-none`}
     >
       {/* Brand Header */}
       <div className="h-20 flex items-center justify-between px-5 border-b border-[#EFEDED] bg-white">
@@ -97,7 +97,7 @@ export default function AdminSidebar() {
       </div>
 
       {/* Navigation Groups */}
-      <div className="flex-1 py-6 px-3 space-y-6 overflow-y-auto">
+      <div className="flex-1 min-h-0 py-6 px-3 space-y-6 overflow-y-auto sakura-scroll">
         {navSections.map((section, idx) => (
           <div key={idx} className="space-y-2">
             {!isCollapsed && (

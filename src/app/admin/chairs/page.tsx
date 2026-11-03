@@ -1387,7 +1387,7 @@ function ChairListContent() {
         )}
 
         {/* Chairs Table */}
-        <div className="overflow-x-auto rounded-xl border border-(--border)">
+        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)] rounded-xl border border-(--border) sakura-scroll">
           {isLoading ? (
             <div className="py-12 text-center text-sm font-medium text-(--brand) animate-pulse">
               Loading chairs...
@@ -1421,9 +1421,9 @@ function ChairListContent() {
               )}
             </div>
           ) : (
-            <table className="w-full text-left text-sm border-collapse">
+            <table className="w-full min-w-[920px] text-left text-sm border-collapse">
               <caption className="sr-only">Chairs and hardware fleet list</caption>
-              <thead>
+              <thead className="sticky top-0 z-20 bg-(--bg-subtle) shadow-[0_1px_0_0_var(--border)]">
                 <tr className="bg-(--bg-subtle) text-(--text-muted) border-b border-(--border) text-xs uppercase tracking-wide">
                   <th scope="col" className="py-3 pl-4 pr-2 w-10">
                     <input

@@ -103,6 +103,20 @@ test('Security Audit Hardening — Pure Function & ESP32 Compatibility Suite', a
       security.resolveScopedLocationId({ role: 'OWNER', location_id: null }, 'loc-456'),
       'loc-456'
     );
+
+    // canAccessLocation allows SUPER_ADMIN & All-Locations MANAGEMENT, blocks cross-branch mutations
+    assert.equal(
+      security.canAccessLocation({ role: 'MANAGEMENT', location_id: null }, 'any-branch'),
+      true
+    );
+    assert.equal(
+      security.canAccessLocation({ role: 'MANAGEMENT', location_id: 'loc-123' }, 'loc-123'),
+      true
+    );
+    assert.equal(
+      security.canAccessLocation({ role: 'MANAGEMENT', location_id: 'loc-123' }, 'loc-999'),
+      false
+    );
   });
 
   await t.test('VULN-08: verifyOptionalSecret is graceful when secret is unset (ESP32 demo safe) and strict when configured', () => {
@@ -190,11 +204,22 @@ test('Security Audit Hardening — Route & Migration Invariant Suite', async (t)
     assert.match(readFile('src/app/api/admin/dashboard/route.ts'), /resolveScopedLocationId/);
     assert.match(readFile('src/app/api/admin/tickets/route.ts'), /resolveScopedLocationId/);
     assert.match(readFile('src/app/api/admin/chairs/route.ts'), /resolveScopedLocationId/);
-    assert.match(readFile('src/app/api/admin/chairs/route.ts'), /session\.role !== 'SUPER_ADMIN'/);
+    assert.match(readFile('src/app/api/admin/chairs/route.ts'), /canAccessLocation/);
     assert.match(readFile('src/app/api/admin/locations/route.ts'), /resolveScopedLocationId/);
-    assert.match(readFile('src/app/api/admin/locations/[id]/route.ts'), /session\.role !== 'SUPER_ADMIN'/);
+    assert.match(readFile('src/app/api/admin/locations/[id]/route.ts'), /canAccessLocation/);
     assert.match(readFile('src/app/api/admin/chairs/firmware/upload/route.ts'), /session\.role !== 'SUPER_ADMIN'/);
     assert.match(readFile('src/app/api/admin/users/route.ts'), /You cannot deactivate your own account/);
+  });
+
+  await t.test('UI Scrollbar & Section Overflow Invariant: global scrollbar is visible/themed and admin tables support dual-axis scroll with sticky headers', () => {
+    const globalsCss = readFile('src/app/globals.css');
+    assert.doesNotMatch(globalsCss, /::-webkit-scrollbar\s*\{\s*display:\s*none;\s*\}/);
+    assert.match(globalsCss, /::-webkit-scrollbar-thumb/);
+    assert.match(readFile('src/app/admin/layout.tsx'), /h-screen overflow-hidden/);
+    assert.match(readFile('src/app/admin/tickets/page.tsx'), /overflow-x-auto overflow-y-auto/);
+    assert.match(readFile('src/app/admin/chairs/page.tsx'), /overflow-x-auto overflow-y-auto/);
+    assert.match(readFile('src/app/admin/locations/page.tsx'), /overflow-x-auto overflow-y-auto/);
+    assert.match(readFile('src/app/admin/users/page.tsx'), /overflow-x-auto overflow-y-auto/);
   });
 
   await t.test('VULN-08, VULN-09 & LEAD-02: Firmware magic byte 0xE9, graceful device/cron auth, and anti-framing headers', () => {

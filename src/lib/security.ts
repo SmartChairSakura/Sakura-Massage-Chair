@@ -76,6 +76,21 @@ export function resolveScopedLocationId(
 }
 
 /**
+ * Checks whether an admin session may mutate a resource scoped to `targetLocationId`.
+ * - `SUPER_ADMIN` or `MANAGEMENT`/`OWNER` with `location_id: null` ("All Locations") -> true.
+ * - Branch-pinned `MANAGEMENT`/`OWNER` (`session.location_id` set) -> true only when
+ *   `targetLocationId` matches `session.location_id`.
+ */
+export function canAccessLocation(
+  session: { role: string; location_id: string | null },
+  targetLocationId?: string | null
+): boolean {
+  if (session.role === 'SUPER_ADMIN' || !session.location_id) return true;
+  if (!targetLocationId) return false;
+  return String(targetLocationId) === String(session.location_id);
+}
+
+/**
  * Graceful secret verification for device (IOT_DEVICE_SECRET) and cron (CRON_SECRET) endpoints.
  * - When `configuredSecret` is empty/unset, returns `true` so existing ESP32 firmware & cron jobs
  *   continue operating without interruption during demo/transition.

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { getAdminSession } from '@/lib/auth-server';
-import { resolveScopedLocationId } from '@/lib/security';
+import { canAccessLocation, resolveScopedLocationId } from '@/lib/security';
 
 // GET: List all active locations with aggregated chair count
 export async function GET(req: NextRequest) {
@@ -61,8 +61,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getAdminSession(req);
-    if (!session || session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ success: false, error: 'Forbidden. SUPER_ADMIN role required.' }, { status: session ? 403 : 401 });
+    if (!session || !canAccessLocation(session, null)) {
+      return NextResponse.json({ success: false, error: 'Forbidden. All-Locations or Super Admin access required.' }, { status: session ? 403 : 401 });
     }
 
     const body = await req.json();
