@@ -16,6 +16,7 @@ export async function POST(
     const timestamp = new Date().toISOString();
 
     // 1. Update master table chair_slips
+    let updatedSlip: { id?: string; chair_id?: string | number | null; chair_code?: string | null } | null = null;
     try {
       let slipUpdate = supabaseServer
         .from('chair_slips')
@@ -28,36 +29,28 @@ export async function POST(
       slipUpdate = isUuid
         ? slipUpdate.or(`id.eq.${transactionId},chair_slip_number.eq.${transactionId}`)
         : slipUpdate.eq('chair_slip_number', transactionId);
-      await slipUpdate;
+      const { data, error: slipErr } = await slipUpdate
+        .select('id, chair_id, chair_code')
+        .maybeSingle();
+      if (slipErr) {
+        console.warn('[Cancel Session] chair_slips cancel note:', slipErr.message);
+      }
+      updatedSlip = data;
     } catch (slipErr: any) {
       console.warn('[Cancel Session] chair_slips cancel note:', slipErr?.message);
     }
 
-    // 2. Update legacy transactions table
-    let txUpdate = supabaseServer
-      .from('transactions')
-      .update({
-        status: 'CANCELLED',
-        cancelled_at: timestamp,
-        updated_at: timestamp,
-      });
-    txUpdate = isUuid
-      ? txUpdate.or(`id.eq.${transactionId},idempotency_key.eq.${transactionId}`)
-      : txUpdate.eq('idempotency_key', transactionId);
-    const { data: updatedTx, error: updateError } = await txUpdate
-      .select()
-      .maybeSingle();
-
-    if (updateError) {
-      console.warn('[Cancel Session] DB update note:', updateError.message);
-    }
-
-    // Reset chair status to ONLINE if specified
-    if (updatedTx?.chair_id) {
-      await supabaseServer
-        .from('chairs')
-        .update({ status: 'ONLINE' })
-        .eq('id', updatedTx.chair_id);
+    // Reset chair status to ONLINE if specified on the cancelled slip
+    const rawChairRef = updatedSlip?.chair_code || updatedSlip?.chair_id;
+    if (rawChairRef !== undefined && rawChairRef !== null) {
+      const cleanChairRef = sanitizePostgrestValue(rawChairRef);
+      if (cleanChairRef) {
+        const chairCol = /^\d+$/.test(cleanChairRef) ? 'id' : 'chair_code';
+        await supabaseServer
+          .from('chairs')
+          .update({ status: 'ONLINE' })
+          .eq(chairCol, cleanChairRef);
+      }
     }
 
     return NextResponse.json({

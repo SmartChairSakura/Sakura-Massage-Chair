@@ -231,4 +231,41 @@ test('Security Audit Hardening — Route & Migration Invariant Suite', async (t)
     assert.match(readFile('next.config.mjs'), /X-Frame-Options/);
     assert.match(readFile('next.config.mjs'), /frame-ancestors 'none'/);
   });
+
+  await t.test('Server-Driven Pricing: resolvePackageAmount keeps Rp 5..40 in demo mode and upgrades IOT_KIOSK to Rp 5.000..40.000 without re-flashing ESP32 when PRICE_PER_PULSE_IDR=1000', () => {
+    // Demo mode (PRICE_PER_PULSE_IDR=1): ESP32 sends amount=5, pulseCount=5 -> stays 5
+    assert.equal(security.resolvePackageAmount(5, 5, 'IOT_KIOSK', 1), 5);
+    assert.equal(security.resolvePackageAmount(40, 40, 'IOT_KIOSK', 1), 40);
+
+    // Production cutover (PRICE_PER_PULSE_IDR=1000): ESP32 still sends amount=5, pulseCount=5 -> upgraded to 5000
+    assert.equal(security.resolvePackageAmount(5, 5, 'IOT_KIOSK', 1000), 5000);
+    assert.equal(security.resolvePackageAmount(40, 40, 'IOT_KIOSK', 1000), 40000);
+
+    // Web Kiosk already sending 20000 is untouched
+    assert.equal(security.resolvePackageAmount(20000, 20, 'WEB_KIOSK', 1000), 20000);
+  });
+
+  await t.test('Ponytail Dead-Code Cleanup: zero dead .from("transactions") queries remain across all API routes, and cancel route resets chair status via chair_slips', () => {
+    const apiFiles = [
+      'src/app/api/payments/create-qris/route.ts',
+      'src/app/api/payments/status/route.ts',
+      'src/app/api/payment/callback/route.ts',
+      'src/app/api/webhooks/payment/route.ts',
+      'src/app/api/admin/chairs/ack/route.ts',
+      'src/app/api/cron/reconcile/route.ts',
+      'src/app/api/transactions/[id]/cancel/route.ts',
+    ];
+    for (const relPath of apiFiles) {
+      const src = readFile(relPath);
+      assert.doesNotMatch(
+        src,
+        /\.from\(\s*['"]transactions['"]\s*\)/,
+        `${relPath} must not query dropped legacy table public.transactions`
+      );
+    }
+
+    const cancelSrc = readFile('src/app/api/transactions/[id]/cancel/route.ts');
+    assert.match(cancelSrc, /updatedSlip\?\.chair_code \|\| updatedSlip\?\.chair_id/);
+    assert.match(cancelSrc, /\.from\('chairs'\)/);
+  });
 });

@@ -42,31 +42,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing order_id' }, { status: 400 });
     }
 
-    // STEP 2: Query DB for existing chair_slip (Fallback to transactions if chair_slips table doesn't exist yet)
-    let existingSlip: any = null;
-    let isLegacyTable = false;
-
-    const { data: slipData } = await supabaseServer
+    // STEP 2: Query DB for existing chair_slip
+    const { data: existingSlip } = await supabaseServer
       .from('chair_slips')
       .select('*')
       .eq('chair_slip_number', orderId)
       .maybeSingle();
-
-    if (slipData) {
-      existingSlip = slipData;
-    } else {
-      // Fallback query to legacy transactions table
-      const { data: legacyData } = await supabaseServer
-        .from('transactions')
-        .select('*')
-        .eq('idempotency_key', orderId)
-        .maybeSingle();
-
-      if (legacyData) {
-        existingSlip = legacyData;
-        isLegacyTable = true;
-      }
-    }
 
     if (!existingSlip) {
       console.warn('[Payment Webhook] Order ID not found in database:', { requestId, orderId });
@@ -101,39 +82,22 @@ export async function POST(req: NextRequest) {
       }
 
       const now = new Date().toISOString();
-      const targetTable = isLegacyTable ? 'transactions' : 'chair_slips';
-      const keyColumn = isLegacyTable ? 'idempotency_key' : 'chair_slip_number';
 
       // STEP 4: Atomic DB Update to status='paid'
       const { data: updatedSlip, error: updateErr } = await supabaseServer
-        .from(targetTable)
+        .from('chair_slips')
         .update({
           status: 'paid',
           session_start_at: now,
           updated_at: now,
         })
-        .eq(keyColumn, orderId)
+        .eq('chair_slip_number', orderId)
         .eq('status', 'pending') // Double check state transition safety
         .select()
         .maybeSingle();
 
       if (updateErr) {
         console.error('[Payment Webhook] Atomic DB update error:', updateErr.message);
-      }
-
-      if (!isLegacyTable) {
-        try {
-          await supabaseServer
-            .from('transactions')
-            .update({
-              status: 'PAID',
-              session_start_at: now,
-              updated_at: now,
-            })
-            .eq('idempotency_key', orderId);
-        } catch (e) {
-          console.warn('[Payment Webhook] transactions sync note:', e);
-        }
       }
 
       const finalSlip = updatedSlip || existingSlip;
@@ -190,7 +154,7 @@ export async function POST(req: NextRequest) {
         console.warn('[Payment Webhook] Realtime broadcast error:', broadcastErr?.message);
         // Update to paid_pending_delivery if broadcast failed
         await supabaseServer
-          .from(targetTable)
+          .from('chair_slips')
           .update({ status: 'paid_pending_delivery' })
           .eq('id', finalSlip.id);
       }
@@ -205,11 +169,9 @@ export async function POST(req: NextRequest) {
 
     // STEP 7: Handle Cancelled / Expired / Failed payments
     if (['expire', 'cancel'].includes(transactionStatus)) {
-      const targetTable = isLegacyTable ? 'transactions' : 'chair_slips';
-      await supabaseServer.from(targetTable).update({ status: 'expired' }).eq('id', existingSlip.id);
+      await supabaseServer.from('chair_slips').update({ status: 'expired' }).eq('id', existingSlip.id);
     } else if (['deny', 'failure'].includes(transactionStatus)) {
-      const targetTable = isLegacyTable ? 'transactions' : 'chair_slips';
-      await supabaseServer.from(targetTable).update({ status: 'failed' }).eq('id', existingSlip.id);
+      await supabaseServer.from('chair_slips').update({ status: 'failed' }).eq('id', existingSlip.id);
     }
 
     return NextResponse.json({ status: 'ok', slip_number: orderId });

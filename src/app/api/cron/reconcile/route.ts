@@ -38,12 +38,6 @@ export async function GET(req: NextRequest) {
         .select('id');
 
       autoExpiredCount += (expiredSlips || []).length;
-
-      await supabaseServer
-        .from('transactions')
-        .update({ status: 'EXPIRED', updated_at: nowIso })
-        .eq('status', 'PENDING')
-        .lt('created_at', fourMinutesAgo);
     } catch (e: any) {
       console.warn('[Cron Reconcile] Auto-expire note:', e?.message);
     }
@@ -57,18 +51,12 @@ export async function GET(req: NextRequest) {
       .gt('created_at', fourMinutesAgo)
       .limit(20);
 
-    const { data: legacyPending } = await supabaseServer
-      .from('transactions')
-      .select('*')
-      .eq('status', 'PENDING')
-      .lt('created_at', twoMinutesAgo)
-      .gt('created_at', fourMinutesAgo)
-      .limit(20);
-
-    const itemsToReconcile = [
-      ...(pendingSlips || []).map((s) => ({ id: s.id, orderId: s.chair_slip_number, chairId: s.chair_id, pulseCount: s.pulse_count, isLegacy: false })),
-      ...(legacyPending || []).map((t) => ({ id: t.id, orderId: t.idempotency_key, chairId: t.chair_id, pulseCount: t.pulse_count, isLegacy: true })),
-    ];
+    const itemsToReconcile = (pendingSlips || []).map((s) => ({
+      id: s.id,
+      orderId: s.chair_slip_number,
+      chairId: s.chair_id,
+      pulseCount: s.pulse_count,
+    }));
 
     let recoveredCount = 0;
     let expiredCount = 0;
@@ -81,12 +69,9 @@ export async function GET(req: NextRequest) {
           const midtransStatus = result.data.transaction_status;
 
           if (['settlement', 'capture'].includes(midtransStatus)) {
-            const targetTable = item.isLegacy ? 'transactions' : 'chair_slips';
-            const statusVal = item.isLegacy ? 'PAID' : 'paid';
-
             await supabaseServer
-              .from(targetTable)
-              .update({ status: statusVal, session_start_at: nowIso, updated_at: nowIso })
+              .from('chair_slips')
+              .update({ status: 'paid', session_start_at: nowIso, updated_at: nowIso })
               .eq('id', item.id);
 
             // Broadcast pulse trigger to EDC Kiosk
@@ -108,12 +93,9 @@ export async function GET(req: NextRequest) {
 
             recoveredCount++;
           } else if (['expire', 'cancel', 'deny'].includes(midtransStatus)) {
-            const targetTable = item.isLegacy ? 'transactions' : 'chair_slips';
-            const statusVal = item.isLegacy ? 'EXPIRED' : 'expired';
-
             await supabaseServer
-              .from(targetTable)
-              .update({ status: statusVal, updated_at: nowIso })
+              .from('chair_slips')
+              .update({ status: 'expired', updated_at: nowIso })
               .eq('id', item.id);
 
             expiredCount++;

@@ -90,47 +90,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 2. Fallback query to legacy transactions table
-    let txQuery = supabaseServer
-      .from('transactions')
-      .select('id, idempotency_key, chair_id, amount, duration_minutes, pulse_count, status, qr_url');
-
-    if (isUuid) {
-      txQuery = txQuery.or(`idempotency_key.eq.${cleanOrderId},id.eq.${cleanOrderId}`);
-    } else {
-      txQuery = txQuery.eq('idempotency_key', cleanOrderId);
-    }
-
-    const { data: tx, error: txError } = await txQuery.maybeSingle();
-
-    if (tx) {
-      const rawStatus = String(tx.status || '').toLowerCase();
-      const isPaid = PAID_STATUSES.has(tx.status) || PAID_STATUSES.has(rawStatus);
-      const isFailed = FAILED_STATUSES.has(tx.status) || FAILED_STATUSES.has(rawStatus);
-
-      let normalizedStatus = 'pending';
-      if (isPaid) {
-        normalizedStatus = 'paid';
-      } else if (isFailed) {
-        normalizedStatus = 'failed';
-      }
-
-      return NextResponse.json(
-        {
-          success: true,
-          order_id: tx.idempotency_key || cleanOrderId,
-          status: normalizedStatus,
-          is_paid: isPaid,
-          pulse_count: Number(tx.pulse_count || 5),
-          duration_minutes: Number(tx.duration_minutes || 4),
-          amount: Number(tx.amount || 5000),
-          chair_id: tx.chair_id,
-        },
-        { headers: NO_CACHE_HEADERS }
-      );
-    }
-
-    // 3. Not found in either table
+    // 2. Not found in chair_slips
     return NextResponse.json(
       {
         success: false,

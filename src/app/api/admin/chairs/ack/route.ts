@@ -92,32 +92,6 @@ export async function POST(req: NextRequest) {
           .update({ status: deviceStatus, last_heartbeat: now })
           .eq(chairCol, cleanChairId);
       }
-    } else {
-      // Fallback query to legacy transactions table
-      let legacyStatus = 'ONGOING';
-      if (targetStatus === 'done') legacyStatus = 'COMPLETED';
-      if (targetStatus === 'expired_paid') legacyStatus = 'FAILED';
-
-      const legacyPayload: Record<string, any> = {
-        status: legacyStatus,
-        updated_at: now,
-      };
-      if (targetStatus === 'session_inprocess') {
-        legacyPayload.session_start_at = now;
-      } else if (targetStatus === 'done') {
-        legacyPayload.session_end_at = now;
-      }
-
-      let legacyQuery = supabaseServer.from('transactions').update(legacyPayload);
-
-      if (slipId) {
-        legacyQuery = legacyQuery.eq('id', slipId);
-      } else {
-        legacyQuery = legacyQuery.eq('idempotency_key', slipNumber);
-      }
-
-      const { data: legacyUpdated } = await legacyQuery.select().maybeSingle();
-      if (legacyUpdated) updated = true;
     }
 
     console.info('[Kiosk ACK] Processed ACK:', {

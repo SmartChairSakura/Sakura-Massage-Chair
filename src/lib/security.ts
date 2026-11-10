@@ -57,6 +57,32 @@ export function validateChairPackage(
   return { ok: true, amount, durationMinutes, pulseCount };
 }
 
+/**
+ * Server-driven pricing helper for IoT Kiosk packages:
+ * - During demo (`pricePerPulseIdr <= 1`), preserves the requested amount (e.g. Rp 5..40 from ESP32 or Rp 5.000..60.000 from Web Kiosk).
+ * - In production (`pricePerPulseIdr > 1`, e.g. 1000), automatically upgrades `IOT_KIOSK` requests
+ *   to `pulseCount * pricePerPulseIdr` (Rp 5.000..40.000) without requiring an ESP32 re-flash.
+ */
+export function resolvePackageAmount(
+  requestedAmount: unknown,
+  pulseCount: unknown,
+  createdFrom: unknown,
+  pricePerPulseIdr: number
+): number {
+  const amt = Number(requestedAmount);
+  const pulses = Number(pulseCount);
+  const unitPrice = Number.isFinite(pricePerPulseIdr) && pricePerPulseIdr > 1 ? pricePerPulseIdr : 1;
+  if (
+    String(createdFrom || '').toUpperCase() === 'IOT_KIOSK' &&
+    unitPrice > 1 &&
+    Number.isInteger(pulses) &&
+    pulses > 0
+  ) {
+    return Math.max(amt, pulses * unitPrice);
+  }
+  return amt;
+}
+
 // UUID that matches no row; used to scope sessions without an assigned location.
 export const NO_LOCATION_ID = '00000000-0000-0000-0000-000000000000';
 

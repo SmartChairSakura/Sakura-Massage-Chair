@@ -113,19 +113,11 @@ export async function POST(req: NextRequest) {
       console.warn('[Webhook] chair_slip_payments insert note:', payErr?.message);
     }
 
-    // 4. Also update legacy transactions table
-    const { data: updatedTx } = await supabaseServer
-      .from('transactions')
-      .update({ status: 'PAID', updated_at: now })
-      .eq('idempotency_key', orderId)
-      .select()
-      .maybeSingle();
-
     console.log(`[Webhook] Slip ${orderId} verified via Midtrans and marked PAID`);
 
     return NextResponse.json({
       success: true,
-      transaction: updatedTx || updatedSlip || existingSlip,
+      transaction: updatedSlip || existingSlip,
       message: 'Payment verified and chair slip marked PAID.',
     });
   } catch (error: any) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { createMidtransQrisCharge } from '@/lib/midtrans';
-import { sanitizePostgrestValue, validateChairPackage } from '@/lib/security';
+import { sanitizePostgrestValue, validateChairPackage, resolvePackageAmount } from '@/lib/security';
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,10 +21,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Server-side package validation (prevents price / pulse tampering)
+    // Server-driven pricing & package validation (prevents price / pulse tampering; upgrades IOT_KIOSK when PRICE_PER_PULSE_IDR > 1)
+    const pricePerPulse = Number(process.env.PRICE_PER_PULSE_IDR || process.env.MIN_PRICE_PER_PULSE_IDR || 1);
+    const effectiveAmount = resolvePackageAmount(amount, pulseCount, createdFrom, pricePerPulse);
     const pkg = validateChairPackage(
-      { amount, durationMinutes, pulseCount },
-      Number(process.env.MIN_PRICE_PER_PULSE_IDR || 1)
+      { amount: effectiveAmount, durationMinutes, pulseCount },
+      pricePerPulse
     );
     if (!pkg.ok) {
       return NextResponse.json({ error: pkg.error }, { status: 400 });
@@ -59,7 +61,7 @@ export async function POST(req: NextRequest) {
     const idempotencyKey = `TRX-${chairCode}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     // Generate Standard EMVCo QRIS Payload & URL (Midtrans API or fallback for TJC HMI qr0 component)
-    const fallbackEmvcoString = `00020101021226670016ID.CO.MIDTRANS.WWW0118936009143000000000021550000000000000050303360540${amount}5802ID5910SMART_CHAIR6007JAKARTA63048F3A`;
+    const fallbackEmvcoString = `00020101021226670016ID.CO.MIDTRANS.WWW0118936009143000000000021550000000000000050303360540${effectiveAmount}5802ID5910SMART_CHAIR6007JAKARTA63048F3A`;
     const mockQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(fallbackEmvcoString)}`;
     let activeQrUrl = mockQrUrl;
     let qrString = fallbackEmvcoString;
@@ -71,7 +73,7 @@ export async function POST(req: NextRequest) {
       const midtransResult = await createMidtransQrisCharge(
         {
           orderId: idempotencyKey,
-          grossAmount: Number(amount),
+          grossAmount: effectiveAmount,
         },
         serverKey,
         isProduction
@@ -97,7 +99,7 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    // 1. Insert into master table: chair_slips
+    // Insert into master table: chair_slips
     const slipPayload = {
       chair_slip_number: idempotencyKey,
       chair_id: chairData ? String(chairData.id) : cleanChairId,
@@ -105,7 +107,7 @@ export async function POST(req: NextRequest) {
       location_id: locationId,
       customer_phone: customerPhone || 'GUEST',
       customer_email: customerEmail || '',
-      amount: Number(amount),
+      amount: effectiveAmount,
       duration_in_minutes: Number(durationMinutes),
       pulse_count: Number(pulseCount),
       payment_method: 'QRIS',
@@ -127,27 +129,6 @@ export async function POST(req: NextRequest) {
       console.warn('[API create-qris] chair_slips insert note:', slipError.message);
     }
 
-    // 2. Insert into legacy transactions table for backward compatibility
-    const transactionPayload = {
-      idempotency_key: idempotencyKey,
-      chair_id: chairCode,
-      customer_phone: customerPhone || 'GUEST',
-      customer_email: customerEmail || '',
-      amount: Number(amount),
-      duration_minutes: Number(durationMinutes),
-      pulse_count: Number(pulseCount),
-      payment_method: 'QRIS',
-      status: 'PENDING',
-      payment_gateway_ref: `REF-${Date.now()}`,
-      qr_url: activeQrUrl,
-    };
-
-    const { data: createdTransaction } = await supabaseServer
-      .from('transactions')
-      .insert([transactionPayload])
-      .select()
-      .maybeSingle();
-
     const resultTransaction = createdSlip
       ? {
           id: createdSlip.id,
@@ -164,15 +145,24 @@ export async function POST(req: NextRequest) {
           created_from: createdSlip.created_from,
           created_at: createdSlip.created_at,
         }
-      : createdTransaction || {
+      : {
           id: crypto.randomUUID(),
-          ...transactionPayload,
+          idempotency_key: idempotencyKey,
+          chair_id: chairCode,
+          customer_phone: customerPhone || 'GUEST',
+          customer_email: customerEmail || '',
+          amount: effectiveAmount,
+          duration_minutes: Number(durationMinutes),
+          pulse_count: Number(pulseCount),
+          payment_method: 'QRIS',
+          status: 'PENDING',
+          qr_url: activeQrUrl,
           qr_string: qrString,
           created_from: createdFrom,
           created_at: new Date().toISOString(),
         };
 
-    console.log('[API create-qris] Saved transaction & slip to Supabase:', idempotencyKey);
+    console.log('[API create-qris] Saved chair_slip to Supabase:', idempotencyKey);
 
     return NextResponse.json({
       success: true,
@@ -180,7 +170,7 @@ export async function POST(req: NextRequest) {
       orderId: idempotencyKey,
       qr_string: qrString,
       qr_url: activeQrUrl,
-      amount: Number(amount),
+      amount: effectiveAmount,
       duration_minutes: Number(durationMinutes),
       pulse_count: Number(pulseCount),
       transaction: resultTransaction,
